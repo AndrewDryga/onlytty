@@ -5,10 +5,10 @@ defmodule RelayWeb.Router do
     plug :accepts, ["json"]
   end
 
-  # WebSocket upgrades and the static viewer page don't negotiate content types;
-  # they go through a bare pipeline.
+  # WebSocket upgrades, the health check, and the static viewer page set their own
+  # content type and do no negotiation — so this pipeline is empty. (An `:accepts`
+  # plug here would 406 a browser sending `Accept: text/html`.)
   pipeline :raw do
-    plug :accepts, ["*/*"]
   end
 
   scope "/api", RelayWeb do
