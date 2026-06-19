@@ -1,0 +1,19 @@
+# Go runner
+/relay
+/dist/
+*.test
+*.out
+
+# Elixir relay (server/)
+server/_build/
+server/deps/
+server/*.ez
+server/relay_server-*.tar
+erl_crash.dump
+
+# Node test deps
+node_modules/
+
+# OS / editor
+.DS_Store
+*.swp
