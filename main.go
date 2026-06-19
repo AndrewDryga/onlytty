@@ -103,12 +103,11 @@ func run() int {
 	}
 
 	// 4) Raw-mode the local terminal so keystrokes reach the command verbatim.
+	// Deferred restore runs on every return path, including a panic.
 	stdinFd := int(os.Stdin.Fd())
-	var restore func()
 	if term.IsTerminal(stdinFd) {
-		old, err := term.MakeRaw(stdinFd)
-		if err == nil {
-			restore = func() { _ = term.Restore(stdinFd, old) }
+		if old, err := term.MakeRaw(stdinFd); err == nil {
+			defer func() { _ = term.Restore(stdinFd, old) }()
 		}
 	}
 
@@ -118,9 +117,6 @@ func run() int {
 		Notify: notifier(), Fingerprint: formatFingerprint(keys.Fingerprint),
 	})
 	if err != nil {
-		if restore != nil {
-			restore()
-		}
 		fmt.Fprintln(os.Stderr, "relay:", err)
 		return 1
 	}
@@ -129,10 +125,6 @@ func run() int {
 	go watchResize(ctx, orch)
 
 	code := orch.Run(ctx)
-
-	if restore != nil {
-		restore()
-	}
 	fmt.Fprintf(os.Stderr, "\r\n%s\r\n", dim("relay: session ended (exit "+itoa(code)+")"))
 	return code
 }

@@ -38,6 +38,7 @@ let ptyCols = 80, ptyRows = 24;
 let ended = false, noReconnect = false;
 let backoff = 500;
 let ctrlArmed = false;
+let everConnected = false, failCount = 0;
 
 // --- UI helpers --------------------------------------------------------------
 function setStatus(text, cls) {
@@ -86,9 +87,16 @@ function connect() {
 
   let queue = Promise.resolve(); // serialize async frame handling to preserve order
   ws.onmessage = (ev) => { queue = queue.then(() => onMessage(ev)); };
-  ws.onopen = () => { setStatus("connected", "ok"); backoff = 500; requestWakeLock(); };
+  ws.onopen = () => { everConnected = true; failCount = 0; setStatus("connected", "ok"); backoff = 500; requestWakeLock(); };
   ws.onclose = () => {
     if (ended || noReconnect) return;
+    // Browsers can't expose the handshake status, so a session that never
+    // connects (404 from an unknown/expired id) looks like repeated failures.
+    if (!everConnected && ++failCount >= 5) {
+      noReconnect = true;
+      fatal("<h1>Session not found</h1><p>This session is unknown or has expired. Start a new one with <code>relay</code> and open the fresh link.</p>");
+      return;
+    }
     setStatus("reconnecting…", "warn");
     setTimeout(connect, backoff);
     backoff = Math.min(backoff * 2, 8000);
@@ -110,7 +118,7 @@ function dispatch({ kind, payload }) {
   switch (kind) {
     case Kind.Hello: {
       const h = decodeHello(payload);
-      outSeq = Math.max(outSeq, h.baseline);
+      outSeq = Math.max(outSeq, h.baseline - 1); // next send() uses >= baseline
       ptyCols = h.cols; ptyRows = h.rows;
       applySize();
       break;
@@ -247,7 +255,18 @@ function groupFingerprint(fp) {
 }
 
 // --- boot --------------------------------------------------------------------
-updateControlUI();
+function boot() {
+  // Web Crypto only exists in a secure context (HTTPS or localhost). Fail clearly
+  // rather than throwing an opaque error deep in key derivation.
+  if (!window.isSecureContext || !window.crypto?.subtle) {
+    fatal("<h1>HTTPS required</h1><p>This page must be served over HTTPS (or localhost). End-to-end encryption uses the Web Crypto API, which browsers only expose in a secure context.</p>");
+    return;
+  }
+  updateControlUI();
+  startBoot();
+}
+
+function startBoot() {
 if (needPass) {
   $("overlay-card").innerHTML =
     "<h1>Passphrase required</h1><p>This session is protected by a passphrase shared with you out-of-band. The link alone cannot decrypt it.</p>" +
@@ -260,3 +279,6 @@ if (needPass) {
 } else {
   start("");
 }
+}
+
+boot();
