@@ -31,23 +31,29 @@ defmodule Relay.SessionStore do
   """
   @spec create(keyword()) ::
           {:ok, %{id: String.t(), runner_token: String.t(), expires_at: integer()}}
+          | {:error, :at_capacity}
   def create(opts \\ []) do
     ttl = opts |> Keyword.get(:ttl_seconds) |> clamp_ttl()
     id = random_token()
     runner_token = random_token()
 
-    {:ok, _pid} =
-      DynamicSupervisor.start_child(
-        @supervisor,
-        {Session,
-         id: id,
-         runner_token: runner_token,
-         ttl_seconds: ttl,
-         idle_ms: idle_ms(),
-         locked: Keyword.get(opts, :locked, true)}
-      )
+    child =
+      {Session,
+       id: id,
+       runner_token: runner_token,
+       ttl_seconds: ttl,
+       idle_ms: idle_ms(),
+       locked: Keyword.get(opts, :locked, true)}
 
-    {:ok, %{id: id, runner_token: runner_token, expires_at: System.system_time(:second) + ttl}}
+    case DynamicSupervisor.start_child(@supervisor, child) do
+      {:ok, _pid} ->
+        {:ok,
+         %{id: id, runner_token: runner_token, expires_at: System.system_time(:second) + ttl}}
+
+      {:error, :max_children} ->
+        # The cap is hit: refuse rather than grow unbounded.
+        {:error, :at_capacity}
+    end
   end
 
   @doc "Look up a live session's pid by id."

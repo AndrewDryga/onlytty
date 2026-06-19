@@ -102,7 +102,8 @@ defmodule RelayWeb.RelaySocket do
 
   @impl true
   def terminate(_reason, state) do
-    Logger.info("relay session #{state.id}: #{state.role} socket closed")
+    # Log only a short id prefix — the full id is the viewer connect capability.
+    Logger.info("relay session #{String.slice(state.id, 0, 8)}: #{state.role} socket closed")
     :ok
   end
 

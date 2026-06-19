@@ -32,6 +32,12 @@ if idle = System.get_env("RELAY_IDLE_TIMEOUT") do
   config :relay, :idle_timeout_ms, String.to_integer(idle) * 1000
 end
 
+# RELAY_MAX_SESSIONS — cap on concurrent in-memory sessions (default 2000). Bounds
+# the impact of unauthenticated session creation. Read by the DynamicSupervisor.
+if max = System.get_env("RELAY_MAX_SESSIONS") do
+  config :relay, :max_sessions, String.to_integer(max)
+end
+
 if config_env() == :prod do
   # The secret key base is used to sign/encrypt cookies and other secrets.
   # A default value is used in config/dev.exs and config/test.exs but you

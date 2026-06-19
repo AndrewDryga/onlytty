@@ -11,9 +11,14 @@ defmodule Relay.Application do
       RelayWeb.Telemetry,
       {DNSCluster, query: Application.get_env(:relay, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: Relay.PubSub},
-      # In-memory session registry + one supervised GenServer per session.
+      # In-memory session registry + one supervised GenServer per session. The
+      # supervisor is capped so unauthenticated session creation cannot exhaust the
+      # node (see Relay.SessionStore.create/1); tune with RELAY_MAX_SESSIONS.
       {Registry, keys: :unique, name: Relay.Registry},
-      {DynamicSupervisor, name: Relay.SessionSupervisor, strategy: :one_for_one},
+      {DynamicSupervisor,
+       name: Relay.SessionSupervisor,
+       strategy: :one_for_one,
+       max_children: Application.get_env(:relay, :max_sessions, 2_000)},
       # Start to serve requests, typically the last entry
       RelayWeb.Endpoint
     ]

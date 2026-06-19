@@ -16,11 +16,21 @@ defmodule RelayWeb.SessionController do
   the absolute expiry in unix seconds.
   """
   def create(conn, params) do
-    {:ok, session} = SessionStore.create(ttl_seconds: ttl_param(params))
+    case SessionStore.create(ttl_seconds: ttl_param(params)) do
+      {:ok, session} ->
+        conn
+        |> put_status(:created)
+        |> json(%{
+          id: session.id,
+          runner_token: session.runner_token,
+          expires_at: session.expires_at
+        })
 
-    conn
-    |> put_status(:created)
-    |> json(%{id: session.id, runner_token: session.runner_token, expires_at: session.expires_at})
+      {:error, :at_capacity} ->
+        conn
+        |> put_status(:service_unavailable)
+        |> json(%{error: "relay at capacity, try again later"})
+    end
   end
 
   @doc "`GET /healthz` — liveness probe."

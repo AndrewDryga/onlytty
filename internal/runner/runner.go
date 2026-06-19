@@ -23,7 +23,7 @@ const (
 	sendQueue      = 256
 	writeTimeout   = 10 * time.Second
 	keepalivePulse = 30 * time.Second
-	exitFlush      = 150 * time.Millisecond
+	exitFlush      = 250 * time.Millisecond
 	maxBackoff     = 15 * time.Second
 )
 
@@ -110,13 +110,13 @@ func (o *Orchestrator) Run(parent context.Context) int {
 	ctx, cancel := context.WithCancel(parent)
 	defer cancel()
 
-	// Exit watcher: when the command exits, tell the viewer, then tear down.
+	// Exit watcher: when the command exits, tell the viewer, then tear down. EXIT is
+	// queued unconditionally (emit no-ops if no viewer is connected) and given a brief
+	// flush window before teardown — best-effort, since the relay/TTL ends it anyway.
 	go func() {
 		_ = o.sess.Wait()
-		if o.viewers.Load() > 0 {
-			o.emit(protocol.KindExit, protocol.EncodeExit(int32(o.sess.ExitCode())))
-			time.Sleep(exitFlush) // best-effort flush of the EXIT frame
-		}
+		o.emit(protocol.KindExit, protocol.EncodeExit(int32(o.sess.ExitCode())))
+		time.Sleep(exitFlush)
 		cancel()
 		_ = o.sess.Close() // unblocks pumpOutput
 	}()
@@ -403,8 +403,13 @@ func (o *Orchestrator) handleBinary(frame []byte) {
 			_, _ = o.sess.Write(payload)
 		}
 	case protocol.KindResize:
-		if cols, rows, err := protocol.DecodeResize(payload); err == nil {
-			_ = o.sess.SetSize(cols, rows)
+		// Resizing the host PTY is a write-side effect (it SIGWINCHes the command),
+		// so it is gated exactly like input: only a viewer that holds control may do
+		// it. A read-only viewer sizes its own xterm to the host instead.
+		if !o.readOnly && o.granted.Load() {
+			if cols, rows, err := protocol.DecodeResize(payload); err == nil {
+				_ = o.sess.SetSize(cols, rows)
+			}
 		}
 	case protocol.KindCtrlReq:
 		if o.readOnly {

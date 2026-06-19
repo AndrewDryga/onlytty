@@ -30,6 +30,10 @@ defmodule Relay.Session do
   # client can distinguish *why* a session ended without us parsing any payload.
   @close_bye 4000
 
+  # Reap a session whose runner never connects, so create-spam can't pin processes
+  # until their (possibly long) TTL. Cancelled the moment a runner joins.
+  @unconnected_ms 120_000
+
   # --- client API ------------------------------------------------------------
 
   def child_spec(arg) do
@@ -94,7 +98,8 @@ defmodule Relay.Session do
       locked: Keyword.get(opts, :locked, true),
       idle_ms: idle_ms,
       idle_timer: nil,
-      ttl_timer: Process.send_after(self(), :ttl_expired, ttl * 1000)
+      ttl_timer: Process.send_after(self(), :ttl_expired, ttl * 1000),
+      unconnected_timer: Process.send_after(self(), :reap_unconnected, @unconnected_ms)
     }
 
     {:ok, state}
@@ -107,10 +112,12 @@ defmodule Relay.Session do
 
   def handle_call({:join_runner, pid}, _from, state) do
     # A runner may reconnect to the same id; replace any previous runner socket.
+    if state.unconnected_timer, do: Process.cancel_timer(state.unconnected_timer)
+
     state =
       state
       |> maybe_demonitor(:runner)
-      |> Map.merge(%{runner: pid, runner_ref: Process.monitor(pid)})
+      |> Map.merge(%{runner: pid, runner_ref: Process.monitor(pid), unconnected_timer: nil})
       |> reset_idle_timer()
 
     # Tell each side about the other so binary can flow immediately, and let a
@@ -121,7 +128,7 @@ defmodule Relay.Session do
       send(state.viewer, {:relay_control, control(:peer_join)})
     end
 
-    Logger.info("relay session #{state.id}: runner joined")
+    Logger.info("relay session #{short(state.id)}: runner joined")
     {:reply, {:ok, hello_snapshot(state)}, state}
   end
 
@@ -144,7 +151,7 @@ defmodule Relay.Session do
           send(state.runner, {:relay_control, control(:peer_join)})
         end
 
-        Logger.info("relay session #{state.id}: viewer joined")
+        Logger.info("relay session #{short(state.id)}: viewer joined")
 
         snapshot =
           state
@@ -171,13 +178,20 @@ defmodule Relay.Session do
     {:stop, :normal, state}
   end
 
+  def handle_info(:reap_unconnected, %{runner: nil} = state) do
+    close_all(state, @close_bye, "expired")
+    {:stop, :normal, state}
+  end
+
+  def handle_info(:reap_unconnected, state), do: {:noreply, state}
+
   # A monitored socket went away.
   def handle_info({:DOWN, ref, :process, _pid, _reason}, %{runner_ref: ref} = state) do
     # Runner dropped: tell the viewer its peer left, but keep the session alive
     # until TTL so the runner can reconnect to the same id.
     if state.viewer, do: send(state.viewer, {:relay_control, control(:peer_left)})
     if state.viewer, do: send(state.viewer, :peer_left)
-    Logger.info("relay session #{state.id}: runner left")
+    Logger.info("relay session #{short(state.id)}: runner left")
     {:noreply, %{state | runner: nil, runner_ref: nil}}
   end
 
@@ -185,7 +199,7 @@ defmodule Relay.Session do
     # Viewer dropped: free the slot and tell the runner its peer left.
     if state.runner, do: send(state.runner, {:relay_control, control(:peer_left)})
     if state.runner, do: send(state.runner, :peer_left)
-    Logger.info("relay session #{state.id}: viewer left")
+    Logger.info("relay session #{short(state.id)}: viewer left")
     {:noreply, %{state | viewer: nil, viewer_ref: nil}}
   end
 
@@ -211,10 +225,14 @@ defmodule Relay.Session do
     msg = {:close, code, reason}
     if state.runner, do: send(state.runner, msg)
     if state.viewer, do: send(state.viewer, msg)
-    Logger.info("relay session #{state.id}: closing (#{reason})")
+    Logger.info("relay session #{short(state.id)}: closing (#{reason})")
   end
 
   # Control-plane JSON, metadata only — never any terminal content.
   defp control(:peer_join), do: Jason.encode!(%{t: "peer_join"})
   defp control(:peer_left), do: Jason.encode!(%{t: "peer_left"})
+
+  # The session id is the viewer connect capability; log only a short prefix so a
+  # leaked log can't be used to connect to live sessions.
+  defp short(id), do: String.slice(id, 0, 8)
 end
