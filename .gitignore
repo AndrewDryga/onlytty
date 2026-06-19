@@ -8,7 +8,7 @@
 server/_build/
 server/deps/
 server/*.ez
-server/relay_server-*.tar
+server/relay-*.tar
 erl_crash.dump
 
 # Node test deps
