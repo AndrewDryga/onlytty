@@ -1,0 +1,31 @@
+{
+  "kdf": [
+    {
+      "secret": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "id": "s7Qb3kZ9xR2mN1pT",
+      "passphrase": "",
+      "k_r2v": "5b3a2dcc67162fc8a7f449b9135dd7ceece5e662a276bd5a5219374db11aa4db",
+      "k_v2r": "1d74ccc0dae298d5d1377838199adf22f44df884a117c61889e9b514775e9ec1",
+      "fingerprint": "OALDR2BEPKRNVRS7"
+    },
+    {
+      "secret": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "id": "s7Qb3kZ9xR2mN1pT",
+      "passphrase": "correct horse battery staple",
+      "k_r2v": "6e8ca50185f785f3dcc7f02f73cadae55e862006407967bc6262d11e002c56aa",
+      "k_v2r": "280fbf2503b3872a1457059969352afddbe5e0f82b16134af6132b61107abdd5",
+      "fingerprint": "BETERGHTQG2EHBPX"
+    }
+  ],
+  "frames": [
+    {
+      "key": "5b3a2dcc67162fc8a7f449b9135dd7ceece5e662a276bd5a5219374db11aa4db",
+      "aad": "s7Qb3kZ9xR2mN1pT",
+      "nonce": "0a0b0c0d0e0f101112131415",
+      "seq": 7,
+      "kind": 2,
+      "payload": "68656c6c6f2c20776f726c640a",
+      "frame": "0a0b0c0d0e0f101112131415870f1b440239df9126e146529e850c0edeebeb9bee9d72c5b82605a140f10365613d8e78b059"
+    }
+  ]
+}

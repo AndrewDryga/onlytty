@@ -17,7 +17,7 @@ runner-check: ## Runner: gofmt + vet + tests
 	@go test ./...
 
 web-check: ## Web viewer: Node interop + unit tests
-	@node --test test/web/
+	@node --test test/web/*.test.js
 
 server-check: ## Relay server: format check + warnings-as-errors + tests
 	@cd server && mix format --check-formatted && mix compile --warnings-as-errors && mix test

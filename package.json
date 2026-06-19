@@ -1,0 +1,10 @@
+{
+  "name": "relay-web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Browser viewer + Node interop tests for relay. No build step, no runtime deps.",
+  "scripts": {
+    "test": "node --test test/web/"
+  }
+}

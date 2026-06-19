@@ -1,0 +1,70 @@
+// Cross-language interop: the browser crypto must produce/consume the exact bytes
+// the Go runner does. Anchored to internal/protocol/testdata/vectors.json, generated
+// by `go test ./internal/protocol -update`.
+
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
+
+import { deriveKeys, newCipher, bytesToHex, hexToBytes } from "../../web/crypto.js";
+
+const here = dirname(fileURLToPath(import.meta.url));
+const vectors = JSON.parse(
+  readFileSync(join(here, "../../internal/protocol/testdata/vectors.json"), "utf8"),
+);
+const enc = new TextEncoder();
+
+test("KDF matches Go vectors (with and without passphrase)", async () => {
+  assert.ok(vectors.kdf.length >= 2);
+  for (const v of vectors.kdf) {
+    const k = await deriveKeys(hexToBytes(v.secret), v.id, v.passphrase);
+    assert.equal(bytesToHex(k.r2v), v.k_r2v, "r2v");
+    assert.equal(bytesToHex(k.v2r), v.k_v2r, "v2r");
+    assert.equal(k.fingerprint, v.fingerprint, "fingerprint");
+  }
+});
+
+test("sealing with the pinned nonce yields the Go frame, and it opens", async () => {
+  for (const v of vectors.frames) {
+    const c = await newCipher(hexToBytes(v.key), enc.encode(v.aad));
+
+    // Deterministic seal must equal the Go-produced frame, byte for byte.
+    const frame = await c._sealWithNonce(hexToBytes(v.nonce), v.seq, v.kind, hexToBytes(v.payload));
+    assert.equal(bytesToHex(frame), v.frame, "JS seal == Go seal");
+
+    // And the Go-produced frame opens in JS.
+    const opened = await c.open(hexToBytes(v.frame));
+    assert.equal(opened.seq, v.seq);
+    assert.equal(opened.kind, v.kind);
+    assert.equal(bytesToHex(opened.payload), v.payload);
+  }
+});
+
+test("random-nonce round trip across payload sizes", async () => {
+  const keys = await deriveKeys(new Uint8Array(32).fill(0xab), "sess-xyz", "");
+  const c = await newCipher(keys.r2v, enc.encode("sess-xyz"));
+  for (const n of [0, 1, 13, 1024, 70000]) {
+    const payload = new Uint8Array(n).map((_, i) => i & 0xff);
+    const { seq, kind, payload: got } = await c.open(await c.seal(7, 2, payload));
+    assert.equal(seq, 7);
+    assert.equal(kind, 2);
+    assert.equal(bytesToHex(got), bytesToHex(payload));
+  }
+});
+
+test("tampered or short frames are rejected", async () => {
+  const keys = await deriveKeys(new Uint8Array(32).fill(1), "id1", "");
+  const c = await newCipher(keys.r2v, enc.encode("id1"));
+  const frame = await c.seal(1, 2, enc.encode("secret output"));
+
+  const bad = frame.slice();
+  bad[bad.length - 1] ^= 1;
+  await assert.rejects(() => c.open(bad), /open failed/);
+  await assert.rejects(() => c.open(frame.subarray(0, 10)), /too short/);
+
+  // Wrong AAD (different session) must fail.
+  const wrong = await newCipher(keys.r2v, enc.encode("id2"));
+  await assert.rejects(() => wrong.open(frame), /open failed/);
+});
