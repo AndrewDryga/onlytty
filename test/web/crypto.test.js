@@ -8,7 +8,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
-import { deriveKeys, newCipher, bytesToHex, hexToBytes } from "../../web/crypto.js";
+import { deriveKeys, newCipher, bytesToHex, hexToBytes } from "../../server/priv/static/assets/crypto.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const vectors = JSON.parse(

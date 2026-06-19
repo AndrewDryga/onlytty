@@ -1,1 +1,73 @@
-<!doctype html><title>relay</title><!-- viewer is added later -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<meta name="robots" content="noindex">
+<title>relay</title>
+<link rel="stylesheet" href="/assets/vendor/xterm.css" integrity="sha384-8Xk9wy/gzEDUKrXtrmCFa2bBuK3BpjpDuL/p0SeKQX19Khl/M+lHOgD/CyYf7efP">
+<style>
+  :root { color-scheme: dark; --bg:#0b0e14; --bar:#11151f; --fg:#c8d3e0; --dim:#6b7689; --accent:#3b82f6; --ok:#22c55e; --warn:#f59e0b; }
+  * { box-sizing: border-box; }
+  html, body { margin:0; height:100%; background:var(--bg); color:var(--fg);
+    font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif; -webkit-text-size-adjust:100%; }
+  body { display:flex; flex-direction:column; overflow:hidden; }
+  #bar { display:flex; align-items:center; gap:.5rem; padding:.45rem .6rem;
+    padding-top: calc(.45rem + env(safe-area-inset-top)); background:var(--bar);
+    border-bottom:1px solid #1c2333; font-size:.8rem; white-space:nowrap; }
+  #status { display:inline-flex; align-items:center; gap:.4rem; color:var(--dim); }
+  #dot { width:.5rem; height:.5rem; border-radius:50%; background:var(--dim); flex:0 0 auto; }
+  #dot.ok { background:var(--ok); } #dot.warn { background:var(--warn); }
+  .fp { color:var(--dim); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size:.72rem; }
+  .spacer { flex:1 1 auto; }
+  button { background:#1b2030; color:var(--fg); border:1px solid #2a3346; border-radius:.45rem;
+    padding:.35rem .55rem; font-size:.8rem; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+  button:active { background:#252c40; }
+  button.on { background:var(--accent); border-color:var(--accent); color:#fff; }
+  #control.live { background:var(--ok); border-color:var(--ok); color:#04210f; }
+  #terminal { flex:1 1 auto; min-height:0; padding:.25rem; overflow:hidden; }
+  #keys { display:none; gap:.3rem; padding:.4rem; padding-bottom: calc(.4rem + env(safe-area-inset-bottom));
+    background:var(--bar); border-top:1px solid #1c2333; overflow-x:auto; }
+  #keys button { flex:0 0 auto; min-width:2.4rem; font-family: ui-monospace, monospace; }
+  body.touch #keys { display:flex; }
+  #overlay { position:fixed; inset:0; background:rgba(5,8,14,.92); display:flex; align-items:center;
+    justify-content:center; padding:1.5rem; text-align:center; z-index:10; }
+  #overlay[hidden] { display:none; }
+  #overlay .card { max-width:30rem; }
+  #overlay h1 { font-size:1.1rem; margin:0 0 .5rem; }
+  #overlay p { color:var(--dim); font-size:.9rem; line-height:1.5; }
+  #overlay input { width:100%; margin:.8rem 0; padding:.6rem; font-size:1rem; background:#0b0e14;
+    color:var(--fg); border:1px solid #2a3346; border-radius:.45rem; }
+  #overlay button { width:100%; padding:.6rem; background:var(--accent); border-color:var(--accent); color:#fff; }
+</style>
+</head>
+<body>
+  <div id="bar">
+    <span id="status"><span id="dot"></span><span id="status-text">connecting…</span></span>
+    <span id="fp" class="fp"></span>
+    <span class="spacer"></span>
+    <button id="font-dec" title="Smaller">A−</button>
+    <button id="font-inc" title="Larger">A+</button>
+    <button id="paste" title="Paste from clipboard">Paste</button>
+    <button id="control">Take control</button>
+  </div>
+  <div id="terminal"></div>
+  <div id="keys">
+    <button data-key="esc">Esc</button>
+    <button data-key="tab">Tab</button>
+    <button id="ctrl">Ctrl</button>
+    <button data-key="up">↑</button>
+    <button data-key="down">↓</button>
+    <button data-key="left">←</button>
+    <button data-key="right">→</button>
+    <button data-key="ctrlc">^C</button>
+    <button data-key="ctrld">^D</button>
+  </div>
+  <div id="overlay" hidden><div class="card" id="overlay-card"></div></div>
+
+  <script src="/assets/vendor/xterm.js" integrity="sha384-M169f14mRZOXm3hD/v2Ti0ThIT/RnAQagXA9nlE15yHAtrW19gdePJh/HaTzUOe/"></script>
+  <script src="/assets/vendor/addon-fit.js" integrity="sha384-iF+jqbuti4XlB64clWgFWYEscb+UnSRv3VgVikGYZu+otNFnSHr7y7NcKfBnGizn"></script>
+  <script type="module" src="/assets/app.js"></script>
+</body>
+</html>
