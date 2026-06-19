@@ -24,6 +24,9 @@ server-check: ## Relay server: format check + warnings-as-errors + tests
 
 check: runner-check web-check server-check ## Full gate: runner + web + server
 
+e2e: ## Boot the relay and run the end-to-end test (runner ↔ relay ↔ viewer)
+	@bash scripts/e2e.sh
+
 clean: ## Remove build artifacts
 	@rm -f relay
 	@rm -rf dist

@@ -6,5 +6,8 @@
   "description": "Browser viewer + Node interop tests for relay. No build step, no runtime deps.",
   "scripts": {
     "test": "node --test test/web/"
+  },
+  "devDependencies": {
+    "playwright": "^1.61.0"
   }
 }
