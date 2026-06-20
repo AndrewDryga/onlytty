@@ -15,6 +15,8 @@ defmodule RelayWeb.Router do
     pipe_through :api
 
     post "/sessions", SessionController, :create
+    # Any other verb on the defined path → 405 (not a bare 404 for an unknown route).
+    match :*, "/sessions", SessionController, :method_not_allowed
   end
 
   scope "/", RelayWeb do

@@ -40,6 +40,20 @@ defmodule RelayWeb.HTTPTest do
       body = json_response(conn, 201)
       assert body["expires_at"] >= now + 60 - 1
     end
+
+    test "rejects a non-integer ttl_seconds with 400 and creates no session", %{conn: conn} do
+      conn = post(conn, ~p"/api/sessions", %{ttl_seconds: "abc"})
+      body = json_response(conn, 400)
+      assert body["error"] =~ "ttl_seconds"
+      refute Map.has_key?(body, "id")
+    end
+  end
+
+  test "GET /api/sessions returns 405 (POST only)", %{conn: conn} do
+    conn = get(conn, ~p"/api/sessions")
+    body = json_response(conn, 405)
+    assert body["error"] =~ "POST"
+    assert get_resp_header(conn, "allow") == ["POST"]
   end
 
   test "GET /healthz returns 200 ok", %{conn: conn} do

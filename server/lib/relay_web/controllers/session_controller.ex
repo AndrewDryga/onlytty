@@ -12,11 +12,32 @@ defmodule RelayWeb.SessionController do
   `POST /api/sessions` — create a session.
 
   Optional JSON body `{"ttl_seconds": int}` (default 1800, clamped to
-  [60, 86400] by the store). Responds 201 with the id, the runner token, and
+  [60, 86400] by the store). A present-but-non-integer `ttl_seconds` is a 400
+  rather than a silent default. Responds 201 with the id, the runner token, and
   the absolute expiry in unix seconds.
   """
   def create(conn, params) do
-    case SessionStore.create(ttl_seconds: ttl_param(params)) do
+    case ttl_param(params) do
+      {:error, message} ->
+        conn
+        |> put_status(:bad_request)
+        |> json(%{error: message})
+
+      {:ok, ttl} ->
+        create_session(conn, ttl)
+    end
+  end
+
+  @doc "`/api/sessions` with a method other than POST → 405."
+  def method_not_allowed(conn, _params) do
+    conn
+    |> put_resp_header("allow", "POST")
+    |> put_status(:method_not_allowed)
+    |> json(%{error: "method not allowed; use POST"})
+  end
+
+  defp create_session(conn, ttl) do
+    case SessionStore.create(ttl_seconds: ttl) do
       {:ok, session} ->
         conn
         |> put_status(:created)
@@ -53,16 +74,10 @@ defmodule RelayWeb.SessionController do
     |> send_file(200, path)
   end
 
-  # Accept ttl_seconds as an int or a numeric string; ignore anything else and
-  # let the store apply the default. The store does the clamping.
-  defp ttl_param(%{"ttl_seconds" => ttl}) when is_integer(ttl), do: ttl
-
-  defp ttl_param(%{"ttl_seconds" => ttl}) when is_binary(ttl) do
-    case Integer.parse(ttl) do
-      {n, ""} -> n
-      _ -> nil
-    end
-  end
-
-  defp ttl_param(_), do: nil
+  # `ttl_seconds`, when present, must be a JSON integer. Anything else is a 400
+  # rather than a silent default (the CLI always sends an int). Missing → nil, and
+  # the store applies the default + clamping.
+  defp ttl_param(%{"ttl_seconds" => ttl}) when is_integer(ttl), do: {:ok, ttl}
+  defp ttl_param(%{"ttl_seconds" => _}), do: {:error, "ttl_seconds must be an integer"}
+  defp ttl_param(_), do: {:ok, nil}
 end
