@@ -1,0 +1,70 @@
+defmodule OnlyttyWeb.HTTPTest do
+  @moduledoc "Plain HTTP endpoints: session creation, health, viewer page."
+  use OnlyttyWeb.ConnCase, async: true
+
+  describe "POST /api/sessions" do
+    test "returns id, runner_token and a future expires_at", %{conn: conn} do
+      conn = post(conn, ~p"/api/sessions")
+      assert conn.status == 201
+      body = json_response(conn, 201)
+
+      assert is_binary(body["id"]) and byte_size(body["id"]) >= 16
+      assert is_binary(body["runner_token"]) and byte_size(body["runner_token"]) >= 16
+      assert body["id"] != body["runner_token"]
+
+      # default ttl is 1800s; expires_at must be ~30 min in the future.
+      now = System.system_time(:second)
+      assert body["expires_at"] > now + 1700
+      assert body["expires_at"] <= now + 1800 + 5
+    end
+
+    test "honors a custom ttl_seconds", %{conn: conn} do
+      now = System.system_time(:second)
+      conn = post(conn, ~p"/api/sessions", %{ttl_seconds: 120})
+      body = json_response(conn, 201)
+      assert body["expires_at"] > now + 110
+      assert body["expires_at"] <= now + 120 + 5
+    end
+
+    test "clamps a too-large ttl_seconds to the 7-day max", %{conn: conn} do
+      now = System.system_time(:second)
+      conn = post(conn, ~p"/api/sessions", %{ttl_seconds: 999_999_999})
+      body = json_response(conn, 201)
+      assert body["expires_at"] <= now + 604_800 + 5
+      assert body["expires_at"] > now + 604_800 - 5
+    end
+
+    test "clamps a too-small ttl_seconds up to the 60s min", %{conn: conn} do
+      now = System.system_time(:second)
+      conn = post(conn, ~p"/api/sessions", %{ttl_seconds: 1})
+      body = json_response(conn, 201)
+      assert body["expires_at"] >= now + 60 - 1
+    end
+
+    test "rejects a non-integer ttl_seconds with 400 and creates no session", %{conn: conn} do
+      conn = post(conn, ~p"/api/sessions", %{ttl_seconds: "abc"})
+      body = json_response(conn, 400)
+      assert body["error"] =~ "ttl_seconds"
+      refute Map.has_key?(body, "id")
+    end
+  end
+
+  test "GET /api/sessions returns 405 (POST only)", %{conn: conn} do
+    conn = get(conn, ~p"/api/sessions")
+    body = json_response(conn, 405)
+    assert body["error"] =~ "POST"
+    assert get_resp_header(conn, "allow") == ["POST"]
+  end
+
+  test "GET /healthz returns 200 ok", %{conn: conn} do
+    conn = get(conn, ~p"/healthz")
+    assert text_response(conn, 200) == "ok"
+  end
+
+  test "GET /s/:id serves the viewer HTML even for an unknown id", %{conn: conn} do
+    conn = get(conn, ~p"/s/does-not-exist")
+    assert conn.status == 200
+    assert get_resp_header(conn, "content-type") |> hd() =~ "text/html"
+    assert conn.resp_body =~ "<title>relay</title>"
+  end
+end

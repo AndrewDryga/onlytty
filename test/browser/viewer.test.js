@@ -11,7 +11,7 @@ import { dirname, join } from "node:path";
 import http from "node:http";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "../..");
-const base = process.env.RELAY_SERVER || "http://127.0.0.1:4000";
+const base = process.env.ONLYTTY_SERVER || "http://127.0.0.1:4000";
 
 function healthy() {
   return new Promise((res) => {
@@ -25,7 +25,7 @@ function healthy() {
 function startRunner(args) {
   return new Promise((resolve, reject) => {
     const p = spawn(join(root, "onlytty"), ["--no-qr", ...args], {
-      env: { ...process.env, RELAY_SERVER: base, TERM: "xterm-256color" },
+      env: { ...process.env, ONLYTTY_SERVER: base, TERM: "xterm-256color" },
       stdio: ["ignore", "ignore", "pipe"],
     });
     let buf = "";

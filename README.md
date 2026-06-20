@@ -57,7 +57,7 @@ make install                                       # → ~/.local/bin/relay
 ```
 
 **Relay server** — see [Deploy the relay](#deploy-the-relay). You point the runner at
-it with `--server` or `RELAY_SERVER`.
+it with `--server` or `ONLYTTY_SERVER`.
 
 ## Quickstart
 
@@ -66,12 +66,12 @@ it with `--server` or `RELAY_SERVER`.
 cd server && mix deps.get && mix phx.server     # dev relay on http://localhost:4000
 
 # 2. Point the runner at it and share something:
-export RELAY_SERVER=http://localhost:4000
+export ONLYTTY_SERVER=http://localhost:4000
 relay -- htop
 # → a link + QR is printed. Open it (same machine) or scan it (phone).
 ```
 
-For real use, deploy the relay behind HTTPS and set `RELAY_SERVER=https://relay.example.com`.
+For real use, deploy the relay behind HTTPS and set `ONLYTTY_SERVER=https://relay.example.com`.
 
 ## CLI reference
 
@@ -79,7 +79,7 @@ For real use, deploy the relay behind HTTPS and set `RELAY_SERVER=https://relay.
 relay [flags]              share your $SHELL
 relay [flags] -- <cmd>...  share one command
 
-  --server <url>     relay origin (or RELAY_SERVER), e.g. https://relay.example.com
+  --server <url>     relay origin (or ONLYTTY_SERVER), e.g. https://relay.example.com
   --read-only        viewers may watch but never type or resize
   --ttl <dur>        session lifetime before the link expires
                      (default 12h; the relay clamps every TTL to 60s–7d)
@@ -133,12 +133,12 @@ context. Without HTTPS the viewer refuses to run (and the secret could leak in t
 | `SECRET_KEY_BASE` | — | required in prod (`mix phx.gen.secret`) |
 | `PHX_HOST` | `example.com` | public hostname (used for URLs + the SSL redirect) |
 | `PORT` | `4000` | listen port |
-| `RELAY_DEFAULT_TTL` | `1800` | default session TTL in seconds; every requested TTL is clamped to 60s–`RELAY_MAX_TTL` |
-| `RELAY_MAX_TTL` | `604800` | hard ceiling on session TTL in seconds (7 days); requested TTLs are clamped to it |
-| `RELAY_IDLE_TIMEOUT` | `600` | close after this many seconds with no runner traffic |
-| `RELAY_MAX_SESSIONS` | `2000` | cap on concurrent sessions (bounds create-spam) |
-| `RELAY_RATELIMIT_MAX` | `30` | max `POST /api/sessions` per window per IP (`0` disables) |
-| `RELAY_RATELIMIT_WINDOW` | `60` | rate-limit window in seconds |
+| `ONLYTTY_DEFAULT_TTL` | `1800` | default session TTL in seconds; every requested TTL is clamped to 60s–`ONLYTTY_MAX_TTL` |
+| `ONLYTTY_MAX_TTL` | `604800` | hard ceiling on session TTL in seconds (7 days); requested TTLs are clamped to it |
+| `ONLYTTY_IDLE_TIMEOUT` | `600` | close after this many seconds with no runner traffic |
+| `ONLYTTY_MAX_SESSIONS` | `2000` | cap on concurrent sessions (bounds create-spam) |
+| `ONLYTTY_RATELIMIT_MAX` | `30` | max `POST /api/sessions` per window per IP (`0` disables) |
+| `ONLYTTY_RATELIMIT_WINDOW` | `60` | rate-limit window in seconds |
 | `SENTRY_DSN` | — | backend error reporting; unset disables it (dev/test/CI never report) |
 | `SENTRY_RELEASE` | — | optional release tag for Sentry events |
 
@@ -197,7 +197,7 @@ make e2e       # boots the relay, then a Go viewer and a headless-browser viewer
                # drive a real session end-to-end through it
 make audit     # opt-in dependency/security audit (not part of `check`)
 make fuzz      # fuzz the protocol decoders (they parse relay-forwarded bytes)
-make load      # concurrent session-create load against $RELAY_SERVER
+make load      # concurrent session-create load against $ONLYTTY_SERVER
 ```
 
 `make audit` runs `govulncheck ./...` (Go), `npm audit` (web), and `mix hex.audit`

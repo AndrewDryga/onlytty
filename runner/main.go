@@ -45,7 +45,7 @@ func resolveVersion() string {
 func main() { os.Exit(run()) }
 
 func run() int {
-	server := flag.String("server", os.Getenv("RELAY_SERVER"), "relay server origin, e.g. https://relay.example.com (or set RELAY_SERVER)")
+	server := flag.String("server", os.Getenv("ONLYTTY_SERVER"), "relay server origin, e.g. https://relay.example.com (or set ONLYTTY_SERVER)")
 	readOnly := flag.Bool("read-only", false, "viewers may watch but never type or resize")
 	ttl := flag.Duration("ttl", 12*time.Hour, "session lifetime before the link expires")
 	withPass := flag.Bool("passphrase", false, "prompt for a passphrase to mix into the keys (shared out-of-band; the link alone won't decrypt)")
@@ -61,7 +61,7 @@ func run() int {
 		return 0
 	}
 	if *server == "" {
-		fmt.Fprintln(os.Stderr, "relay: set --server or RELAY_SERVER (e.g. https://relay.example.com)")
+		fmt.Fprintln(os.Stderr, "relay: set --server or ONLYTTY_SERVER (e.g. https://relay.example.com)")
 		return 2
 	}
 	if *ttl <= 0 {

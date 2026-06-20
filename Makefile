@@ -19,7 +19,7 @@ web-check: ## Web viewer: Node interop + unit tests
 	@node --test test/web/*.test.js
 
 server-check: ## Relay server: format check + warnings-as-errors + tests
-	@cd server && mix format --check-formatted && mix compile --warnings-as-errors && mix test
+	@cd portal && mix format --check-formatted && mix compile --warnings-as-errors && mix test
 
 check: runner-check web-check server-check ## Full gate: runner + web + server
 
@@ -36,11 +36,11 @@ audit-web: ## Audit: npm advisories (high+)
 	@npm audit --audit-level=high
 
 audit-server: ## Audit: retired/withdrawn Hex packages
-	@cd server && mix hex.audit
+	@cd portal && mix hex.audit
 
 SHA256 := $(shell command -v sha256sum >/dev/null 2>&1 && echo sha256sum || echo 'shasum -a 256')
 viewer-hash: ## SHA-256 of each viewer asset (reproducible — publish with each release)
-	@cd server/priv/static && $(SHA256) \
+	@cd portal/priv/static && $(SHA256) \
 	  viewer.html \
 	  assets/app.js assets/crypto.js assets/wire.js \
 	  assets/vendor/xterm.js assets/vendor/xterm.css assets/vendor/addon-fit.js

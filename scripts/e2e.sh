@@ -4,7 +4,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-BASE="${RELAY_SERVER:-http://127.0.0.1:4000}"
+BASE="${ONLYTTY_SERVER:-http://127.0.0.1:4000}"
 HEALTH="$BASE/healthz"
 
 started=""
@@ -20,7 +20,7 @@ if curl -fsS "$HEALTH" >/dev/null 2>&1; then
   echo "e2e: reusing relay already running at $BASE"
 else
   echo "e2e: starting relay…"
-  ( cd "$ROOT/server" && mix deps.get >/dev/null 2>&1 && exec mix phx.server ) >/tmp/relay-e2e-server.log 2>&1 &
+  ( cd "$ROOT/portal" && mix deps.get >/dev/null 2>&1 && exec mix phx.server ) >/tmp/relay-e2e-server.log 2>&1 &
   started=$!
   for i in $(seq 1 60); do
     if curl -fsS "$HEALTH" >/dev/null 2>&1; then break; fi
@@ -39,6 +39,6 @@ cd "$ROOT"
 echo "e2e: building the runner…"
 go build -o onlytty ./runner
 echo "e2e: transport (Go viewer ↔ relay ↔ runner)…"
-RELAY_SERVER="$BASE" go test -tags e2e -count=1 ./runner/e2e/
+ONLYTTY_SERVER="$BASE" go test -tags e2e -count=1 ./runner/e2e/
 echo "e2e: browser (headless Chromium drives the real viewer)…"
-RELAY_SERVER="$BASE" node --test test/browser/*.test.js
+ONLYTTY_SERVER="$BASE" node --test test/browser/*.test.js

@@ -4,7 +4,7 @@
 // relay. It exercises pairing, the encrypted output/input loop, take-control, and
 // exit. Run with `make e2e` (which boots the relay), or against a running relay:
 //
-//	RELAY_SERVER=http://127.0.0.1:4000 go test -tags e2e ./runner/e2e/ -v
+//	ONLYTTY_SERVER=http://127.0.0.1:4000 go test -tags e2e ./runner/e2e/ -v
 //
 // The viewer here uses the Go protocol package, which is pinned byte-for-byte to the
 // browser's web/crypto.js by the golden vectors — so it is a faithful stand-in.
@@ -26,7 +26,7 @@ import (
 )
 
 func serverBase() string {
-	if v := os.Getenv("RELAY_SERVER"); v != "" {
+	if v := os.Getenv("ONLYTTY_SERVER"); v != "" {
 		return v
 	}
 	return "http://127.0.0.1:4000"

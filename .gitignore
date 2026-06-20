@@ -4,11 +4,11 @@
 *.test
 *.out
 
-# Elixir relay (server/)
-server/_build/
-server/deps/
-server/*.ez
-server/relay-*.tar
+# Elixir relay (portal/)
+portal/_build/
+portal/deps/
+portal/*.ez
+portal/onlytty-*.tar
 erl_crash.dump
 
 # Node test deps
