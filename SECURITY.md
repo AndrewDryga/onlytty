@@ -6,6 +6,13 @@ Email **andrew@dryga.com** (or open a private GitHub security advisory). Please
 include a description, reproduction steps, and impact. Don't open a public issue for
 a vulnerability.
 
+## Reporting abuse
+
+To report misuse of a hosted relay (illegal content, using it as a covert tunnel,
+attacks on the infrastructure — see the [Acceptable Use Policy](/acceptable-use)),
+email **andrew@dryga.com**. Terminal IO is end-to-end encrypted, so we can't read
+session contents, but we can drop sessions and block traffic that abuses the service.
+
 ## Trust model in one paragraph
 
 `relay` end-to-end encrypts terminal IO with AES-256-GCM under keys derived (HKDF,

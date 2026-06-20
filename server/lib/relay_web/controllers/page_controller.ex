@@ -15,6 +15,15 @@ defmodule RelayWeb.PageController do
   @doc "`GET /tools` — the full, browse-by-category tool index."
   def tools(conn, _params), do: html(conn, Page.tools_index())
 
+  @doc "`GET /terms` — Terms of Service."
+  def terms(conn, _params), do: html(conn, Page.terms())
+
+  @doc "`GET /privacy` — Privacy Policy."
+  def privacy(conn, _params), do: html(conn, Page.privacy())
+
+  @doc "`GET /acceptable-use` — Acceptable Use Policy."
+  def acceptable_use(conn, _params), do: html(conn, Page.acceptable_use())
+
   @doc """
   `GET /control/:slug` — a per-tool landing page. Unknown slugs render a branded
   404; the slug is only ever looked up in the catalog, never echoed back.

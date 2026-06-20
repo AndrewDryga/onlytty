@@ -26,6 +26,9 @@ defmodule RelayWeb.Router do
     get "/", PageController, :home
     get "/tools", PageController, :tools
     get "/control/:slug", PageController, :tool
+    get "/terms", PageController, :terms
+    get "/privacy", PageController, :privacy
+    get "/acceptable-use", PageController, :acceptable_use
     get "/sitemap.xml", PageController, :sitemap
 
     get "/healthz", SessionController, :healthz

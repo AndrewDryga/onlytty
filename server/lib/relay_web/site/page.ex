@@ -81,13 +81,69 @@ defmodule RelayWeb.Site.Page do
     )
   end
 
+  @doc "Terms of Service."
+  def terms do
+    legal_page("Terms of Service", "/terms", """
+    <p class="lede">OnlyTTY is a relay that pairs a command running on your machine with a browser, forwarding <strong>end-to-end-encrypted</strong> terminal frames between them. The relay never sees your terminal content — it forwards ciphertext and stores nothing.</p>
+    <h2>The link is a capability</h2>
+    <p>Each session is reached by a link whose <code>#fragment</code> holds the secret. Anyone with the full link is a viewer, and — unless you started the session read-only — can take control and type into it. Treat the link like a password: share it deliberately, use <code>--read-only</code> or <code>--passphrase</code> when you need to, and stop sharing by exiting the command.</p>
+    <h2>No accounts, ephemeral sessions</h2>
+    <p>There are no accounts. Sessions live in memory only and expire (by default within hours, capped at 24h); when a session ends, it is gone.</p>
+    <h2>Acceptable use</h2>
+    <p>Your use must follow the <a href="/acceptable-use">Acceptable Use Policy</a>. We may drop sessions or block traffic that abuses the service.</p>
+    <h2>No warranty</h2>
+    <p>OnlyTTY is provided “as is”, without warranty of any kind. You use it at your own risk, and to the extent permitted by law we are not liable for any damages arising from its use. If you self-host the open-source relay, you operate it under its license.</p>
+    """)
+  end
+
+  @doc "Privacy Policy."
+  def privacy do
+    legal_page("Privacy Policy", "/privacy", """
+    <p class="lede">The short version: the relay can’t read your terminal, keeps sessions in memory only, and logs almost nothing.</p>
+    <h2>What we cannot see</h2>
+    <p>Terminal input and output are end-to-end encrypted under keys derived from a secret that lives only in the link’s fragment — which browsers never send to the server. The relay forwards opaque ciphertext; it cannot read or reconstruct your session.</p>
+    <h2>What exists, and only in memory</h2>
+    <p>While a session is live the relay holds its id, a runner token, and an expiry — in RAM only. Nothing session-related is written to a database or disk, and it is discarded when the session ends or expires.</p>
+    <h2>What we log</h2>
+    <p>Operational logs carry metadata only: an 8-character session-id prefix, the role (runner or viewer), and a timestamp. We do <strong>not</strong> log IP addresses or any terminal content.</p>
+    <h2>No tracking</h2>
+    <p>No accounts, no advertising, and no third-party analytics or tracking beacons — on this site or in the viewer (a browser tracker could leak the fragment secret, so there is none).</p>
+    <h2>Contact</h2>
+    <p>Privacy questions: <a href="mailto:andrew@dryga.com">andrew@dryga.com</a>.</p>
+    """)
+  end
+
+  @doc "Acceptable Use Policy."
+  def acceptable_use do
+    legal_page("Acceptable Use Policy", "/acceptable-use", """
+    <p class="lede">OnlyTTY shares your own terminal. Don’t use it to harm others or to break the law.</p>
+    <h2>Don’t</h2>
+    <ul>
+      <li>Use the service for anything illegal, or to facilitate illegal activity.</li>
+      <li>Use the relay as a covert tunnel, to evade network controls, or to disguise the origin of traffic.</li>
+      <li>Attack, overload, or attempt to compromise the relay, its infrastructure, or other users’ sessions.</li>
+      <li>Share a link with someone you don’t intend to give terminal access — the link is a capability.</li>
+    </ul>
+    <h2>Enforcement</h2>
+    <p>Sessions are end-to-end encrypted, so we can’t police their contents — but we can and will drop sessions and block traffic that abuses the service or its infrastructure.</p>
+    <h2>Report abuse</h2>
+    <p>Email <a href="mailto:andrew@dryga.com">andrew@dryga.com</a> with details. For security vulnerabilities, see <a href="https://github.com/AndrewDryga/relay/blob/main/SECURITY.md">SECURITY.md</a>.</p>
+    """)
+  end
+
   @doc """
   The XML sitemap, built from the tool catalog so it can never drift from the
   pages that actually exist.
   """
   def sitemap do
     urls =
-      [{"/", "1.0"}, {"/tools", "0.8"}] ++
+      [
+        {"/", "1.0"},
+        {"/tools", "0.8"},
+        {"/terms", "0.3"},
+        {"/privacy", "0.3"},
+        {"/acceptable-use", "0.3"}
+      ] ++
         Enum.map(Tools.all(), &{"/control/#{&1.slug}", "0.6"})
 
     entries =
@@ -200,10 +256,11 @@ defmodule RelayWeb.Site.Page do
           <a href="#{@github}/blob/main/SECURITY.md" rel="noopener">Security model</a>
           <a href="#{@github}" rel="noopener">Source on GitHub</a>
         </nav>
-        <nav aria-label="More">
-          <h3>More</h3>
-          <a href="/control/claude">Control Claude Code</a>
-          <a href="/control/vim">Control Vim</a>
+        <nav aria-label="Legal">
+          <h3>Legal</h3>
+          <a href="/terms">Terms</a>
+          <a href="/privacy">Privacy</a>
+          <a href="/acceptable-use">Acceptable use</a>
           <a href="/sitemap.xml">Sitemap</a>
         </nav>
       </div>
@@ -446,6 +503,29 @@ defmodule RelayWeb.Site.Page do
     #{sections}
     #{start_section()}
     """
+  end
+
+  # ── Legal ─────────────────────────────────────────────────────────────────
+
+  # `body` is trusted literal markup (headings/lists/links), so it is not escaped.
+  defp legal_page(title, path, body) do
+    layout(
+      title: "#{title} · OnlyTTY",
+      description:
+        "OnlyTTY #{title} — written honestly to the architecture: end-to-end encrypted, in-memory sessions, minimal logging.",
+      path: path,
+      json_ld: [breadcrumb_simple_ld(title, path)],
+      body: """
+      <article class="section">
+        <div class="wrap narrow legal">
+          <nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a> <span aria-hidden="true">›</span> <span>#{h(title)}</span></nav>
+          <h1>#{h(title)}</h1>
+          #{body}
+          <p class="muted">This is a plain-language summary, not formal legal advice; a service operator should have it reviewed before launch.</p>
+        </div>
+      </article>
+      """
+    )
   end
 
   # ── Small components ──────────────────────────────────────────────────────

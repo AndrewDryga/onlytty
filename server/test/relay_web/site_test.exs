@@ -105,10 +105,38 @@ defmodule RelayWeb.SiteTest do
       assert body =~ "<urlset"
       assert body =~ "/control/claude</loc>"
       assert body =~ "/tools</loc>"
+      assert body =~ "/privacy</loc>"
 
-      # one <loc> per tool, plus home and the index.
+      # one <loc> per tool, plus home, the index, and the 3 legal pages.
       loc_count = body |> String.split("<loc>") |> length() |> Kernel.-(1)
-      assert loc_count == length(Tools.all()) + 2
+      assert loc_count == length(Tools.all()) + 5
+    end
+  end
+
+  describe "legal pages" do
+    test "terms, privacy and acceptable-use render with honest, accurate content", %{conn: conn} do
+      terms = conn |> get(~p"/terms") |> html_response(200)
+      assert terms =~ "Terms of Service"
+      assert terms =~ "end-to-end"
+
+      privacy = conn |> get(~p"/privacy") |> html_response(200)
+      assert privacy =~ "Privacy Policy"
+      assert privacy =~ "in memory"
+      assert privacy =~ "8-character session-id"
+      # states it does not log IPs or terminal content
+      assert privacy =~ "IP addresses" and privacy =~ "terminal content"
+
+      aup = conn |> get(~p"/acceptable-use") |> html_response(200)
+      assert aup =~ "Acceptable Use"
+      assert aup =~ "covert tunnel"
+      assert aup =~ "andrew@dryga.com"
+    end
+
+    test "every page footer links the legal pages", %{conn: conn} do
+      body = conn |> get(~p"/") |> html_response(200)
+      assert body =~ ~s(href="/terms")
+      assert body =~ ~s(href="/privacy")
+      assert body =~ ~s(href="/acceptable-use")
     end
   end
 
