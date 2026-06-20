@@ -288,7 +288,7 @@ defmodule RelayWeb.Site.Page do
             <a class="btn btn-ghost" href="#how">See how it works</a>
           </div>
         </div>
-        <div class="hero-demo">#{term_demo("claude", "Claude Code")}</div>
+        <div class="hero-demo">#{term_demo("claude", "Claude Code", agent: true)}</div>
       </div>
     </section>
     """
@@ -622,7 +622,7 @@ defmodule RelayWeb.Site.Page do
   # Built with explicit newlines because <pre> is whitespace-sensitive; the relay
   # banner is identical for every command (see printBanner in main.go) — only the
   # invocation differs, so nothing tool-specific is fabricated.
-  defp term_demo(cmd, name) do
+  defp term_demo(cmd, name, opts \\ []) do
     # Keep lines short: the phone overlaps the bottom-right, so long lines would run
     # under it. These are stylized, not real wrapping output.
     lines = [
@@ -637,7 +637,7 @@ defmodule RelayWeb.Site.Page do
       ~s(  <span class="c-dim">Scan it on your phone →</span>),
       :gap,
       ~s(<span class="c-ok">✻</span> <span class="c-b">#{h(name)}</span> <span class="c-dim">live</span>),
-      ~s(<span class="c-p">›</span> <span class="cursor">█</span>)
+      prompt_tail(opts)
     ]
 
     body =
@@ -654,17 +654,32 @@ defmodule RelayWeb.Site.Page do
         ~s(<pre class="term-body">) <> body <> ~s(</pre></div>)
 
     ~s(<div class="stage" role="img" aria-label="A terminal running 'relay -- #{h(cmd)}' shares an end-to-end-encrypted link; a phone shows the same #{h(name)} session live and in your control.">) <>
-      term <> phone(name) <> ~s(</div>)
+      term <> phone(name, opts) <> ~s(</div>)
+  end
+
+  # The last terminal/phone line. For an agent demo it's a synchronized "thinking"
+  # animation (see thinking/0); otherwise a plain blinking cursor.
+  defp prompt_tail(opts) do
+    if opts[:agent],
+      do: thinking(),
+      else: ~s(<span class="c-p">›</span> <span class="cursor">█</span>)
+  end
+
+  # A Claude-style "thinking" line: a spinner + a cycling verb. The same data-think-*
+  # nodes appear in the terminal and the phone, and one JS loop (script/0) advances
+  # both in lockstep, so they animate identically at the same instant. With no JS or
+  # reduced motion, the static "⠋ Thinking…" stands in.
+  defp thinking do
+    ~s(<span class="c-p" data-think-spin>⠋</span> <span class="c-dim" data-think-word>Thinking</span><span class="c-dim">…</span>)
   end
 
   # The phone overlay: the same session, live on a phone, ready to drive.
-  defp phone(name) do
+  defp phone(name, opts) do
     body =
       Enum.join(
         [
           ~s(<span class="c-ok">✻</span> <span class="c-b">#{h(name)}</span>),
-          ~s(<span class="c-dim">mirrored live · end-to-end</span>),
-          ~s(<span class="c-p">›</span> <span class="cursor">█</span>)
+          prompt_tail(opts)
         ],
         "\n"
       )
@@ -727,6 +742,17 @@ defmodule RelayWeb.Site.Page do
           var words = JSON.parse(el.getAttribute('data-rotate')), i = 0;
           setInterval(function () { i = (i + 1) % words.length; el.textContent = words[i]; }, 2200);
         } catch (e) {}
+      }
+      // One loop drives the "thinking" spinner + verb in every demo (terminal AND
+      // phone) at once, so they animate in lockstep.
+      var spins = document.querySelectorAll('[data-think-spin]');
+      var verbs2 = document.querySelectorAll('[data-think-word]');
+      if (spins.length && !reduce) {
+        var frames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+        var verbs = ['Thinking', 'Pondering', 'Hatching', 'Conjuring', 'Noodling', 'Cogitating', 'Scheming', 'Brewing'];
+        var f = 0, v = 0;
+        setInterval(function () { f = (f + 1) % frames.length; spins.forEach(function (s) { s.textContent = frames[f]; }); }, 90);
+        setInterval(function () { v = (v + 1) % verbs.length; verbs2.forEach(function (w) { w.textContent = verbs[v]; }); }, 1900);
       }
       document.querySelectorAll('[data-copy]').forEach(function (b) {
         b.addEventListener('click', function () {
