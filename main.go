@@ -239,7 +239,8 @@ func formatFingerprint(fp string) string {
 }
 
 func usage() {
-	fmt.Fprintf(os.Stderr, `relay — share a command or your shell to a browser, end-to-end encrypted.
+	w := os.Stderr
+	fmt.Fprintf(w, `relay — share a command or your shell to a browser, end-to-end encrypted.
 
 Usage:
   relay [flags]              share your $SHELL
@@ -247,8 +248,24 @@ Usage:
 
 Flags:
 `)
-	flag.PrintDefaults()
-	fmt.Fprintf(os.Stderr, "\nExamples:\n  relay -- claude\n  relay --read-only -- htop\n  relay --passphrase\n")
+	// Render each flag as --name. Go's flag package parses both -x and --x; only the
+	// displayed spelling changes, to match the Examples below and the README.
+	var fs []*flag.Flag
+	flag.VisitAll(func(f *flag.Flag) { fs = append(fs, f) })
+	width := 0
+	for _, f := range fs {
+		if n := len(f.Name) + len("--"); n > width {
+			width = n
+		}
+	}
+	for _, f := range fs {
+		def := ""
+		if f.DefValue != "" && f.DefValue != "false" {
+			def = fmt.Sprintf(" (default %s)", f.DefValue)
+		}
+		fmt.Fprintf(w, "  %-*s  %s%s\n", width, "--"+f.Name, f.Usage, def)
+	}
+	fmt.Fprintf(w, "\nExamples:\n  relay -- claude\n  relay --read-only -- htop\n  relay --passphrase\n")
 }
 
 // Small ANSI helpers, gated on stderr being a terminal.
