@@ -623,18 +623,20 @@ defmodule RelayWeb.Site.Page do
   # banner is identical for every command (see printBanner in main.go) — only the
   # invocation differs, so nothing tool-specific is fabricated.
   defp term_demo(cmd, name) do
+    # Keep lines short: the phone overlaps the bottom-right, so long lines would run
+    # under it. These are stylized, not real wrapping output.
     lines = [
       ~s(<span class="c-p">$</span> relay -- #{h(cmd)}),
       :gap,
-      ~s(<span class="c-b">relay — this session is shared, end-to-end encrypted</span>),
+      ~s(<span class="c-b">relay — shared, end-to-end encrypted</span>),
       :gap,
       "  " <> qr(),
-      ~s(  Link  <span class="c-link">onlytty.com/s/k7p2qx</span><span class="c-frag">#9f3q4d…</span>),
-      ~s(  Expires  in 12h · <span class="c-dim">read-only by default</span>),
+      ~s(  Link  <span class="c-link">onlytty.com/s/7q2k</span><span class="c-frag">#…</span>),
+      ~s(  Expires  12h · <span class="c-dim">read-only</span>),
       :gap,
-      ~s(  <span class="c-dim">Scan it, or open the link on your phone →</span>),
+      ~s(  <span class="c-dim">Scan it on your phone →</span>),
       :gap,
-      ~s(<span class="c-ok">✻</span> <span class="c-b">#{h(name)}</span> <span class="c-dim">is live — your phone is the keyboard</span>),
+      ~s(<span class="c-ok">✻</span> <span class="c-b">#{h(name)}</span> <span class="c-dim">live</span>),
       ~s(<span class="c-p">›</span> <span class="cursor">█</span>)
     ]
 
