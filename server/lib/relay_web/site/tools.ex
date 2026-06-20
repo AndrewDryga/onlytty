@@ -443,36 +443,12 @@ defmodule RelayWeb.Site.Tools do
       why: "Kick off a playbook and watch it roll out from your phone."
     },
     %{
-      slug: "ssh",
-      name: "SSH",
-      cmd: "ssh user@host",
-      category: "Infra & remote",
-      what: "The secure shell for logging into remote machines.",
-      why: "Hop onto a box and run one command without your laptop."
-    },
-    %{
       slug: "mosh",
       name: "Mosh",
       cmd: "mosh user@host",
       category: "Infra & remote",
       what: "A resilient remote shell that survives flaky connections.",
       why: "Stay connected to your server even on bathroom Wi-Fi."
-    },
-    %{
-      slug: "journalctl",
-      name: "journalctl",
-      cmd: "journalctl -f",
-      category: "Infra & remote",
-      what: "Query and follow systemd logs.",
-      why: "Tail the logs during an outage from wherever you are."
-    },
-    %{
-      slug: "tail",
-      name: "tail -f",
-      cmd: "tail -f /var/log/app.log",
-      category: "Infra & remote",
-      what: "Follow a log file in real time.",
-      why: "Keep an eye on the logs without being at your desk."
     },
     %{
       slug: "watch",
@@ -596,11 +572,12 @@ defmodule RelayWeb.Site.Tools do
   """
   def featured_slugs do
     ~w(claude codex gemini aider vim nvim tmux lazygit k9s htop psql docker
-       kubectl ssh iex python node redis-cli ollama crush ranger cmatrix cointop)
+       kubectl iex python node redis-cli ollama crush ranger cmatrix cointop)
   end
 
   @doc "The featured tools, in `featured_slugs/0` order."
   def featured do
-    Enum.map(featured_slugs(), &get/1)
+    # Tolerate slugs removed from the catalog, so editing @tools never breaks the page.
+    featured_slugs() |> Enum.map(&get/1) |> Enum.reject(&is_nil/1)
   end
 end
