@@ -32,6 +32,6 @@ clean: ## Remove build artifacts
 	@rm -rf dist
 
 help: ## List targets
-	@grep -hE '^[a-z-]+:.*##' $(MAKEFILE_LIST) | sed -E 's/:.*## / — /' | sort
+	@grep -hE '^[a-z0-9-]+:.*##' $(MAKEFILE_LIST) | sed -E 's/:.*## / — /' | sort
 
-.PHONY: build install runner-check web-check server-check check clean help
+.PHONY: build install runner-check web-check server-check check e2e clean help
