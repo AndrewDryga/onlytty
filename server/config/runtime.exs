@@ -22,10 +22,15 @@ end
 
 # Relay session limits, tunable at runtime in every environment.
 #   RELAY_DEFAULT_TTL   — default session TTL in seconds (PROTOCOL default 1800)
+#   RELAY_MAX_TTL       — hard ceiling on session TTL in seconds (default 604800 = 7d)
 #   RELAY_IDLE_TIMEOUT  — close a session after this many seconds with no runner
 #                         traffic (default 600)
 if ttl = System.get_env("RELAY_DEFAULT_TTL") do
   config :relay, :default_ttl, String.to_integer(ttl)
+end
+
+if max_ttl = System.get_env("RELAY_MAX_TTL") do
+  config :relay, :max_ttl, String.to_integer(max_ttl)
 end
 
 if idle = System.get_env("RELAY_IDLE_TIMEOUT") do

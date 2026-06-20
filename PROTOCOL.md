@@ -147,7 +147,7 @@ binary runner↔viewer verbatim.
 ## Endpoints
 
 - `POST /api/sessions` → `{"id","runner_token","expires_at"}`.
-  Optional body `{"ttl_seconds":int}` (default 1800, max 86400).
+  Optional body `{"ttl_seconds":int}` (default 1800, max 604800 = 7d).
 - `GET  /s/:id` → the viewer HTML page (static; JS reads id from path, S from `#`).
 - `GET  /ws/runner/:id` → WebSocket; requires `Authorization: Bearer <runner_token>`.
 - `GET  /ws/viewer/:id` → WebSocket; capability is knowing `:id`.

@@ -26,12 +26,12 @@ defmodule RelayWeb.HTTPTest do
       assert body["expires_at"] <= now + 120 + 5
     end
 
-    test "clamps a too-large ttl_seconds to the 86400 max", %{conn: conn} do
+    test "clamps a too-large ttl_seconds to the 7-day max", %{conn: conn} do
       now = System.system_time(:second)
       conn = post(conn, ~p"/api/sessions", %{ttl_seconds: 999_999_999})
       body = json_response(conn, 201)
-      assert body["expires_at"] <= now + 86_400 + 5
-      assert body["expires_at"] > now + 86_400 - 5
+      assert body["expires_at"] <= now + 604_800 + 5
+      assert body["expires_at"] > now + 604_800 - 5
     end
 
     test "clamps a too-small ttl_seconds up to the 60s min", %{conn: conn} do

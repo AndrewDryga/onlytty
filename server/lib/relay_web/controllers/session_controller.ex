@@ -12,7 +12,7 @@ defmodule RelayWeb.SessionController do
   `POST /api/sessions` — create a session.
 
   Optional JSON body `{"ttl_seconds": int}` (default 1800, clamped to
-  [60, 86400] by the store). A present-but-non-integer `ttl_seconds` is a 400
+  [60, 604800] by the store). A present-but-non-integer `ttl_seconds` is a 400
   rather than a silent default. Responds 201 with the id, the runner token, and
   the absolute expiry in unix seconds.
   """

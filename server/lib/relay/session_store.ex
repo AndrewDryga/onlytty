@@ -13,12 +13,14 @@ defmodule Relay.SessionStore do
   @registry Relay.Registry
   @supervisor Relay.SessionSupervisor
 
-  # PROTOCOL.md: default 1800s, max 86400. We also clamp a sane lower bound so a
-  # session can't expire before anyone can connect. The default is overridable at
-  # runtime via the :default_ttl app env (RELAY_DEFAULT_TTL).
+  # PROTOCOL.md: default 1800s, max 604800 (7d — sessions are long-lived and survive
+  # runner reconnects, so the ceiling is days, not hours). We also clamp a sane lower
+  # bound so a session can't expire before anyone can connect. Both the default and
+  # the max are overridable at runtime via the :default_ttl / :max_ttl app env
+  # (RELAY_DEFAULT_TTL / RELAY_MAX_TTL).
   @default_ttl 1800
   @min_ttl 60
-  @max_ttl 86_400
+  @max_ttl 604_800
 
   @doc "The Registry `:via` tuple used to name a session process by its id."
   def via(id), do: {:via, Registry, {@registry, id}}
@@ -70,11 +72,14 @@ defmodule Relay.SessionStore do
   @doc false
   def default_ttl, do: Application.get_env(:relay, :default_ttl, @default_ttl)
 
+  @doc false
+  def max_ttl, do: Application.get_env(:relay, :max_ttl, @max_ttl)
+
   # 16 random bytes = 128 bits, URL-safe, no padding.
   defp random_token, do: 16 |> :crypto.strong_rand_bytes() |> Base.url_encode64(padding: false)
 
   defp clamp_ttl(nil), do: default_ttl()
-  defp clamp_ttl(ttl) when is_integer(ttl), do: ttl |> max(@min_ttl) |> min(@max_ttl)
+  defp clamp_ttl(ttl) when is_integer(ttl), do: ttl |> max(@min_ttl) |> min(max_ttl())
   defp clamp_ttl(_), do: default_ttl()
 
   defp idle_ms do

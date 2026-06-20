@@ -40,7 +40,8 @@ timing/size, but never read or forge terminal IO.
 | `SECRET_KEY_BASE` | — | **required in prod** (`mix phx.gen.secret`) |
 | `PHX_HOST` | `example.com` | public hostname (URLs + the https redirect) |
 | `PORT` | `4000` | listen port |
-| `RELAY_DEFAULT_TTL` | `1800` | default session TTL (s); every TTL is clamped to **60–86400** (24h) |
+| `RELAY_DEFAULT_TTL` | `1800` | default session TTL (s); every TTL is clamped to **60s–`RELAY_MAX_TTL`** |
+| `RELAY_MAX_TTL` | `604800` | hard ceiling on session TTL (s) — **7 days**; requested TTLs clamp to it |
 | `RELAY_IDLE_TIMEOUT` | `600` | close a session after this many seconds with no runner traffic |
 | `RELAY_MAX_SESSIONS` | `2000` | cap on concurrent in-memory sessions (bounds create-spam) |
 | `DNS_CLUSTER_QUERY` | — | optional DNS-based clustering query |

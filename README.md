@@ -82,7 +82,7 @@ relay [flags] -- <cmd>...  share one command
   --server <url>     relay origin (or RELAY_SERVER), e.g. https://relay.example.com
   --read-only        viewers may watch but never type or resize
   --ttl <dur>        session lifetime before the link expires
-                     (default 12h; the relay clamps every TTL to 60s–24h)
+                     (default 12h; the relay clamps every TTL to 60s–7d)
   --passphrase       prompt for a passphrase mixed into the keys; share it
                      out-of-band so the link alone cannot decrypt
   --passphrase-generate
@@ -133,7 +133,8 @@ context. Without HTTPS the viewer refuses to run (and the secret could leak in t
 | `SECRET_KEY_BASE` | — | required in prod (`mix phx.gen.secret`) |
 | `PHX_HOST` | `example.com` | public hostname (used for URLs + the SSL redirect) |
 | `PORT` | `4000` | listen port |
-| `RELAY_DEFAULT_TTL` | `1800` | default session TTL in seconds; every requested TTL is clamped to 60–86400 (24h) |
+| `RELAY_DEFAULT_TTL` | `1800` | default session TTL in seconds; every requested TTL is clamped to 60s–`RELAY_MAX_TTL` |
+| `RELAY_MAX_TTL` | `604800` | hard ceiling on session TTL in seconds (7 days); requested TTLs are clamped to it |
 | `RELAY_IDLE_TIMEOUT` | `600` | close after this many seconds with no runner traffic |
 | `RELAY_MAX_SESSIONS` | `2000` | cap on concurrent sessions (bounds create-spam) |
 | `RELAY_RATELIMIT_MAX` | `30` | max `POST /api/sessions` per window per IP (`0` disables) |
