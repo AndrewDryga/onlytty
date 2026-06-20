@@ -11,6 +11,13 @@ portal/*.ez
 portal/onlytty-*.tar
 erl_crash.dump
 
+# Terraform (infra/) — keep .terraform.lock.hcl committed; ignore state + secrets
+infra/.terraform/
+infra/*.tfstate
+infra/*.tfstate.*
+infra/terraform.tfvars
+infra/crash*.log
+
 # Node test deps
 node_modules/
 

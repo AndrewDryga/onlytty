@@ -1,0 +1,68 @@
+#cloud-config
+# Runs on Container-Optimized OS. Two containers via systemd: the onlytty relay on
+# 127.0.0.1:4000, and Caddy on 80/443 terminating TLS (auto Let's Encrypt) and
+# reverse-proxying to it. SECRET_KEY_BASE is fetched from Secret Manager at boot.
+#
+# Note: dollar-brace placeholders are Terraform interpolation; $NAME (no braces) is shell.
+
+write_files:
+  - path: /var/lib/onlytty/start.sh
+    permissions: "0755"
+    content: |
+      #!/bin/bash
+      set -euo pipefail
+      docker-credential-gcr configure-docker --registries=${registry_domain} -q || true
+      TOKEN=$(curl -s -H "Metadata-Flavor: Google" http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token | cut -d'"' -f4)
+      DATA=$(curl -s -H "Authorization: Bearer $TOKEN" "https://secretmanager.googleapis.com/v1/projects/${project_id}/secrets/${secret_name}/versions/latest:access" | grep -oE '"data": ?"[^"]*"' | cut -d'"' -f4)
+      SECRET_KEY_BASE=$(printf '%s' "$DATA" | base64 -d)
+      docker rm -f onlytty 2>/dev/null || true
+      docker pull ${container_image}
+      exec docker run --rm --name onlytty \
+        -e SECRET_KEY_BASE="$SECRET_KEY_BASE" \
+        -e PHX_SERVER=true -e PHX_HOST=${domain} -e PORT=4000 \
+        -p 127.0.0.1:4000:4000 ${container_image}
+
+  - path: /var/lib/onlytty/Caddyfile
+    permissions: "0644"
+    content: |
+      ${domain} {
+        encode zstd gzip
+        reverse_proxy 127.0.0.1:4000
+        tls ${acme_email}
+      }
+
+  - path: /etc/systemd/system/onlytty.service
+    permissions: "0644"
+    content: |
+      [Unit]
+      Description=OnlyTTY relay
+      Wants=gcr-online.target network-online.target
+      After=gcr-online.target network-online.target
+      [Service]
+      Restart=always
+      RestartSec=5
+      ExecStart=/var/lib/onlytty/start.sh
+      ExecStop=/usr/bin/docker stop onlytty
+      [Install]
+      WantedBy=multi-user.target
+
+  - path: /etc/systemd/system/caddy.service
+    permissions: "0644"
+    content: |
+      [Unit]
+      Description=Caddy TLS proxy for OnlyTTY
+      Wants=network-online.target
+      After=network-online.target onlytty.service
+      [Service]
+      Restart=always
+      RestartSec=5
+      ExecStartPre=-/usr/bin/docker rm -f caddy
+      ExecStart=/usr/bin/docker run --rm --name caddy --network host -v /var/lib/onlytty/Caddyfile:/etc/caddy/Caddyfile:ro -v caddy-data:/data caddy:2
+      ExecStop=/usr/bin/docker stop caddy
+      [Install]
+      WantedBy=multi-user.target
+
+runcmd:
+  - systemctl daemon-reload
+  - systemctl enable --now onlytty.service
+  - systemctl enable --now caddy.service
