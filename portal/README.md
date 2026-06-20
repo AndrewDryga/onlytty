@@ -1,4 +1,4 @@
-# relay — server (control plane)
+# OnlyTTY — server (control plane)
 
 The untrusted relay that pairs a runner with a browser viewer and forwards
 **end-to-end-encrypted** frames between them. It is an Elixir/Phoenix app with
@@ -55,13 +55,13 @@ with no runner, or when the runner disconnects. Creation is unauthenticated, so 
 Build and run the release image (from the repo root):
 
 ```bash
-docker build -t relay-server ./server
+docker build -t onlytty-server ./portal
 docker run -p 4000:4000 \
   -e PHX_SERVER=true \
   -e SECRET_KEY_BASE="$(openssl rand -base64 64)" \
   -e PHX_HOST=relay.example.com \
   -e PORT=4000 \
-  relay-server
+  onlytty-server
 ```
 
 - **TLS is required.** Serve over HTTPS behind a proxy that sets

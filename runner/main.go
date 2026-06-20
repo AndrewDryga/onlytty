@@ -1,4 +1,4 @@
-// Command relay shares a command (or your shell) running in a local PTY to a
+// Command onlytty shares a command (or your shell) running in a local PTY to a
 // browser, end-to-end encrypted, through an untrusted relay. See README.md.
 package main
 
@@ -57,22 +57,22 @@ func run() int {
 	flag.Parse()
 
 	if *showVer {
-		fmt.Println("relay", resolveVersion())
+		fmt.Println("onlytty", resolveVersion())
 		return 0
 	}
 	if *server == "" {
-		fmt.Fprintln(os.Stderr, "relay: set --server or ONLYTTY_SERVER (e.g. https://relay.example.com)")
+		fmt.Fprintln(os.Stderr, "onlytty: set --server or ONLYTTY_SERVER (e.g. https://relay.example.com)")
 		return 2
 	}
 	if *ttl <= 0 {
-		fmt.Fprintln(os.Stderr, "relay: --ttl must be positive")
+		fmt.Fprintln(os.Stderr, "onlytty: --ttl must be positive")
 		return 2
 	}
 
 	argv := resolveCommand(flag.Args())
 	client, err := relayclient.New(*server, *allowInsecure)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "relay:", err)
+		fmt.Fprintln(os.Stderr, "onlytty:", err)
 		return 1
 	}
 
@@ -86,13 +86,13 @@ func run() int {
 	case *genPass:
 		passphrase, err = generatePassphrase()
 		if err != nil {
-			fmt.Fprintln(os.Stderr, "relay:", err)
+			fmt.Fprintln(os.Stderr, "onlytty:", err)
 			return 1
 		}
 	case *withPass:
 		passphrase, err = promptPassphrase()
 		if err != nil {
-			fmt.Fprintln(os.Stderr, "relay:", err)
+			fmt.Fprintln(os.Stderr, "onlytty:", err)
 			return 1
 		}
 	}
@@ -100,19 +100,19 @@ func run() int {
 	// 1) Create the session (the relay never sees the secret below).
 	sess, err := client.CreateSession(ctx, *ttl)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "relay:", err)
+		fmt.Fprintln(os.Stderr, "onlytty:", err)
 		return 1
 	}
 
 	// 2) Generate the session secret S and derive the E2E keys locally.
 	secret := make([]byte, protocol.SecretLen)
 	if _, err := rand.Read(secret); err != nil {
-		fmt.Fprintln(os.Stderr, "relay:", err)
+		fmt.Fprintln(os.Stderr, "onlytty:", err)
 		return 1
 	}
 	keys, err := protocol.DeriveKeys(secret, sess.ID, passphrase)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "relay:", err)
+		fmt.Fprintln(os.Stderr, "onlytty:", err)
 		return 1
 	}
 	secretB64 := base64.RawURLEncoding.EncodeToString(secret)
@@ -124,7 +124,7 @@ func run() int {
 	// 3) Start the command in a PTY and mirror it locally.
 	psess, err := ptysession.Start(argv, os.Environ())
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "relay: failed to start command:", err)
+		fmt.Fprintln(os.Stderr, "onlytty: failed to start command:", err)
 		return 1
 	}
 	if ws, err := pty.GetsizeFull(os.Stdin); err == nil {
@@ -148,7 +148,7 @@ func run() int {
 		Notify: notifier(), Fingerprint: formatFingerprint(keys.Fingerprint),
 	})
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "relay:", err)
+		fmt.Fprintln(os.Stderr, "onlytty:", err)
 		return 1
 	}
 
@@ -156,7 +156,7 @@ func run() int {
 	go watchResize(ctx, orch)
 
 	code := orch.Run(ctx)
-	fmt.Fprintf(os.Stderr, "\r\n%s\r\n", dim("relay: session ended (exit "+itoa(code)+")"))
+	fmt.Fprintf(os.Stderr, "\r\n%s\r\n", dim("onlytty: session ended (exit "+itoa(code)+")"))
 	return code
 }
 
@@ -228,7 +228,7 @@ func remaining(expiresAt int64, now time.Time) time.Duration {
 
 func printBanner(link, fingerprint string, expiresIn time.Duration, readOnly bool, passphrase string, generated, noQR bool) {
 	w := os.Stderr
-	fmt.Fprintf(w, "\n  %s\n\n", bold("relay — this session is shared, end-to-end encrypted"))
+	fmt.Fprintf(w, "\n  %s\n\n", bold("onlytty — this session is shared, end-to-end encrypted"))
 	if !noQR {
 		qrterminal.GenerateHalfBlock(link, qrterminal.M, w)
 		fmt.Fprintln(w)
@@ -281,11 +281,11 @@ func formatFingerprint(fp string) string {
 
 func usage() {
 	w := os.Stderr
-	fmt.Fprintf(w, `relay — share a command or your shell to a browser, end-to-end encrypted.
+	fmt.Fprintf(w, `onlytty — share a command or your shell to a browser, end-to-end encrypted.
 
 Usage:
-  relay [flags]              share your $SHELL
-  relay [flags] -- <cmd>...  share one command
+  onlytty [flags]              share your $SHELL
+  onlytty [flags] -- <cmd>...  share one command
 
 Flags:
 `)
@@ -306,7 +306,7 @@ Flags:
 		}
 		fmt.Fprintf(w, "  %-*s  %s%s\n", width, "--"+f.Name, f.Usage, def)
 	}
-	fmt.Fprintf(w, "\nExamples:\n  relay -- claude\n  relay --read-only -- htop\n  relay --passphrase\n")
+	fmt.Fprintf(w, "\nExamples:\n  onlytty -- claude\n  onlytty --read-only -- htop\n  onlytty --passphrase\n")
 }
 
 // Small ANSI helpers, gated on stderr being a terminal.

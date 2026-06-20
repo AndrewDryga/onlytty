@@ -1,4 +1,4 @@
-# relay protocol (v1)
+# OnlyTTY protocol (v1)
 
 The contract every component agrees on: the Go runner, the Elixir relay, and the
 browser viewer. It is the source of truth — change it here first, then the code.

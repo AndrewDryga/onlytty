@@ -10,7 +10,7 @@ defmodule OnlyttyWeb.SiteTest do
       body = html_response(conn, 200)
       assert body =~ "OnlyTTY"
       assert body =~ "while sitting on the toilet?"
-      assert body =~ "relay -- claude"
+      assert body =~ "onlytty -- claude"
     end
 
     test "includes the core SEO tags", %{conn: conn} do
@@ -51,7 +51,7 @@ defmodule OnlyttyWeb.SiteTest do
       body = html_response(conn, 200)
       assert body =~ "Want to control"
       assert body =~ "Claude Code"
-      assert body =~ "relay -- claude"
+      assert body =~ "onlytty -- claude"
       assert body =~ ~s(rel="canonical")
       assert body =~ "/control/claude"
       assert body =~ ~s("@type":"BreadcrumbList")
@@ -64,7 +64,7 @@ defmodule OnlyttyWeb.SiteTest do
         body = html_response(conn, 200)
         assert body =~ tool.name, "expected #{tool.slug} page to mention #{tool.name}"
         # The command is HTML-escaped on the page (e.g. quotes in `watch`'s cmd).
-        assert body =~ Plug.HTML.html_escape("relay -- #{tool.cmd}")
+        assert body =~ Plug.HTML.html_escape("onlytty -- #{tool.cmd}")
       end
     end
 

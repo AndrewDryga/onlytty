@@ -15,7 +15,7 @@ session contents, but we can drop sessions and block traffic that abuses the ser
 
 ## Trust model in one paragraph
 
-`relay` end-to-end encrypts terminal IO with AES-256-GCM under keys derived (HKDF,
+`onlytty` end-to-end encrypts terminal IO with AES-256-GCM under keys derived (HKDF,
 optional PBKDF2 passphrase) from a 32-byte secret that lives only in the link's URL
 fragment. The relay server pairs a runner with a viewer by session id and forwards
 opaque, authenticated frames; it can drop, delay, or observe the *timing/size* of

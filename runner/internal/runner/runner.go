@@ -226,7 +226,7 @@ func (o *Orchestrator) connectLoop(ctx context.Context) {
 		if err != nil {
 			var fatal *relayclient.FatalDialError
 			if errors.As(err, &fatal) {
-				o.note("relay: " + fatal.Error() + " — sharing stopped (command still running locally)")
+				o.note("onlytty: " + fatal.Error() + " — sharing stopped (command still running locally)")
 				return
 			}
 			if ctx.Err() != nil {
@@ -370,16 +370,16 @@ func (o *Orchestrator) handleControl(c *connState, data []byte) {
 		}
 	case "peer_join":
 		o.viewers.Store(1)
-		o.note("relay: viewer connected · fingerprint " + o.fp)
+		o.note("onlytty: viewer connected · fingerprint " + o.fp)
 		signal(c.join)
 	case "peer_left":
 		o.viewers.Store(0)
 		o.granted.Store(false)
-		o.note("relay: viewer disconnected")
+		o.note("onlytty: viewer disconnected")
 	case "busy":
-		o.note("relay: a viewer is already connected (single-viewer lock)")
+		o.note("onlytty: a viewer is already connected (single-viewer lock)")
 	case "bye":
-		o.note("relay: session closed by the relay")
+		o.note("onlytty: session closed by the relay")
 	}
 }
 
@@ -417,12 +417,12 @@ func (o *Orchestrator) handleBinary(frame []byte) {
 		} else {
 			o.granted.Store(true)
 			o.emit(protocol.KindControl, []byte{protocol.ControlGranted})
-			o.note("relay: viewer took control")
+			o.note("onlytty: viewer took control")
 		}
 	case protocol.KindCtrlRel:
 		o.granted.Store(false)
 		o.emit(protocol.KindControl, []byte{protocol.ControlReadOnly})
-		o.note("relay: viewer released control")
+		o.note("onlytty: viewer released control")
 	}
 }
 

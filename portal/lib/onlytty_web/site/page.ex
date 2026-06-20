@@ -14,7 +14,7 @@ defmodule OnlyttyWeb.Site.Page do
 
   alias OnlyttyWeb.Site.Tools
 
-  @github "https://github.com/AndrewDryga/relay"
+  @github "https://github.com/AndrewDryga/onlytty"
   @og_image "/assets/og.png"
 
   # ── Public page builders ──────────────────────────────────────────────────
@@ -128,7 +128,7 @@ defmodule OnlyttyWeb.Site.Page do
     <h2>Enforcement</h2>
     <p>Sessions are end-to-end encrypted, so we can’t police their contents — but we can and will drop sessions and block traffic that abuses the service or its infrastructure.</p>
     <h2>Report abuse</h2>
-    <p>Email <a href="mailto:andrew@dryga.com">andrew@dryga.com</a> with details. For security vulnerabilities, see <a href="https://github.com/AndrewDryga/relay/blob/main/SECURITY.md">SECURITY.md</a>.</p>
+    <p>Email <a href="mailto:andrew@dryga.com">andrew@dryga.com</a> with details. For security vulnerabilities, see <a href="https://github.com/AndrewDryga/onlytty/blob/main/SECURITY.md">SECURITY.md</a>.</p>
     """)
   end
 
@@ -294,7 +294,7 @@ defmodule OnlyttyWeb.Site.Page do
             <a class="btn btn-primary" href="#start">Get started — it's free</a>
             <a class="btn btn-ghost" href="#how">See how it works</a>
           </div>
-          <div class="hero-snippet">#{snippet("relay -- claude")}</div>
+          <div class="hero-snippet">#{snippet("onlytty -- claude")}</div>
         </div>
         <div class="hero-demo" data-reveal>#{term_demo("claude", "Claude Code", agent: true)}</div>
       </div>
@@ -322,7 +322,7 @@ defmodule OnlyttyWeb.Site.Page do
         <p class="eyebrow center">How it works</p>
         <h2 class="center">Three steps. No port forwarding, no agents, no accounts.</h2>
         <div class="steps">
-          #{step("1", "Run it", "<code>relay -- claude</code> — or just <code>relay</code> to share your whole shell. It keeps running in your terminal and prints a link plus a QR code.")}
+          #{step("1", "Run it", "<code>onlytty -- claude</code> — or just <code>onlytty</code> to share your whole shell. It keeps running in your terminal and prints a link plus a QR code.")}
           #{step("2", "Scan it", "Open the link on your phone. The session secret rides in the URL <code>#fragment</code>, which never leaves the browser — so the relay can't read a thing.")}
           #{step("3", "Drive it", "Watch live, or tap <em>take control</em> to type — anyone with the link can, so share it like a key (or start <code>--read-only</code>). Lose signal? It reconnects and picks up where you left off.")}
         </div>
@@ -410,10 +410,10 @@ defmodule OnlyttyWeb.Site.Page do
         <p class="lede center">Install the open-source CLI, then share a command — or your whole shell. It prints a link and a QR; scan it and you're live.</p>
         <div class="start-card">
           <div class="examples">
-            #{example_row("Install", "go install github.com/AndrewDryga/relay@latest")}
-            #{example_row("Your whole shell", "relay")}
-            #{example_row("One command", "relay -- claude")}
-            #{example_row("Watch-only", "relay --read-only -- htop")}
+            #{example_row("Install", "go install github.com/AndrewDryga/onlytty/runner@latest")}
+            #{example_row("Your whole shell", "onlytty")}
+            #{example_row("One command", "onlytty -- claude")}
+            #{example_row("Watch-only", "onlytty --read-only -- htop")}
           </div>
         </div>
         <div class="cta-row center"><a class="btn btn-primary" href="#{@github}" rel="noopener">Get the CLI on GitHub</a><a class="btn btn-ghost" href="/tools">See what you can control</a></div>
@@ -461,7 +461,7 @@ defmodule OnlyttyWeb.Site.Page do
           <p class="eyebrow">#{h(t.category)}</p>
           <h1>Want to control <span class="hl">#{h(t.name)}</span> while sitting on the toilet?</h1>
           <p class="lede">#{h(t.why)}</p>
-          #{snippet("relay -- #{t.cmd}")}
+          #{snippet("onlytty -- #{t.cmd}")}
           <div class="cta-row"><a class="btn btn-primary" href="#start">Get started</a><a class="btn btn-ghost" href="/tools">All tools</a></div>
         </div>
         <div class="hero-demo">#{term_demo(t.cmd, t.name)}</div>
@@ -489,8 +489,8 @@ defmodule OnlyttyWeb.Site.Page do
         <h2 class="center">Run #{h(t.name)} from your phone in about 30 seconds</h2>
         <div class="start-card">
           <div class="examples">
-            #{example_row("Install the CLI", "go install github.com/AndrewDryga/relay@latest")}
-            #{example_row("Share #{t.name}", "relay -- #{t.cmd}")}
+            #{example_row("Install the CLI", "go install github.com/AndrewDryga/onlytty/runner@latest")}
+            #{example_row("Share #{t.name}", "onlytty -- #{t.cmd}")}
           </div>
         </div>
         <p class="muted center">It prints a link and a QR — scan it and you're live. <a href="/#start">More ways to run it →</a></p>
@@ -557,7 +557,7 @@ defmodule OnlyttyWeb.Site.Page do
   # ── Small components ──────────────────────────────────────────────────────
 
   defp chip(t) do
-    ~s(<a class="chip" href="/control/#{h(t.slug)}"><b>#{h(t.name)}</b><code>relay -- #{h(t.cmd)}</code></a>)
+    ~s(<a class="chip" href="/control/#{h(t.slug)}"><b>#{h(t.name)}</b><code>onlytty -- #{h(t.cmd)}</code></a>)
   end
 
   defp tool_card(t) do
@@ -565,7 +565,7 @@ defmodule OnlyttyWeb.Site.Page do
     <a class="card" href="/control/#{h(t.slug)}">
       <span class="card-name">#{h(t.name)}</span>
       <span class="card-what">#{h(t.what)}</span>
-      <code class="card-cmd">relay -- #{h(t.cmd)}</code>
+      <code class="card-cmd">onlytty -- #{h(t.cmd)}</code>
     </a>
     """
   end
@@ -658,7 +658,7 @@ defmodule OnlyttyWeb.Site.Page do
     ~s(<div class="snippet"><code><span class="prompt">$</span> #{h(text)}</code><button class="copy" type="button" data-copy="#{h(text)}" aria-label="Copy command">Copy</button></div>)
   end
 
-  # The hero visual: a terminal sharing `relay -- cmd` + a phone showing the same
+  # The hero visual: a terminal sharing `onlytty -- cmd` + a phone showing the same
   # session live. Parameterized by the command/name so each tool page shows its own.
   # Built with explicit newlines because <pre> is whitespace-sensitive; the relay
   # banner is identical for every command (see printBanner in main.go) — only the
@@ -667,9 +667,9 @@ defmodule OnlyttyWeb.Site.Page do
     # Keep lines short: the phone overlaps the bottom-right, so long lines would run
     # under it. These are stylized, not real wrapping output.
     lines = [
-      ~s(<span class="c-p">$</span> relay -- #{h(cmd)}),
+      ~s(<span class="c-p">$</span> onlytty -- #{h(cmd)}),
       :gap,
-      ~s(<span class="c-b">relay — shared, end-to-end encrypted</span>),
+      ~s(<span class="c-b">onlytty — shared, end-to-end encrypted</span>),
       :gap,
       qr(),
       ~s(Link  <span class="c-link">onlytty.com/s/7q2k</span><span class="c-frag">#…</span>),
@@ -691,10 +691,10 @@ defmodule OnlyttyWeb.Site.Page do
 
     term =
       ~s(<div class="term">) <>
-        ~s(<div class="term-bar"><span class="tdot r"></span><span class="tdot y"></span><span class="tdot g"></span><span class="term-title">#{h(name)} — relay</span><span class="term-live"><i></i>shared</span></div>) <>
+        ~s(<div class="term-bar"><span class="tdot r"></span><span class="tdot y"></span><span class="tdot g"></span><span class="term-title">#{h(name)} — onlytty</span><span class="term-live"><i></i>shared</span></div>) <>
         ~s(<pre class="term-body">) <> body <> ~s(</pre></div>)
 
-    ~s(<div class="stage" role="img" aria-label="A terminal running 'relay -- #{h(cmd)}' shares an end-to-end-encrypted link; a phone shows the same #{h(name)} session live and in your control.">) <>
+    ~s(<div class="stage" role="img" aria-label="A terminal running 'onlytty -- #{h(cmd)}' shares an end-to-end-encrypted link; a phone shows the same #{h(name)} session live and in your control.">) <>
       term <> phone(name, opts) <> ~s(</div>)
   end
 
@@ -735,7 +735,7 @@ defmodule OnlyttyWeb.Site.Page do
   end
 
   # A real, scannable QR drawn with terminal half-block characters — like the
-  # real `relay` banner. Generated once with the same library and level the CLI
+  # real `onlytty` banner. Generated once with the same library and level the CLI
   # uses (qrterminal.GenerateHalfBlock at level M); shrunk to size via .qr-art.
   # (Go on, scan it.)
   defp qr do
@@ -820,7 +820,7 @@ defmodule OnlyttyWeb.Site.Page do
       {"Can the server see my terminal?",
        ~s(No. The session secret lives in the link's <code>#fragment</code>, which browsers never send to the server. Keys are derived from it, so the relay only ever forwards ciphertext. Read the <a href="#{@github}/blob/main/PROTOCOL.md" rel="noopener">protocol</a> and <a href="#{@github}/blob/main/SECURITY.md" rel="noopener">security model</a> yourself.)},
       {"Do I have to open a port or install an agent?",
-       "No inbound ports and no daemon. The <code>relay</code> CLI dials out over WebSocket/TLS, so nothing listens on your machine. It's a single Go binary."},
+       "No inbound ports and no daemon. The <code>onlytty</code> CLI dials out over WebSocket/TLS, so nothing listens on your machine. It's a single Go binary."},
       {"Who can take control of my session?",
        ~s(Anyone with the full link. The link is the key: whoever opens it can watch — and can tap <em>take control</em> to type. Read-only is just the default view, not a per-person gate, so share the link like a password. Want watch-only? Start with <code>--read-only</code>. Want a second factor? Add <code>--passphrase</code>, and the link alone won't decrypt. Either way, exit the command to stop sharing instantly.)},
       {"What can I actually control?",

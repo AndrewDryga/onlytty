@@ -65,6 +65,6 @@ defmodule OnlyttyWeb.HTTPTest do
     conn = get(conn, ~p"/s/does-not-exist")
     assert conn.status == 200
     assert get_resp_header(conn, "content-type") |> hd() =~ "text/html"
-    assert conn.resp_body =~ "<title>relay</title>"
+    assert conn.resp_body =~ "<title>OnlyTTY</title>"
   end
 end

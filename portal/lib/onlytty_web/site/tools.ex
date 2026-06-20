@@ -13,7 +13,7 @@ defmodule OnlyttyWeb.Site.Tools do
                     only renders slugs that exist here, so the slug never reaches
                     the page from untrusted input.
     * `:name`     — display name used in headings and copy.
-    * `:cmd`      — the command shown after `relay --` in the run snippet.
+    * `:cmd`      — the command shown after `onlytty --` in the run snippet.
     * `:category` — one of `categories/0`, used to group the grid and index.
     * `:what`     — one sentence: what the tool is.
     * `:why`      — one sentence: why driving it from your phone is worth it.

@@ -7,12 +7,12 @@
 </div>
 
 ```bash
-relay -- claude          # share one command
-relay                    # share your whole shell
+onlytty -- claude          # share one command
+onlytty                  # share your whole shell
 # → prints a link + QR.  Scan it, and an xterm in your browser is the same session.
 ```
 
-`relay` wraps a command (or your shell) in a PTY on your machine, mirrors it locally
+`onlytty` wraps a command (or your shell) in a PTY on your machine, mirrors it locally
 so your terminal stays live, and streams an **end-to-end-encrypted** copy to a browser
 through a small relay server. The session secret lives only in the link's `#fragment`,
 which never reaches the server — so a compromised or curious relay sees only opaque
@@ -31,7 +31,7 @@ bytes, never your terminal.
 ```
 your machine                      relay (untrusted)             browser (phone / desktop)
 ┌────────────────────┐   wss/TLS  ┌──────────────────┐  wss/TLS ┌────────────────────────┐
-│ relay (Go)         │◄──────────►│ Elixir/Phoenix   │◄────────►│ xterm.js viewer        │
+│ onlytty (Go)       │◄──────────►│ Elixir/Phoenix   │◄────────►│ xterm.js viewer        │
 │  PTY(cmd | $SHELL) │  ciphertext│  pairs by id     │ciphertext│  key from #fragment    │
 │  mirror → terminal │  only      │  forwards opaque │  only    │  AES-GCM open/seal     │
 │  AES-GCM seal/open │            │  frames; stores  │          │  read-only ↔ control   │
@@ -48,12 +48,12 @@ between is ciphertext. See [PROTOCOL.md](PROTOCOL.md) for the exact wire format.
 
 ## Install
 
-**Runner** (the `relay` CLI) — a single Go binary:
+**Runner** (the `onlytty` CLI) — a single Go binary:
 
 ```bash
-go install github.com/AndrewDryga/relay@latest     # with Go
+go install github.com/AndrewDryga/onlytty/runner@latest     # with Go
 # or, from a clone:
-make install                                       # → ~/.local/bin/relay
+make install                                       # → ~/.local/bin/onlytty
 ```
 
 **Relay server** — see [Deploy the relay](#deploy-the-relay). You point the runner at
@@ -63,11 +63,11 @@ it with `--server` or `ONLYTTY_SERVER`.
 
 ```bash
 # 1. Run a relay somewhere reachable (or locally for a first try):
-cd server && mix deps.get && mix phx.server     # dev relay on http://localhost:4000
+cd portal && mix deps.get && mix phx.server     # dev relay on http://localhost:4000
 
 # 2. Point the runner at it and share something:
 export ONLYTTY_SERVER=http://localhost:4000
-relay -- htop
+onlytty -- htop
 # → a link + QR is printed. Open it (same machine) or scan it (phone).
 ```
 
@@ -76,8 +76,8 @@ For real use, deploy the relay behind HTTPS and set `ONLYTTY_SERVER=https://rela
 ## CLI reference
 
 ```
-relay [flags]              share your $SHELL
-relay [flags] -- <cmd>...  share one command
+onlytty [flags]              share your $SHELL
+onlytty [flags] -- <cmd>...  share one command
 
   --server <url>     relay origin (or ONLYTTY_SERVER), e.g. https://relay.example.com
   --read-only        viewers may watch but never type or resize
@@ -113,13 +113,13 @@ The relay is an Elixir release. Sessions are **in memory only** — nothing
 terminal-related is ever persisted, so there is no database.
 
 ```bash
-docker build -t relay-server ./server
+docker build -t onlytty-server ./portal
 docker run -p 4000:4000 \
   -e PHX_SERVER=true \
   -e SECRET_KEY_BASE="$(openssl rand -base64 64)" \
   -e PHX_HOST=relay.example.com \
   -e PORT=4000 \
-  relay-server
+  onlytty-server
 ```
 
 Put it behind a TLS-terminating proxy (Cloudflare, Fly, Render, Caddy, nginx) that
@@ -207,10 +207,10 @@ of the local `check` gate. Install the Go scanner once with
 
 | Path | What |
 |------|------|
-| `main.go`, `internal/` | the `relay` runner (Go CLI) |
-| `internal/protocol/` | crypto + wire format (Go); golden vectors pin it to the JS |
-| `server/` | the relay control plane (Elixir/Phoenix, no database) |
-| `server/priv/static/` | the browser viewer (vanilla JS + vendored xterm) |
+| `runner/` | the `onlytty` runner (Go CLI) |
+| `runner/internal/protocol/` | crypto + wire format (Go); golden vectors pin it to the JS |
+| `portal/` | the relay control plane (Elixir/Phoenix, no database) |
+| `portal/priv/static/` | the browser viewer (vanilla JS + vendored xterm) |
 | `test/` | Node interop, Go transport e2e, headless-browser e2e |
 | `PROTOCOL.md` | the wire + crypto contract every component obeys |
 
