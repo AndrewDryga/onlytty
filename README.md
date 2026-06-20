@@ -136,6 +136,13 @@ context. Without HTTPS the viewer refuses to run (and the secret could leak in t
 | `RELAY_DEFAULT_TTL` | `1800` | default session TTL in seconds; every requested TTL is clamped to 60–86400 (24h) |
 | `RELAY_IDLE_TIMEOUT` | `600` | close after this many seconds with no runner traffic |
 | `RELAY_MAX_SESSIONS` | `2000` | cap on concurrent sessions (bounds create-spam) |
+| `RELAY_RATELIMIT_MAX` | `30` | max `POST /api/sessions` per window per IP (`0` disables) |
+| `RELAY_RATELIMIT_WINDOW` | `60` | rate-limit window in seconds |
+
+Throttling keys on the **direct peer IP** (`conn.remote_ip`), which is correct when the
+relay faces clients directly. Behind a reverse proxy that is your proxy's address, so
+either rate-limit at the proxy too, or add a trusted-`X-Forwarded-For` plug (e.g.
+`remote_ip`) so the real client IP reaches the limiter — don't trust the header blindly.
 
 ## Security model — stated honestly
 

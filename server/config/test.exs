@@ -10,6 +10,10 @@ config :relay, RelayWeb.Endpoint,
 # Shorten the idle timeout so the idle-close path is testable without long sleeps.
 config :relay, :idle_timeout_ms, 10 * 60 * 1000
 
+# Disable session-create rate limiting by default; the rate-limit test enables it
+# explicitly with a low limit so the rest of the suite isn't throttled.
+config :relay, :rate_limit_max, :infinity
+
 # Print only warnings and errors during test
 config :logger, level: :warning
 

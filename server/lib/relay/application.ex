@@ -19,6 +19,8 @@ defmodule Relay.Application do
        name: Relay.SessionSupervisor,
        strategy: :one_for_one,
        max_children: Application.get_env(:relay, :max_sessions, 2_000)},
+      # Per-IP throttle for unauthenticated session creation (RELAY_RATELIMIT_*).
+      Relay.RateLimit,
       # Start to serve requests, typically the last entry
       RelayWeb.Endpoint
     ]

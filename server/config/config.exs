@@ -8,7 +8,11 @@
 import Config
 
 config :relay,
-  generators: [timestamp_type: :utc_datetime]
+  generators: [timestamp_type: :utc_datetime],
+  # Per-IP throttle for POST /api/sessions. :infinity disables it. Tunable at
+  # runtime via RELAY_RATELIMIT_MAX / RELAY_RATELIMIT_WINDOW (see runtime.exs).
+  rate_limit_max: 30,
+  rate_limit_window_ms: 60_000
 
 # Configures the endpoint
 config :relay, RelayWeb.Endpoint,

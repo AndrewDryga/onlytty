@@ -38,6 +38,17 @@ if max = System.get_env("RELAY_MAX_SESSIONS") do
   config :relay, :max_sessions, String.to_integer(max)
 end
 
+# Per-IP throttle for POST /api/sessions (defaults: 30 requests / 60s).
+#   RELAY_RATELIMIT_MAX     — max creates per window per IP ("0" disables)
+#   RELAY_RATELIMIT_WINDOW  — window length in seconds
+if max = System.get_env("RELAY_RATELIMIT_MAX") do
+  config :relay, :rate_limit_max, (max == "0" && :infinity) || String.to_integer(max)
+end
+
+if win = System.get_env("RELAY_RATELIMIT_WINDOW") do
+  config :relay, :rate_limit_window_ms, String.to_integer(win) * 1000
+end
+
 if config_env() == :prod do
   # The secret key base is used to sign/encrypt cookies and other secrets.
   # A default value is used in config/dev.exs and config/test.exs but you
