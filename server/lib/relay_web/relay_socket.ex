@@ -73,8 +73,11 @@ defmodule RelayWeb.RelaySocket do
         Session.close(state.session, Map.get(msg, "reason", "closed"))
         {:ok, state}
 
-      {:ok, %{"t" => "bye"}} -> {:stop, :normal, {@close_normal, "closed"}, state}
-      _ -> {:ok, state}
+      {:ok, %{"t" => "bye"}} ->
+        {:stop, :normal, {@close_normal, "closed"}, state}
+
+      _ ->
+        {:ok, state}
     end
   end
 
