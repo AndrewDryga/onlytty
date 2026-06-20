@@ -298,10 +298,10 @@ defmodule RelayWeb.Site.Page do
     """
     <section class="trust">
       <div class="wrap trust-inner">
-        <span>End-to-end encrypted</span><span aria-hidden="true">·</span>
-        <span>No inbound ports</span><span aria-hidden="true">·</span>
-        <span>Survives bad Wi-Fi</span><span aria-hidden="true">·</span>
-        <span>Open source</span>
+        <span>#{icon("check")} End-to-end encrypted</span>
+        <span>#{icon("check")} No inbound ports</span>
+        <span>#{icon("check")} Survives bad Wi-Fi</span>
+        <span>#{icon("check")} Open source</span>
       </div>
     </section>
     """
@@ -327,15 +327,15 @@ defmodule RelayWeb.Site.Page do
     """
     <section class="section alt">
       <div class="wrap">
-        <p class="eyebrow center">Why it's safe enough to mean it</p>
+        <p class="eyebrow center">Security &amp; trust</p>
         <h2 class="center">A remote terminal you don't have to be nervous about.</h2>
         <div class="features">
-          #{feature("🔐", "End-to-end encrypted", "Keys come from a secret in the link's fragment that the relay never receives. It forwards ciphertext; your keystrokes stay yours.")}
-          #{feature("📶", "Survives bad Wi-Fi", "Long-lived sessions that ride out dropouts, sleep, and dead zones. Lose signal on the subway, resurface, and your terminal is right where you left it.")}
-          #{feature("🔑", "The link is the key", "Anyone with the full link can watch and take control — read-only is just the default view. Start it read-only to lock that down, or add a passphrase the link alone can't decrypt.")}
-          #{feature("🚪", "No inbound ports", "The CLI dials out over TLS. Nothing listens on your machine, so your firewall stays exactly as shut as it is now.")}
-          #{feature("🧩", "Works with any CLI", "If it runs in a terminal, OnlyTTY shares it. Agents, editors, REPLs, TUIs — or your whole shell.")}
-          #{feature("🗑️", "Stores nothing", "The relay pairs two encrypted sockets and forgets you exist. No accounts, no history, no logs of your bytes.")}
+          #{feature("lock", "End-to-end encrypted", "Keys come from a secret in the link's fragment that the relay never receives. It forwards ciphertext; your keystrokes stay yours.")}
+          #{feature("wifi", "Survives bad Wi-Fi", "Long-lived sessions that ride out dropouts, sleep, and dead zones. Lose signal on the subway, resurface, and your terminal is right where you left it.")}
+          #{feature("key", "The link is the key", "Anyone with the full link can watch and take control — read-only is just the default view. Start it read-only to lock that down, or add a passphrase the link alone can't decrypt.")}
+          #{feature("shield", "No inbound ports", "The CLI dials out over TLS. Nothing listens on your machine, so your firewall stays exactly as shut as it is now.")}
+          #{feature("terminal", "Works with any CLI", "If it runs in a terminal, OnlyTTY shares it. Agents, editors, REPLs, TUIs — or your whole shell.")}
+          #{feature("trash", "Stores nothing", "The relay pairs two encrypted sockets and forgets you exist. No accounts, no history, no logs of your bytes.")}
         </div>
       </div>
     </section>
@@ -348,7 +348,7 @@ defmodule RelayWeb.Site.Page do
     """
     <section id="tools" class="section">
       <div class="wrap">
-        <p class="eyebrow center">Works with everything you live in</p>
+        <p class="eyebrow center">Compatibility</p>
         <h2 class="center">Pick your poison. There's a guide for each.</h2>
         <div class="chips">#{chips}</div>
         <p class="center more"><a class="btn btn-ghost" href="/tools">Browse all #{length(Tools.all())} tools →</a></p>
@@ -361,7 +361,7 @@ defmodule RelayWeb.Site.Page do
     """
     <section class="section alt">
       <div class="wrap">
-        <p class="eyebrow center">From creators just like you</p>
+        <p class="eyebrow center">Testimonials</p>
         <h2 class="center">The only fanbase your terminal will ever need.</h2>
         <div class="quotes">
           #{quote_card("My subscribers can't get enough of my uptime. It's just me. I am the subscriber.", "rootdaddy", "self-hosted everything")}
@@ -380,8 +380,8 @@ defmodule RelayWeb.Site.Page do
     """
     <section id="faq" class="section">
       <div class="wrap narrow">
-        <p class="eyebrow center">Questions you're right to ask</p>
-        <h2 class="center">FAQ</h2>
+        <p class="eyebrow center">FAQ</p>
+        <h2 class="center">Questions you're right to ask</h2>
         <div class="faq">#{items}</div>
       </div>
     </section>
@@ -403,14 +403,16 @@ defmodule RelayWeb.Site.Page do
     """
     <section id="start" class="section start">
       <div class="wrap narrow center">
-        <p class="eyebrow center">Get started in about 30 seconds</p>
+        <p class="eyebrow center">Get started</p>
         <h2 class="center">Your terminal is about to go public. To exactly one fan: you.</h2>
         <p class="lede center">Install the open-source CLI, then share a command — or your whole shell. It prints a link and a QR; scan it and you're live.</p>
-        <div class="examples">
-          #{example_row("Install", "go install github.com/AndrewDryga/relay@latest")}
-          #{example_row("Your whole shell", "relay")}
-          #{example_row("One command", "relay -- claude")}
-          #{example_row("Watch-only", "relay --read-only -- htop")}
+        <div class="start-card">
+          <div class="examples">
+            #{example_row("Install", "go install github.com/AndrewDryga/relay@latest")}
+            #{example_row("Your whole shell", "relay")}
+            #{example_row("One command", "relay -- claude")}
+            #{example_row("Watch-only", "relay --read-only -- htop")}
+          </div>
         </div>
         <div class="cta-row center"><a class="btn btn-primary" href="#{@github}" rel="noopener">Get the CLI on GitHub</a><a class="btn btn-ghost" href="/tools">See what you can control</a></div>
       </div>
@@ -544,8 +546,38 @@ defmodule RelayWeb.Site.Page do
     """
   end
 
-  defp feature(icon, title, body) do
-    ~s(<div class="feature"><span class="feature-icon" aria-hidden="true">#{icon}</span><h3>#{h(title)}</h3><p>#{h(body)}</p></div>)
+  defp feature(icon_name, title, body) do
+    ~s(<div class="feature"><span class="feature-icon" aria-hidden="true">#{icon(icon_name)}</span><h3>#{h(title)}</h3><p>#{h(body)}</p></div>)
+  end
+
+  # Crisp inline icons (Lucide-style, 24px stroke, currentColor) — consistent and
+  # platform-independent, unlike emoji.
+  defp icon(name) do
+    paths =
+      case name do
+        "check" ->
+          ~s(<path d="M20 6 9 17l-5-5"/>)
+
+        "lock" ->
+          ~s(<rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>)
+
+        "wifi" ->
+          ~s(<path d="M5 13a10 10 0 0 1 14 0"/><path d="M8.5 16.5a5 5 0 0 1 7 0"/><path d="M2 8.8a15 15 0 0 1 20 0"/><line x1="12" x2="12.01" y1="20" y2="20"/>)
+
+        "key" ->
+          ~s(<circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 3 3L22 7l-3-3"/>)
+
+        "shield" ->
+          ~s(<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/>)
+
+        "terminal" ->
+          ~s(<polyline points="4 17 10 11 4 5"/><line x1="12" x2="20" y1="19" y2="19"/>)
+
+        "trash" ->
+          ~s(<path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>)
+      end
+
+    ~s(<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">#{paths}</svg>)
   end
 
   defp step(n, title, body) do
