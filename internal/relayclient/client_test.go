@@ -2,6 +2,7 @@ package relayclient
 
 import (
 	"net/http"
+	"strings"
 	"testing"
 )
 
@@ -31,6 +32,20 @@ func TestNewValidation(t *testing.T) {
 		if _, err := New(ok); err != nil {
 			t.Errorf("New(%q) unexpected error: %v", ok, err)
 		}
+	}
+}
+
+func TestSchemelessServerError(t *testing.T) {
+	_, err := New("localhost:4000")
+	if err == nil {
+		t.Fatal("scheme-less --server should error")
+	}
+	if !strings.Contains(err.Error(), "localhost:4000") || !strings.Contains(err.Error(), "http://localhost:4000") {
+		t.Fatalf("error should name the input and suggest http://: %v", err)
+	}
+	// Non-http schemes are still rejected (without the http:// suggestion).
+	if _, err := New("ftp://x"); err == nil {
+		t.Error("ftp:// should error")
 	}
 }
 

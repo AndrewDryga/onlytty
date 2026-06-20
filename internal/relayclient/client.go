@@ -29,10 +29,15 @@ func New(base string) (*Client, error) {
 		return nil, fmt.Errorf("relay url: %w", err)
 	}
 	if u.Scheme != "http" && u.Scheme != "https" {
-		return nil, fmt.Errorf("relay url must be http(s), got %q", u.Scheme)
+		// url.Parse reads "localhost:4000" as scheme "localhost", opaque "4000" — the
+		// usual scheme-less mistake. Echo the input and suggest the fix.
+		if u.Scheme == "" || u.Opaque != "" {
+			return nil, fmt.Errorf("relay server %q needs an http(s):// scheme (did you mean http://%s?)", base, base)
+		}
+		return nil, fmt.Errorf("relay server %q must be http or https, not %q", base, u.Scheme)
 	}
 	if u.Host == "" {
-		return nil, fmt.Errorf("relay url missing host: %q", base)
+		return nil, fmt.Errorf("relay server %q is missing a host", base)
 	}
 	return &Client{base: u, httpc: &http.Client{Timeout: 20 * time.Second}}, nil
 }
