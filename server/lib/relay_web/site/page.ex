@@ -208,8 +208,8 @@ defmodule RelayWeb.Site.Page do
         </nav>
       </div>
       <div class="wrap footer-bottom">
-        <span>© OnlyTTY</span>
-        <span>Open source. The relay only ever sees ciphertext.</span>
+        <span>© OnlyTTY · open source</span>
+        <span>Made by <a href="https://dryga.com" rel="noopener">Andrew Dryga</a></span>
       </div>
     </footer>
     """
