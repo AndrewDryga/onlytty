@@ -30,6 +30,7 @@ defmodule RelayWeb.Site.Page do
       body:
         hero() <>
           trust_bar() <>
+          tool_marquee() <>
           how_section() <>
           use_cases() <>
           features_section() <>
@@ -226,9 +227,11 @@ defmodule RelayWeb.Site.Page do
           <a href="/#how">How it works</a>
           <a href="/tools">Tools</a>
           <a href="/#faq">FAQ</a>
-          <a href="#{@github}" rel="noopener">GitHub</a>
         </nav>
-        <a class="btn btn-primary btn-sm" href="/#start">Get started</a>
+        <div class="nav-cta">
+          <a class="btn btn-ghost btn-sm nav-gh" href="#{@github}" rel="noopener">#{icon("github")}<span>GitHub</span></a>
+          <a class="btn btn-primary btn-sm" href="/#start">Get started</a>
+        </div>
       </div>
     </header>
     <span id="main"></span>
@@ -283,15 +286,17 @@ defmodule RelayWeb.Site.Page do
     """
     <section class="hero">
       <div class="wrap hero-grid">
-        <div class="hero-copy">
+        <div class="hero-copy" data-reveal>
+          <span class="badge"><span class="dot"></span>End-to-end encrypted · <b>open source</b></span>
           <h1>Want to control your <span class="hl" data-rotate='#{rotate}'>claude</span> while sitting on the toilet?</h1>
           <p class="lede">OnlyTTY gives any command on your machine a private link you can drive from your phone — end-to-end encrypted, so the relay only ever sees ciphertext.</p>
           <div class="cta-row">
             <a class="btn btn-primary" href="#start">Get started — it's free</a>
             <a class="btn btn-ghost" href="#how">See how it works</a>
           </div>
+          <div class="hero-snippet">#{snippet("relay -- claude")}</div>
         </div>
-        <div class="hero-demo">#{term_demo("claude", "Claude Code", agent: true)}</div>
+        <div class="hero-demo" data-reveal>#{term_demo("claude", "Claude Code", agent: true)}</div>
       </div>
     </section>
     """
@@ -332,13 +337,18 @@ defmodule RelayWeb.Site.Page do
       <div class="wrap">
         <p class="eyebrow center">Security &amp; trust</p>
         <h2 class="center">A remote terminal you don't have to be nervous about.</h2>
-        <div class="features">
-          #{feature("lock", "End-to-end encrypted", "Keys come from a secret in the link's fragment that the relay never receives. It forwards ciphertext; your keystrokes stay yours.")}
-          #{feature("wifi", "Survives bad Wi-Fi", "Long-lived sessions that ride out dropouts, sleep, and dead zones. Lose signal on the subway, resurface, and your terminal is right where you left it.")}
-          #{feature("key", "The link is the key", "Anyone with the full link can watch and take control — read-only is just the default view. Start it read-only to lock that down, or add a passphrase the link alone can't decrypt.")}
-          #{feature("shield", "No inbound ports", "The CLI dials out over TLS. Nothing listens on your machine, so your firewall stays exactly as shut as it is now.")}
-          #{feature("terminal", "Works with any CLI", "If it runs in a terminal, OnlyTTY shares it. Agents, editors, REPLs, TUIs — or your whole shell.")}
-          #{feature("trash", "Stores nothing", "The relay pairs two encrypted sockets and forgets you exist. No accounts, no history, no logs of your bytes.")}
+        <div class="bento" data-reveal>
+          <div class="b b-lg">
+            <span class="feature-icon" aria-hidden="true">#{icon("lock")}</span>
+            <h3>End-to-end encrypted</h3>
+            <p>Keys come from a secret in the link's fragment that the relay never receives. It forwards ciphertext; your keystrokes stay yours.</p>
+            <div class="b-cipher" aria-hidden="true">#{cipher_lines()}</div>
+          </div>
+          #{bento_tile("md", "shield", "No inbound ports", "The CLI dials out over TLS. Nothing listens on your machine, so your firewall stays exactly as shut as it is now.")}
+          #{bento_tile("md", "trash", "Stores nothing", "The relay pairs two encrypted sockets and forgets you exist. No accounts, no history, no logs of your bytes.")}
+          #{bento_tile("sm", "wifi", "Survives bad Wi-Fi", "Sessions ride out dropouts, sleep, and dead zones — lose signal on the subway, resurface, and your terminal's right where you left it.")}
+          #{bento_tile("sm", "key", "The link is the key", "Anyone with the full link can watch and take control. Start it read-only, or add a passphrase the link alone can't decrypt.")}
+          #{bento_tile("sm", "terminal", "Works with any CLI", "If it runs in a terminal, OnlyTTY shares it — agents, editors, REPLs, TUIs, or your whole shell.")}
         </div>
       </div>
     </section>
@@ -564,6 +574,31 @@ defmodule RelayWeb.Site.Page do
     ~s(<div class="feature"><span class="feature-icon" aria-hidden="true">#{icon(icon_name)}</span><h3>#{h(title)}</h3><p>#{h(body)}</p></div>)
   end
 
+  defp bento_tile(size, icon_name, title, body) do
+    ~s(<div class="b b-#{size}"><span class="feature-icon" aria-hidden="true">#{icon(icon_name)}</span><h3>#{h(title)}</h3><p>#{h(body)}</p></div>)
+  end
+
+  # An infinite, hover-pausable marquee of supported tools — the "works with
+  # anything" signal. Names are duplicated so the CSS translateX(-50%) loop is
+  # seamless. Decorative (aria-hidden); the same tools are linked accessibly in
+  # the tool grid below and on /tools.
+  defp tool_marquee do
+    half =
+      ~s(<span class="marquee-lead">works with</span>) <>
+        Enum.map_join(Tools.featured(), "", &~s(<span class="marquee-item">#{h(&1.name)}</span>))
+
+    ~s(<section class="marquee" aria-hidden="true"><div class="marquee-track">#{half}#{half}</div></section>)
+  end
+
+  # Decorative "ciphertext" for the big encryption tile — fixed hex, purely visual
+  # (aria-hidden), so it never resembles real key material.
+  defp cipher_lines do
+    "9f3a c1d7 04e8 a52b 6f10 d9c4 3e7a 88b2\n" <>
+      "e10b 77fc 2a4d 90e3 5b6a cc81 1f2e 4d70\n" <>
+      "a3d9 0c5f e244 7b18 96aa 3fd1 c0e7 5a93\n" <>
+      "47e2 b8d0 6c19 f3a7 22be 5d84 e9f1 0a6c"
+  end
+
   # Crisp inline icons (Lucide-style, 24px stroke, currentColor) — consistent and
   # platform-independent, unlike emoji.
   defp icon(name) do
@@ -601,6 +636,9 @@ defmodule RelayWeb.Site.Page do
 
         "trash" ->
           ~s(<path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>)
+
+        "github" ->
+          ~s(<path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.4 5.4 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"/><path d="M9 18c-4.51 2-5-2-7-2"/>)
       end
 
     ~s(<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">#{paths}</svg>)
