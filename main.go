@@ -61,6 +61,10 @@ func run() int {
 		fmt.Fprintln(os.Stderr, "relay: set --server or RELAY_SERVER (e.g. https://relay.example.com)")
 		return 2
 	}
+	if *ttl <= 0 {
+		fmt.Fprintln(os.Stderr, "relay: --ttl must be positive")
+		return 2
+	}
 
 	argv := resolveCommand(flag.Args())
 	client, err := relayclient.New(*server)
@@ -103,7 +107,8 @@ func run() int {
 	secretB64 := base64.RawURLEncoding.EncodeToString(secret)
 	link := client.ViewerURL(sess.ID, secretB64, passphrase != "")
 
-	printBanner(link, formatFingerprint(keys.Fingerprint), *ttl, *readOnly, passphrase != "", *noQR)
+	// Show the expiry the relay actually assigned (it clamps the TTL), not the raw flag.
+	printBanner(link, formatFingerprint(keys.Fingerprint), remaining(sess.ExpiresAt, time.Now()), *readOnly, passphrase != "", *noQR)
 
 	// 3) Start the command in a PTY and mirror it locally.
 	psess, err := ptysession.Start(argv, os.Environ())
@@ -204,7 +209,13 @@ func notifier() func(string) {
 	}
 }
 
-func printBanner(link, fingerprint string, ttl time.Duration, readOnly, passphrase, noQR bool) {
+// remaining is how long until expiresAt (unix seconds), rounded to the second.
+// The relay clamps the requested TTL, so this is the truth to display.
+func remaining(expiresAt int64, now time.Time) time.Duration {
+	return time.Unix(expiresAt, 0).Sub(now).Round(time.Second)
+}
+
+func printBanner(link, fingerprint string, expiresIn time.Duration, readOnly, passphrase, noQR bool) {
 	w := os.Stderr
 	fmt.Fprintf(w, "\n  %s\n\n", bold("relay — this session is shared, end-to-end encrypted"))
 	if !noQR {
@@ -213,7 +224,7 @@ func printBanner(link, fingerprint string, ttl time.Duration, readOnly, passphra
 	}
 	fmt.Fprintf(w, "  Link         %s\n", link)
 	fmt.Fprintf(w, "  Fingerprint  %s  %s\n", fingerprint, dim("(must match in the browser)"))
-	fmt.Fprintf(w, "  Expires      in %s\n", ttl)
+	fmt.Fprintf(w, "  Expires      in %s\n", expiresIn)
 	control := "viewers may request control"
 	if readOnly {
 		control = "read-only (viewers cannot type or resize)"
