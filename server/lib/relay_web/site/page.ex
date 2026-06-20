@@ -31,9 +31,9 @@ defmodule RelayWeb.Site.Page do
         hero() <>
           trust_bar() <>
           how_section() <>
+          use_cases() <>
           features_section() <>
-          home_tools() <>
-          testimonials() <> faq_section() <> brand_band() <> start_section()
+          home_tools() <> faq_section() <> start_section()
     )
   end
 
@@ -357,18 +357,18 @@ defmodule RelayWeb.Site.Page do
     """
   end
 
-  defp testimonials do
+  defp use_cases do
     """
     <section class="section alt">
       <div class="wrap">
-        <p class="eyebrow center">Testimonials</p>
-        <h2 class="center">The only fanbase your terminal will ever need.</h2>
-        <div class="quotes">
-          #{quote_card("My subscribers can't get enough of my uptime. It's just me. I am the subscriber.", "rootdaddy", "self-hosted everything")}
-          #{quote_card("I approved a deploy from a moving train. My on-call lead wept with joy.", "kubehoncho", "reluctant SRE")}
-          #{quote_card("Finally monetized my dotfiles. Spiritually. Emotionally. Not financially.", "vimgod", "still can't exit")}
+        <p class="eyebrow center">Use cases</p>
+        <h2 class="center">What you'll actually use it for.</h2>
+        <div class="uses">
+          #{feature("bot", "Drive your AI agent", "Kick off Claude, Codex, or aider at your desk, then approve its plans and answer its questions from your phone while it works.")}
+          #{feature("bell", "On-call from anywhere", "Pager goes off at dinner? Tail the logs, bounce the service, kill the runaway process — no scramble for a laptop.")}
+          #{feature("eye", "Pair or demo, read-only", "Send a watch-only link so a teammate can follow your terminal live — debugging, onboarding, a quick demo — with no screen-share app.")}
+          #{feature("activity", "Keep long jobs on a leash", "Start a migration, build, or training run, then keep an eye on it — and Ctrl-C it — from the couch.")}
         </div>
-        <p class="center disclaimer">Testimonials are dramatizations. The encryption is not.</p>
       </div>
     </section>
     """
@@ -383,17 +383,6 @@ defmodule RelayWeb.Site.Page do
         <p class="eyebrow center">FAQ</p>
         <h2 class="center">Questions you're right to ask</h2>
         <div class="faq">#{items}</div>
-      </div>
-    </section>
-    """
-  end
-
-  defp brand_band do
-    """
-    <section class="section brand-band">
-      <div class="wrap center">
-        <img class="banner" src="/assets/brand/banner.png" width="1200" height="580" loading="lazy"
-             alt="OnlyTTY — control your CLI from anywhere">
       </div>
     </section>
     """
@@ -558,6 +547,18 @@ defmodule RelayWeb.Site.Page do
         "check" ->
           ~s(<path d="M20 6 9 17l-5-5"/>)
 
+        "bot" ->
+          ~s(<path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/>)
+
+        "bell" ->
+          ~s(<path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/><path d="M3.26 15.5C2.7 16.6 3.5 18 4.7 18h14.6c1.2 0 2-1.4 1.44-2.5C20 14 19 12.5 19 9a7 7 0 1 0-14 0c0 3.5-1 5-1.74 6.5"/>)
+
+        "eye" ->
+          ~s(<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>)
+
+        "activity" ->
+          ~s(<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>)
+
         "lock" ->
           ~s(<rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>)
 
@@ -585,15 +586,6 @@ defmodule RelayWeb.Site.Page do
     ~s(<div class="step"><span class="num">#{n}</span><h3>#{h(title)}</h3><p>#{body}</p></div>)
   end
 
-  defp quote_card(text, handle, role) do
-    """
-    <figure class="quote">
-      <blockquote>#{h(text)}</blockquote>
-      <figcaption><b>@#{h(handle)}</b><span>#{h(role)}</span></figcaption>
-    </figure>
-    """
-  end
-
   defp faq_item(q, a) do
     # `a` is trusted literal markup (may contain links/code), so it is not escaped.
     "<details class=\"faq-item\"><summary>#{h(q)}</summary><div class=\"faq-a\">#{a}</div></details>"
@@ -608,28 +600,57 @@ defmodule RelayWeb.Site.Page do
     # whitespace-sensitive and heredoc indentation rules would fight the layout.
     # Mirrors the real `relay` banner (see printBanner in main.go): the bold title,
     # the QR, then aligned Link / Fingerprint / Expires / Control rows and the note.
+    lines = [
+      ~s(<span class="c-p">$</span> relay -- claude),
+      :gap,
+      ~s(<span class="c-b">relay — this session is shared, end-to-end encrypted</span>),
+      :gap,
+      "  " <> qr(),
+      ~s(  Link  <span class="c-link">onlytty.com/s/k7p2qx</span><span class="c-frag">#9f3q4d…</span>),
+      ~s(  Expires  in 12h · <span class="c-dim">read-only by default</span>),
+      :gap,
+      ~s(  <span class="c-dim">Scan it, or open the link on your phone →</span>),
+      :gap,
+      ~s(<span class="c-ok">✻</span> <span class="c-b">Claude Code</span> <span class="c-dim">ready — how can I help?</span>),
+      ~s(<span class="c-p">›</span> <span class="cursor">█</span>)
+    ]
+
+    body =
+      lines
+      |> Enum.with_index()
+      |> Enum.map_join("\n", fn
+        {:gap, _} -> ""
+        {content, i} -> ~s(<span class="ln" style="--d:#{i * 90}ms">#{content}</span>)
+      end)
+
+    term =
+      ~s(<div class="term">) <>
+        ~s(<div class="term-bar"><span class="tdot r"></span><span class="tdot y"></span><span class="tdot g"></span><span class="term-title">claude — relay</span><span class="term-live"><i></i>shared</span></div>) <>
+        ~s(<pre class="term-body">) <> body <> ~s(</pre></div>)
+
+    ~s(<div class="stage" role="img" aria-label="A terminal running 'relay -- claude' shares an end-to-end-encrypted link; a phone shows the same Claude Code session live and being controlled.">) <>
+      term <> phone() <> ~s(</div>)
+  end
+
+  # The phone overlay: the same session, live on a phone, being driven.
+  defp phone do
     body =
       Enum.join(
         [
-          ~s(<span class="c-p">$</span> relay -- claude),
-          "",
-          ~s(  <span class="c-b">relay — this session is shared, end-to-end encrypted</span>),
-          "",
-          "  " <> qr(),
-          ~s(  Link         <span class="c-link">https://onlytty.com/s/k7p2qx</span><span class="c-frag">#9f3q4d…</span>),
-          ~s|  Fingerprint  K7Q2-9FW3-PXM4-RT8A  <span class="c-dim">(must match in the browser)</span>|,
-          ~s(  Expires      in 12h0m0s),
-          ~s(  Control      viewers may request control),
-          "",
-          ~s(  <span class="c-dim">Scan the QR or open the link. The relay only ever sees ciphertext.</span>),
-          ~s(<span class="c-p">$</span> <span class="cursor">█</span>)
+          ~s(<span class="c-ok">✻</span> <span class="c-b">Claude Code</span>),
+          ~s(<span class="c-p">›</span> refactor the auth module),
+          ~s(<span class="c-dim">● editing auth.ex…</span>)
         ],
         "\n"
       )
 
-    ~s(<div class="term" role="img" aria-label="Terminal showing the relay command printing a share link, QR code and fingerprint for an end-to-end-encrypted session">) <>
-      ~s(<div class="term-bar"><span class="tdot r"></span><span class="tdot y"></span><span class="tdot g"></span><span class="term-title">zsh — onlytty</span></div>) <>
-      ~s(<pre class="term-body">) <> body <> ~s(</pre></div>)
+    ~s(<div class="phone" aria-hidden="true"><div class="phone-scr">) <>
+      ~s(<div class="phone-top"><span class="phone-host">🔒 onlytty.com/s/k7p2qx</span><span class="phone-live"><i></i>live</span></div>) <>
+      ~s(<pre class="phone-body">) <>
+      body <>
+      ~s(</pre>) <>
+      ~s(<div class="phone-keys"><span>esc</span><span>tab</span><span>^C</span><span class="phone-take">control</span></div>) <>
+      ~s(</div></div>)
   end
 
   # A decorative (non-scannable) QR-style mark for the demo. aria-hidden.

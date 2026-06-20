@@ -37,10 +37,11 @@ defmodule RelayWeb.SiteTest do
       assert body =~ ~s(href="/control/claude")
     end
 
-    test "shows the brand mascot logo and banner illustration", %{conn: conn} do
+    test "shows the brand mascot logo and the use-cases section", %{conn: conn} do
       body = conn |> get(~p"/") |> html_response(200)
       assert body =~ "/assets/brand/mascot.png"
-      assert body =~ "/assets/brand/banner.png"
+      assert body =~ "Use cases"
+      assert body =~ "Drive your AI agent"
     end
   end
 
