@@ -46,6 +46,16 @@ viewer-hash: ## SHA-256 of each viewer asset (reproducible — publish with each
 	  assets/app.js assets/crypto.js assets/wire.js \
 	  assets/vendor/xterm.js assets/vendor/xterm.css assets/vendor/addon-fit.js
 
+doctor: ## Check required toolchains; print install hints for anything missing
+	@missing=0; \
+	for t in go gofmt elixir mix node npm; do \
+	  command -v $$t >/dev/null 2>&1 && echo "  ok       $$t" || { echo "  MISSING  $$t"; missing=1; }; \
+	done; \
+	[ -d node_modules/playwright ] && echo "  ok       playwright" || { echo "  MISSING  playwright (run: npm install)"; missing=1; }; \
+	echo "  note     e2e browsers: npx playwright install chromium  (Linux also: npx playwright install-deps)"; \
+	echo "  note     toolchain versions are pinned in .tool-versions"; \
+	[ $$missing -eq 0 ] && echo "doctor: all good" || { echo "doctor: install the missing tools above"; exit 1; }
+
 clean: ## Remove build artifacts
 	@rm -f relay
 	@rm -rf dist
@@ -53,4 +63,4 @@ clean: ## Remove build artifacts
 help: ## List targets
 	@grep -hE '^[a-z0-9-]+:.*##' $(MAKEFILE_LIST) | sed -E 's/:.*## / — /' | sort
 
-.PHONY: build install runner-check web-check server-check check e2e audit audit-go audit-web audit-server viewer-hash clean help
+.PHONY: build install runner-check web-check server-check check e2e audit audit-go audit-web audit-server viewer-hash doctor clean help

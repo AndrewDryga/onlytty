@@ -157,6 +157,20 @@ It is **not** zero-trust, and here's the honest residue:
 
 Found a vulnerability? See [SECURITY.md](SECURITY.md).
 
+## Prerequisites
+
+`make check` needs **Go** (with `gofmt`), **Elixir/OTP** (with `mix`), and **Node 22+**
+(with `npm`) — versions are pinned in `.tool-versions` (asdf/mise). `make e2e`
+additionally needs a Playwright browser:
+
+```bash
+npm install                       # Playwright (a dev dependency)
+npx playwright install chromium   # the browser binary
+npx playwright install-deps       # Linux only: native libs for headless Chromium
+```
+
+Run **`make doctor`** to see what's installed and get install hints for anything missing.
+
 ## Develop
 
 ```bash
