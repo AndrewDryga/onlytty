@@ -27,6 +27,18 @@ check: runner-check web-check server-check ## Full gate: runner + web + server
 e2e: ## Boot the relay and run the end-to-end test (runner ↔ relay ↔ viewer)
 	@bash scripts/e2e.sh
 
+audit: audit-go audit-web audit-server ## Security audit (opt-in; not in `check`): Go vulns + npm + Hex
+
+audit-go: ## Audit: Go vulnerabilities (needs govulncheck)
+	@command -v govulncheck >/dev/null 2>&1 || { echo "install: go install golang.org/x/vuln/cmd/govulncheck@latest"; exit 1; }
+	@govulncheck ./...
+
+audit-web: ## Audit: npm advisories (high+)
+	@npm audit --audit-level=high
+
+audit-server: ## Audit: retired/withdrawn Hex packages
+	@cd server && mix hex.audit
+
 clean: ## Remove build artifacts
 	@rm -f relay
 	@rm -rf dist
@@ -34,4 +46,4 @@ clean: ## Remove build artifacts
 help: ## List targets
 	@grep -hE '^[a-z0-9-]+:.*##' $(MAKEFILE_LIST) | sed -E 's/:.*## / — /' | sort
 
-.PHONY: build install runner-check web-check server-check check e2e clean help
+.PHONY: build install runner-check web-check server-check check e2e audit audit-go audit-web audit-server clean help

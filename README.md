@@ -163,7 +163,13 @@ Found a vulnerability? See [SECURITY.md](SECURITY.md).
 make check     # the gate: runner (go) + web (node) + server (elixir)
 make e2e       # boots the relay, then a Go viewer and a headless-browser viewer
                # drive a real session end-to-end through it
+make audit     # opt-in dependency/security audit (not part of `check`)
 ```
+
+`make audit` runs `govulncheck ./...` (Go), `npm audit` (web), and `mix hex.audit`
+(retired Hex packages). It is **opt-in** — release CI should run it, but it stays out
+of the local `check` gate. Install the Go scanner once with
+`go install golang.org/x/vuln/cmd/govulncheck@latest`.
 
 | Path | What |
 |------|------|
