@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"runtime/debug"
 	"strings"
 	"syscall"
 	"time"
@@ -26,6 +27,20 @@ import (
 
 var version = "dev"
 
+// resolveVersion prefers the ldflags-injected version (Makefile builds). For a
+// plain `go install …@ref` / `go build`, which never runs the Makefile, it falls
+// back to the module version from the build info (resolved tag/pseudo-version, or
+// "(devel)" for an untagged local build) instead of the bare "dev" sentinel.
+func resolveVersion() string {
+	if version != "dev" {
+		return version
+	}
+	if info, ok := debug.ReadBuildInfo(); ok && info.Main.Version != "" {
+		return info.Main.Version
+	}
+	return version
+}
+
 func main() { os.Exit(run()) }
 
 func run() int {
@@ -39,7 +54,7 @@ func run() int {
 	flag.Parse()
 
 	if *showVer {
-		fmt.Println("relay", version)
+		fmt.Println("relay", resolveVersion())
 		return 0
 	}
 	if *server == "" {
