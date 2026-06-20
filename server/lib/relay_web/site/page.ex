@@ -208,8 +208,8 @@ defmodule RelayWeb.Site.Page do
         </nav>
       </div>
       <div class="wrap footer-bottom">
-        <span>© OnlyTTY — the only fans your terminal needs.</span>
-        <span>Powered by the open-source <a href="#{@github}" rel="noopener">relay</a> project. No accounts. No tracking. No stored bytes.</span>
+        <span>© OnlyTTY</span>
+        <span>Open source. The relay only ever sees ciphertext.</span>
       </div>
     </footer>
     """
@@ -218,20 +218,18 @@ defmodule RelayWeb.Site.Page do
   # ── Home sections ─────────────────────────────────────────────────────────
 
   defp hero do
-    rotate = Jason.encode!(["claude", "codex", "vim", "k9s", "psql", "your shell"])
+    rotate = Jason.encode!(["claude", "codex", "aider", "gemini", "psql"])
 
     """
     <section class="hero">
       <div class="wrap hero-grid">
         <div class="hero-copy">
-          <p class="eyebrow">🔒 End-to-end encrypted · open source · no accounts</p>
           <h1>Want to control your <span class="hl" data-rotate='#{rotate}'>claude</span> while sitting on the toilet?</h1>
-          <p class="lede">OnlyTTY wraps any command on your machine and hands you a private link to drive it from your phone — your AI agent, your editor, your prod logs, your whole shell. The secret lives in the link; the relay only ever sees ciphertext.</p>
+          <p class="lede">OnlyTTY gives any command on your machine a private link you can drive from your phone — end-to-end encrypted, so the relay only ever sees ciphertext.</p>
           <div class="cta-row">
             <a class="btn btn-primary" href="#start">Get started — it's free</a>
             <a class="btn btn-ghost" href="#how">See how it works</a>
           </div>
-          #{snippet("relay -- claude")}
         </div>
         <div class="hero-demo">#{term_demo()}</div>
       </div>
@@ -243,11 +241,10 @@ defmodule RelayWeb.Site.Page do
     """
     <section class="trust">
       <div class="wrap trust-inner">
-        <span>AES-256-GCM</span><span aria-hidden="true">·</span>
+        <span>End-to-end encrypted</span><span aria-hidden="true">·</span>
         <span>No inbound ports</span><span aria-hidden="true">·</span>
-        <span>Read-only by default</span><span aria-hidden="true">·</span>
-        <span>Stores nothing</span><span aria-hidden="true">·</span>
-        <span>One Go binary</span>
+        <span>Survives bad Wi-Fi</span><span aria-hidden="true">·</span>
+        <span>Open source</span>
       </div>
     </section>
     """
@@ -262,7 +259,7 @@ defmodule RelayWeb.Site.Page do
         <div class="steps">
           #{step("1", "Run it", "<code>relay -- claude</code> — or just <code>relay</code> to share your whole shell. It keeps running in your terminal and prints a link plus a QR code.")}
           #{step("2", "Scan it", "Open the link on your phone. The session secret rides in the URL <code>#fragment</code>, which never leaves the browser — so the relay can't read a thing.")}
-          #{step("3", "Drive it", "Watch the live terminal. It's read-only by default; tap <em>take control</em> when you actually want to type. Reconnect anytime until it expires.")}
+          #{step("3", "Drive it", "Watch live, or tap <em>take control</em> to type — anyone with the link can, so share it like a key (or start <code>--read-only</code>). Lose signal? It reconnects and picks up where you left off.")}
         </div>
       </div>
     </section>
@@ -276,11 +273,11 @@ defmodule RelayWeb.Site.Page do
         <p class="eyebrow center">Why it's safe enough to mean it</p>
         <h2 class="center">A remote terminal you don't have to be nervous about.</h2>
         <div class="features">
-          #{feature("🔐", "End-to-end encrypted", "Keys are derived from a secret in the link's fragment that the relay never receives. Your keystrokes are nobody's content but yours.")}
+          #{feature("🔐", "End-to-end encrypted", "Keys come from a secret in the link's fragment that the relay never receives. It forwards ciphertext; your keystrokes stay yours.")}
+          #{feature("📶", "Survives bad Wi-Fi", "Long-lived sessions that ride out dropouts, sleep, and dead zones. Lose signal on the subway, resurface, and your terminal is right where you left it.")}
+          #{feature("🔑", "The link is the key", "Anyone with the full link can watch and take control — read-only is just the default view. Start it read-only to lock that down, or add a passphrase the link alone can't decrypt.")}
           #{feature("🚪", "No inbound ports", "The CLI dials out over TLS. Nothing listens on your machine, so your firewall stays exactly as shut as it is now.")}
-          #{feature("📱", "Mobile-first viewer", "A real xterm in your browser with a touch key bar, paste guard, reconnect, and a wake lock so the screen stays on.")}
-          #{feature("👀", "Read-only by default", "Share a link that can only watch. Control is an explicit, revocable tap — not the default for whoever has the URL.")}
-          #{feature("🧩", "Works with any CLI", "If it runs in a terminal, OnlyTTY can share it. Agents, editors, REPLs, TUIs, your $SHELL — all of it.")}
+          #{feature("🧩", "Works with any CLI", "If it runs in a terminal, OnlyTTY shares it. Agents, editors, REPLs, TUIs — or your whole shell.")}
           #{feature("🗑️", "Stores nothing", "The relay pairs two encrypted sockets and forgets you exist. No accounts, no history, no logs of your bytes.")}
         </div>
       </div>
@@ -351,16 +348,21 @@ defmodule RelayWeb.Site.Page do
       <div class="wrap narrow center">
         <p class="eyebrow center">Get started in about 30 seconds</p>
         <h2 class="center">Your terminal is about to go public. To exactly one fan: you.</h2>
-        <div class="start-steps">
-          <div><span class="num">1</span><p>Install the CLI</p>#{snippet("go install github.com/AndrewDryga/relay@latest")}</div>
-          <div><span class="num">2</span><p>Share a command</p>#{snippet("relay -- claude")}</div>
-          <div><span class="num">3</span><p>Scan the link it prints. That's the whole product.</p></div>
+        <p class="lede center">Install the open-source CLI, then share a command — or your whole shell. It prints a link and a QR; scan it and you're live.</p>
+        <div class="examples">
+          #{example_row("Install", "go install github.com/AndrewDryga/relay@latest")}
+          #{example_row("Your whole shell", "relay")}
+          #{example_row("One command", "relay -- claude")}
+          #{example_row("Watch-only", "relay --read-only -- htop")}
         </div>
-        <p class="muted">OnlyTTY is powered by the open-source <a href="#{@github}" rel="noopener"><code>relay</code></a> project — point the CLI at your own relay, or audit every line. The brand is a joke; the cryptography isn't.</p>
         <div class="cta-row center"><a class="btn btn-primary" href="#{@github}" rel="noopener">Get the CLI on GitHub</a><a class="btn btn-ghost" href="/tools">See what you can control</a></div>
       </div>
     </section>
     """
+  end
+
+  defp example_row(label, cmd) do
+    ~s(<div class="example"><span class="example-label">#{h(label)}</span>#{snippet(cmd)}</div>)
   end
 
   # ── Tool page ─────────────────────────────────────────────────────────────
@@ -492,23 +494,28 @@ defmodule RelayWeb.Site.Page do
   defp term_demo do
     # Built with explicit newlines (not a heredoc) because <pre> is
     # whitespace-sensitive and heredoc indentation rules would fight the layout.
+    # Mirrors the real `relay` banner (see printBanner in main.go): the bold title,
+    # the QR, then aligned Link / Fingerprint / Expires / Control rows and the note.
     body =
       Enum.join(
         [
           ~s(<span class="c-p">$</span> relay -- claude),
-          ~s(<span class="c-dim">starting PTY · mirroring locally · dialing relay…</span>),
           "",
-          ~s|  <span class="c-ok">●</span> share this link <span class="c-dim">(secret stays in your browser)</span>:|,
-          ~s(  <span class="c-link">https://onlytty.com/s/7Qx2k</span><span class="c-frag">#k8s•••••••••</span>),
+          ~s(  <span class="c-b">relay — this session is shared, end-to-end encrypted</span>),
           "",
           "  " <> qr(),
-          ~s(  <span class="c-dim">read-only by default · tap “take control” · expires in 30m</span>),
+          ~s(  Link         <span class="c-link">https://onlytty.com/s/k7p2qx</span><span class="c-frag">#9f3q4d…</span>),
+          ~s|  Fingerprint  K7Q2-9FW3-PXM4-RT8A  <span class="c-dim">(must match in the browser)</span>|,
+          ~s(  Expires      in 12h0m0s),
+          ~s(  Control      viewers may request control),
+          "",
+          ~s(  <span class="c-dim">Scan the QR or open the link. The relay only ever sees ciphertext.</span>),
           ~s(<span class="c-p">$</span> <span class="cursor">█</span>)
         ],
         "\n"
       )
 
-    ~s(<div class="term" role="img" aria-label="Terminal showing the relay command sharing a Claude Code session as a link and QR code">) <>
+    ~s(<div class="term" role="img" aria-label="Terminal showing the relay command printing a share link, QR code and fingerprint for an end-to-end-encrypted session">) <>
       ~s(<div class="term-bar"><span class="tdot r"></span><span class="tdot y"></span><span class="tdot g"></span><span class="term-title">zsh — onlytty</span></div>) <>
       ~s(<pre class="term-body">) <> body <> ~s(</pre></div>)
   end
@@ -589,14 +596,14 @@ defmodule RelayWeb.Site.Page do
        ~s(No. The session secret lives in the link's <code>#fragment</code>, which browsers never send to the server. Keys are derived from it, so the relay only ever forwards ciphertext. Read the <a href="#{@github}/blob/main/PROTOCOL.md" rel="noopener">protocol</a> and <a href="#{@github}/blob/main/SECURITY.md" rel="noopener">security model</a> yourself.)},
       {"Do I have to open a port or install an agent?",
        "No inbound ports and no daemon. The <code>relay</code> CLI dials out over WebSocket/TLS, so nothing listens on your machine. It's a single Go binary."},
-      {"Can a random person with the link type into my session?",
-       "Not unless you let them. Sessions are read-only by default — a viewer can watch but not type. Taking control is an explicit tap, and you can revoke it. Treat the link like a password: anyone who has the full link (including the fragment) can watch."},
+      {"Who can take control of my session?",
+       ~s(Anyone with the full link. The link is the key: whoever opens it can watch — and can tap <em>take control</em> to type. Read-only is just the default view, not a per-person gate, so share the link like a password. Want watch-only? Start with <code>--read-only</code>. Want a second factor? Add <code>--passphrase</code>, and the link alone won't decrypt. Either way, exit the command to stop sharing instantly.)},
       {"What can I actually control?",
        ~s(Anything that runs in a terminal: AI coding agents, editors, REPLs, database shells, ops TUIs, or your whole <code>\$SHELL</code>. Browse the <a href="/tools">full list</a> for ready-made guides.)},
       {"Is it really free and open source?",
        ~s(Yes. The relay server and the CLI are open source — host your own relay or audit the code on <a href="#{@github}" rel="noopener">GitHub</a>. No accounts, no tracking.)},
-      {"How long does a session last?",
-       "Sessions are short-lived by default (about 30 minutes) and clamped server-side. When a session expires or you stop the CLI, it's gone — the relay stores nothing."},
+      {"How long does a session last, and what if my connection drops?",
+       ~s(As long as you want it to. Sessions are long-lived and resilient — they ride out flaky networks, sleep, and dead zones, reconnecting on their own so you can drop off Wi-Fi and pick right back up. Set the lifetime with <code>--ttl</code>, up to a day. When you exit the command or it expires, it's gone — the relay stores nothing.)},
       {"Okay, but the toilet thing?",
        "We're simply acknowledging that the bathroom is now a valid on-call location. Approve the deploy, kill the runaway process, answer your agent's question — then wash your hands. You're welcome."}
     ]
