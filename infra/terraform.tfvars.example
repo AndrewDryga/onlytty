@@ -8,7 +8,9 @@ zone            = "us-central1-a"
 domain          = "onlytty.example.com"
 acme_email      = "you@example.com"
 machine_type    = "e2-small"
-container_image = "us-central1-docker.pkg.dev/my-gcp-project/onlytty/onlytty:latest"
+# Published by the release workflow (.github/workflows/release.yml) to GHCR.
+# (Artifact Registry is also provisioned if you'd rather push there.)
+container_image = "ghcr.io/andrewdryga/onlytty:latest"
 
 # Lock SSH down to your own IP in production, e.g.:
 # ssh_source_ranges = ["203.0.113.4/32"]

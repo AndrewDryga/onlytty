@@ -18,6 +18,6 @@ output "next_steps" {
   value       = <<-EOT
     1. DNS:    A   ${var.domain}   ->   ${google_compute_address.onlytty.address}
     2. Secret: openssl rand -base64 64 | gcloud secrets versions add ${google_secret_manager_secret.secret_key_base.secret_id} --data-file=- --project=${var.project_id}
-    3. Image:  push ${var.region}-docker.pkg.dev/${var.project_id}/onlytty/onlytty:<tag> (CI publishes it); the VM pulls on (re)boot.
+    3. Image:  the release workflow publishes ghcr.io/<owner>/onlytty:latest; the VM pulls it on (re)boot. Set var.container_image to it.
   EOT
 }

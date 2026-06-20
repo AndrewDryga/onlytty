@@ -1,0 +1,36 @@
+name: Deploy
+
+# Rolls the production relay VM (it re-pulls onlytty:latest on boot). Runs after a
+# release is published, or manually. No-ops until GCP Workload Identity Federation is
+# wired up — set repo variables GCP_PROJECT / GCP_ZONE and secrets
+# GCP_WORKLOAD_IDENTITY_PROVIDER / GCP_SERVICE_ACCOUNT (see infra/README.md).
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write # Workload Identity Federation
+
+jobs:
+  deploy:
+    name: roll the relay VM
+    runs-on: ubuntu-latest
+    environment: production
+    if: vars.GCP_PROJECT != ''
+    steps:
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Reset the VM to pull the new image
+        run: |
+          gcloud compute instances reset onlytty-relay \
+            --zone="${{ vars.GCP_ZONE }}" --project="${{ vars.GCP_PROJECT }}"
