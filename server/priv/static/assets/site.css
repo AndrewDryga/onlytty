@@ -124,7 +124,9 @@ p { margin: 0 0 1rem; }
 .brand:hover { color: var(--fg); }
 .brand b { background: linear-gradient(100deg, var(--accent), var(--accent-2));
   -webkit-background-clip: text; background-clip: text; color: transparent; }
-.logo { width: 26px; height: 32px; flex: 0 0 auto; object-fit: contain; }
+/* The mascot's body sits ~11% below the image's center (the ears pad the top),
+   so geometric centering leaves it looking low — nudge it up to optically center. */
+.logo { width: 26px; height: 32px; flex: 0 0 auto; object-fit: contain; transform: translateY(-3px); }
 .nav-links { display: flex; gap: 1.6rem; margin-left: auto; }
 .nav-links a { color: var(--fg-2); font-size: .92rem; font-weight: 500; transition: color .15s ease; }
 .nav-links a:hover { color: var(--fg); }
