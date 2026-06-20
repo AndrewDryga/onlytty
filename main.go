@@ -31,7 +31,7 @@ func main() { os.Exit(run()) }
 func run() int {
 	server := flag.String("server", os.Getenv("RELAY_SERVER"), "relay server origin, e.g. https://relay.example.com (or set RELAY_SERVER)")
 	readOnly := flag.Bool("read-only", false, "viewers may watch but never take control")
-	ttl := flag.Duration("ttl", 30*time.Minute, "session lifetime before the link expires")
+	ttl := flag.Duration("ttl", 12*time.Hour, "session lifetime before the link expires")
 	withPass := flag.Bool("passphrase", false, "prompt for a passphrase to mix into the keys (shared out-of-band; the link alone won't decrypt)")
 	noQR := flag.Bool("no-qr", false, "print the link without a QR code")
 	showVer := flag.Bool("version", false, "print version and exit")
