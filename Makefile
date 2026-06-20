@@ -55,6 +55,9 @@ fuzz: ## Fuzz the protocol decoders (override length: make fuzz FUZZTIME=2m)
 load: ## Load-test session creation against a running relay (ONLYTTY_SERVER, args: N CONC)
 	@bash scripts/load.sh
 
+deploy-check: ## Pre-deploy: build+boot the prod image behind Caddy, smoke + e2e + cross-build (needs Docker)
+	@bash scripts/deploy-check.sh
+
 doctor: ## Check required toolchains; print install hints for anything missing
 	@missing=0; \
 	for t in go gofmt elixir mix node npm; do \
@@ -72,4 +75,4 @@ clean: ## Remove build artifacts
 help: ## List targets
 	@grep -hE '^[a-z0-9-]+:.*##' $(MAKEFILE_LIST) | sed -E 's/:.*## / — /' | sort
 
-.PHONY: build install runner-check web-check server-check check e2e audit audit-go audit-web audit-server viewer-hash fuzz load doctor clean help
+.PHONY: build install runner-check web-check server-check check e2e deploy-check audit audit-go audit-web audit-server viewer-hash fuzz load doctor clean help

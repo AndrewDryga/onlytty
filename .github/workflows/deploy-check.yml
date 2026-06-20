@@ -1,0 +1,42 @@
+name: Deploy check
+
+# Builds the production release image and proves it actually runs: boots behind a Caddy
+# proxy (the deployed topology), serves the HTTP surface, pairs an encrypted session
+# end-to-end, and cross-compiles the release binaries. Runs on main and on PRs that touch
+# anything affecting the deployable artifact.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths:
+      - "portal/**"
+      - "runner/**"
+      - "infra/**"
+      - "test/deploy/**"
+      - "scripts/deploy-check.sh"
+      - ".github/workflows/deploy-check.yml"
+
+concurrency:
+  group: deploy-check-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  deploy-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: runner/go.mod
+          cache-dependency-path: runner/go.sum
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: python3 -m pip install --quiet pyyaml
+      - run: make deploy-check

@@ -1,0 +1,9 @@
+# Test-only proxy mimicking the production Caddy in front of the relay: tell the app
+# the request arrived over https (via X-Forwarded-Proto) so force_ssl serves it instead
+# of redirecting, and strip HSTS so a localhost browser test doesn't try to upgrade.
+:4000 {
+	reverse_proxy onlytty:4000 {
+		header_up X-Forwarded-Proto https
+	}
+	header -Strict-Transport-Security
+}
