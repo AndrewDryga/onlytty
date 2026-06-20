@@ -30,3 +30,21 @@ read-only viewer cannot type or resize the host. The full contract is [PROTOCOL.
 - **In-terminal notices are metadata.** Trust the fingerprint (derived from the
   secret), not a "viewer connected" line (relay-delivered, spoofable by a hostile
   relay — which still can't read your session).
+
+## Verifying the served viewer
+
+The viewer is first-party JS the relay host serves, so a hostile host *could* swap
+`app.js` to exfiltrate the fragment secret. Until a native viewer exists, you can
+verify the bytes you were served against the audited release.
+
+Each tagged release publishes a `VIEWER_HASHES` manifest (SHA-256 of `viewer.html`
+and every `assets/` file). Reproduce it from a clean checkout with **`make
+viewer-hash`** — the viewer has no build step, so identical files always produce
+identical hashes. To check what a live relay actually sent you:
+
+```bash
+curl -fsS https://<relay>/assets/app.js | shasum -a 256   # compare to the release manifest
+```
+
+Caveat: this is a verifiable **baseline and tripwire**, not a guarantee — a hostile
+host can still serve different bytes per request. A native viewer remains the real fix.

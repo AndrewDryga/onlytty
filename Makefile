@@ -39,6 +39,13 @@ audit-web: ## Audit: npm advisories (high+)
 audit-server: ## Audit: retired/withdrawn Hex packages
 	@cd server && mix hex.audit
 
+SHA256 := $(shell command -v sha256sum >/dev/null 2>&1 && echo sha256sum || echo 'shasum -a 256')
+viewer-hash: ## SHA-256 of each viewer asset (reproducible — publish with each release)
+	@cd server/priv/static && $(SHA256) \
+	  viewer.html \
+	  assets/app.js assets/crypto.js assets/wire.js \
+	  assets/vendor/xterm.js assets/vendor/xterm.css assets/vendor/addon-fit.js
+
 clean: ## Remove build artifacts
 	@rm -f relay
 	@rm -rf dist
@@ -46,4 +53,4 @@ clean: ## Remove build artifacts
 help: ## List targets
 	@grep -hE '^[a-z0-9-]+:.*##' $(MAKEFILE_LIST) | sed -E 's/:.*## / — /' | sort
 
-.PHONY: build install runner-check web-check server-check check e2e audit audit-go audit-web audit-server clean help
+.PHONY: build install runner-check web-check server-check check e2e audit audit-go audit-web audit-server viewer-hash clean help
