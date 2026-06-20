@@ -52,7 +52,7 @@ fuzz: ## Fuzz the protocol decoders (override length: make fuzz FUZZTIME=2m)
 	  (cd runner && go test ./internal/protocol/ -run '^$$' -fuzz "^$$fn$$" -fuzztime="$$t") || exit 1; \
 	done
 
-load: ## Load-test session creation against a running relay (RELAY_SERVER, args: N CONC)
+load: ## Load-test session creation against a running relay (ONLYTTY_SERVER, args: N CONC)
 	@bash scripts/load.sh
 
 doctor: ## Check required toolchains; print install hints for anything missing
