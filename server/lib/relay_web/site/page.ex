@@ -288,7 +288,7 @@ defmodule RelayWeb.Site.Page do
             <a class="btn btn-ghost" href="#how">See how it works</a>
           </div>
         </div>
-        <div class="hero-demo">#{term_demo()}</div>
+        <div class="hero-demo">#{term_demo("claude", "Claude Code")}</div>
       </div>
     </section>
     """
@@ -438,30 +438,52 @@ defmodule RelayWeb.Site.Page do
           """
       end
 
+    point = fn text -> ~s(<li>#{icon("check")}<span>#{text}</span></li>) end
+
     """
     <section class="hero tool-hero">
-      <div class="wrap">
-        <nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a> <span aria-hidden="true">›</span> <a href="/tools">Tools</a> <span aria-hidden="true">›</span> <span>#{h(t.name)}</span></nav>
-        <p class="eyebrow">#{h(t.category)}</p>
-        <h1>Want to control <span class="hl">#{h(t.name)}</span> while sitting on the toilet?</h1>
-        <p class="lede">#{h(t.why)}</p>
-        #{snippet("relay -- #{t.cmd}")}
-        <div class="cta-row"><a class="btn btn-primary" href="#start">Get started — it's free</a><a class="btn btn-ghost" href="/tools">Browse all tools</a></div>
+      <div class="wrap hero-grid">
+        <div class="hero-copy">
+          <nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a> <span aria-hidden="true">›</span> <a href="/tools">Tools</a> <span aria-hidden="true">›</span> <span>#{h(t.name)}</span></nav>
+          <p class="eyebrow">#{h(t.category)}</p>
+          <h1>Want to control <span class="hl">#{h(t.name)}</span> while sitting on the toilet?</h1>
+          <p class="lede">#{h(t.why)}</p>
+          #{snippet("relay -- #{t.cmd}")}
+          <div class="cta-row"><a class="btn btn-primary" href="#start">Get started</a><a class="btn btn-ghost" href="/tools">All tools</a></div>
+        </div>
+        <div class="hero-demo">#{term_demo(t.cmd, t.name)}</div>
       </div>
     </section>
 
     <section class="section alt">
       <div class="wrap narrow">
-        <h2>So… what is this?</h2>
-        <p class="lede">#{h(t.name)} is #{h(lead_phrase(t.what))} OnlyTTY runs it on your own machine, wraps it in a PTY, and gives you a private, end-to-end-encrypted link to drive it from your phone. The terminal stays live where you launched it; your phone just becomes a second screen and keyboard for the same session.</p>
-        <p>It's read-only by default, so a shared link can only watch until you tap <em>take control</em>. The session secret never reaches the server — it lives in the link's <code>#fragment</code> — so the relay forwarding your bytes only ever sees ciphertext. When the session expires, it's gone. Nothing is stored.</p>
+        <h2>#{h(t.name)} on your phone</h2>
+        <p class="lede">#{h(t.name)} is #{h(lead_phrase(t.what))} OnlyTTY runs it on your own machine and hands you a private link to drive it from your phone — the terminal stays live where you launched it; your phone is just a second screen and keyboard.</p>
+        <ul class="tool-points">
+          #{point.("End-to-end encrypted — the relay only ever forwards ciphertext, never your keystrokes.")}
+          #{point.("Read-only by default — share a link that can only watch, or take control with a tap.")}
+          #{point.("Nothing stored — sessions are in-memory and expire; no account, no inbound ports.")}
+        </ul>
+        <p class="muted">New to OnlyTTY? <a href="/#how">See how it works</a> · <a href="/#faq">read the FAQ</a>.</p>
       </div>
     </section>
 
-    #{how_section()}
-    #{features_section()}
     #{related_html}
-    #{start_section()}
+
+    <section id="start" class="section">
+      <div class="wrap narrow center">
+        <p class="eyebrow center">Get started</p>
+        <h2 class="center">Run #{h(t.name)} from your phone in about 30 seconds</h2>
+        <div class="start-card">
+          <div class="examples">
+            #{example_row("Install the CLI", "go install github.com/AndrewDryga/relay@latest")}
+            #{example_row("Share #{t.name}", "relay -- #{t.cmd}")}
+          </div>
+        </div>
+        <p class="muted center">It prints a link and a QR — scan it and you're live. <a href="/#start">More ways to run it →</a></p>
+        <div class="cta-row center"><a class="btn btn-primary" href="#{@github}" rel="noopener">Get the CLI on GitHub</a></div>
+      </div>
+    </section>
     """
   end
 
@@ -595,13 +617,14 @@ defmodule RelayWeb.Site.Page do
     ~s(<div class="snippet"><code><span class="prompt">$</span> #{h(text)}</code><button class="copy" type="button" data-copy="#{h(text)}" aria-label="Copy command">Copy</button></div>)
   end
 
-  defp term_demo do
-    # Built with explicit newlines (not a heredoc) because <pre> is
-    # whitespace-sensitive and heredoc indentation rules would fight the layout.
-    # Mirrors the real `relay` banner (see printBanner in main.go): the bold title,
-    # the QR, then aligned Link / Fingerprint / Expires / Control rows and the note.
+  # The hero visual: a terminal sharing `relay -- cmd` + a phone showing the same
+  # session live. Parameterized by the command/name so each tool page shows its own.
+  # Built with explicit newlines because <pre> is whitespace-sensitive; the relay
+  # banner is identical for every command (see printBanner in main.go) — only the
+  # invocation differs, so nothing tool-specific is fabricated.
+  defp term_demo(cmd, name) do
     lines = [
-      ~s(<span class="c-p">$</span> relay -- claude),
+      ~s(<span class="c-p">$</span> relay -- #{h(cmd)}),
       :gap,
       ~s(<span class="c-b">relay — this session is shared, end-to-end encrypted</span>),
       :gap,
@@ -611,7 +634,7 @@ defmodule RelayWeb.Site.Page do
       :gap,
       ~s(  <span class="c-dim">Scan it, or open the link on your phone →</span>),
       :gap,
-      ~s(<span class="c-ok">✻</span> <span class="c-b">Claude Code</span> <span class="c-dim">ready — how can I help?</span>),
+      ~s(<span class="c-ok">✻</span> <span class="c-b">#{h(name)}</span> <span class="c-dim">is live — your phone is the keyboard</span>),
       ~s(<span class="c-p">›</span> <span class="cursor">█</span>)
     ]
 
@@ -625,21 +648,21 @@ defmodule RelayWeb.Site.Page do
 
     term =
       ~s(<div class="term">) <>
-        ~s(<div class="term-bar"><span class="tdot r"></span><span class="tdot y"></span><span class="tdot g"></span><span class="term-title">claude — relay</span><span class="term-live"><i></i>shared</span></div>) <>
+        ~s(<div class="term-bar"><span class="tdot r"></span><span class="tdot y"></span><span class="tdot g"></span><span class="term-title">#{h(name)} — relay</span><span class="term-live"><i></i>shared</span></div>) <>
         ~s(<pre class="term-body">) <> body <> ~s(</pre></div>)
 
-    ~s(<div class="stage" role="img" aria-label="A terminal running 'relay -- claude' shares an end-to-end-encrypted link; a phone shows the same Claude Code session live and being controlled.">) <>
-      term <> phone() <> ~s(</div>)
+    ~s(<div class="stage" role="img" aria-label="A terminal running 'relay -- #{h(cmd)}' shares an end-to-end-encrypted link; a phone shows the same #{h(name)} session live and in your control.">) <>
+      term <> phone(name) <> ~s(</div>)
   end
 
-  # The phone overlay: the same session, live on a phone, being driven.
-  defp phone do
+  # The phone overlay: the same session, live on a phone, ready to drive.
+  defp phone(name) do
     body =
       Enum.join(
         [
-          ~s(<span class="c-ok">✻</span> <span class="c-b">Claude Code</span>),
-          ~s(<span class="c-p">›</span> refactor the auth module),
-          ~s(<span class="c-dim">● editing auth.ex…</span>)
+          ~s(<span class="c-ok">✻</span> <span class="c-b">#{h(name)}</span>),
+          ~s(<span class="c-dim">mirrored live · end-to-end</span>),
+          ~s(<span class="c-p">›</span> <span class="cursor">█</span>)
         ],
         "\n"
       )

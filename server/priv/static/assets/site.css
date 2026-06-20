@@ -291,6 +291,11 @@ p { margin: 0 0 1rem; }
 .uses { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.1rem; margin-top: 2.5rem; }
 .uses .feature p { font-size: .96rem; }
 
+/* ── tool page: trust points ── */
+.tool-points { list-style: none; padding: 0; margin: 1.5rem 0; display: flex; flex-direction: column; gap: .85rem; }
+.tool-points li { display: flex; gap: .65rem; align-items: flex-start; color: var(--fg-2); }
+.tool-points li svg { width: 18px; height: 18px; color: var(--accent); flex: 0 0 auto; margin-top: .2rem; }
+
 /* ── faq ── */
 .faq { max-width: var(--narrow); margin: 2.25rem auto 0; border-top: 1px solid var(--line); }
 .faq-item { border-bottom: 1px solid var(--line); }
