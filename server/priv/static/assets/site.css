@@ -1,5 +1,5 @@
 /* OnlyTTY marketing site. Dependency-free, dark-first, mobile-first.
-   Brand: terminal black + bunny green & pink (matches the mascot). Cheeky copy, serious crypto. */
+   Brand: terminal black + cyan & pink. Cheeky copy, serious crypto. */
 
 :root {
   --bg: #0a0b10;
@@ -11,8 +11,8 @@
   --fg: #d3dbe8;
   --fg-strong: #f3f6fb;
   --dim: #828da0;
-  --accent: #90d338;
-  --accent-2: #b6e85f;
+  --accent: #22d3ee;
+  --accent-2: #67e8f9;
   --pink: #fd8284;
   --ok: #22c55e;
   --warn: #f59e0b;
@@ -20,7 +20,7 @@
   --radius-lg: 20px;
   --wrap: 1080px;
   --shadow: 0 10px 40px rgba(0, 0, 0, .5);
-  --glow: 0 0 0 1px rgba(144,211,56, .35), 0 12px 40px rgba(144,211,56, .25);
+  --glow: 0 0 0 1px rgba(34,211,238, .35), 0 12px 40px rgba(34,211,238, .25);
 }
 
 * { box-sizing: border-box; }
@@ -99,7 +99,7 @@ p { margin: 0 0 1rem; }
 .btn-sm { padding: .5rem 1rem; font-size: .9rem; }
 .btn-primary { background: linear-gradient(100deg, var(--accent), var(--accent-2)); color: #00121c;
   box-shadow: var(--glow); }
-.btn-primary:hover { box-shadow: 0 0 0 1px rgba(144,211,56,.6), 0 16px 50px rgba(144,211,56,.4); }
+.btn-primary:hover { box-shadow: 0 0 0 1px rgba(34,211,238,.6), 0 16px 50px rgba(34,211,238,.4); }
 .btn-ghost { background: transparent; color: var(--fg-strong); border-color: var(--border-2); }
 .btn-ghost:hover { background: var(--surface-2); border-color: var(--accent); }
 
@@ -114,7 +114,7 @@ p { margin: 0 0 1rem; }
 /* ── hero ── */
 .hero { position: relative; padding: clamp(2.5rem, 7vw, 5rem) 0 clamp(2rem, 5vw, 3.5rem); overflow: hidden; }
 .hero::before { content: ""; position: absolute; inset: -30% -10% auto -10%; height: 600px; z-index: 0;
-  background: radial-gradient(60% 60% at 20% 10%, rgba(144,211,56,.18), transparent 70%),
+  background: radial-gradient(60% 60% at 20% 10%, rgba(34,211,238,.18), transparent 70%),
               radial-gradient(50% 50% at 90% 0%, rgba(253,130,132,.12), transparent 70%); pointer-events: none; }
 .hero > * { position: relative; z-index: 1; }
 .hero-grid { display: grid; grid-template-columns: 0.95fr 1.12fr; gap: clamp(1.5rem, 4vw, 2.5rem); align-items: center; }
@@ -164,10 +164,10 @@ p { margin: 0 0 1rem; }
 .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.2rem; margin-top: 2.2rem; }
 .step { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.5rem; }
 .step .num { display: inline-flex; align-items: center; justify-content: center;
-  width: 2rem; height: 2rem; border-radius: 50%; background: rgba(144,211,56,.14); color: var(--accent-2);
+  width: 2rem; height: 2rem; border-radius: 50%; background: rgba(34,211,238,.14); color: var(--accent-2);
   font-weight: 800; margin-bottom: .8rem; }
 .step p { margin: 0; color: var(--fg); }
-.step code { color: var(--accent-2); background: rgba(144,211,56,.1); padding: .05em .35em; border-radius: 5px; font-size: .9em; }
+.step code { color: var(--accent-2); background: rgba(34,211,238,.1); padding: .05em .35em; border-radius: 5px; font-size: .9em; }
 
 /* ── features ── */
 .features { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.2rem; margin-top: 2.2rem; }
@@ -194,7 +194,7 @@ p { margin: 0 0 1rem; }
 .card:hover { border-color: var(--accent); text-decoration: none; transform: translateY(-2px); }
 .card-name { color: var(--fg-strong); font-weight: 700; }
 .card-what { color: var(--dim); font-size: .9rem; flex: 1 1 auto; }
-.card-cmd { color: var(--accent-2); font-size: .8rem; background: rgba(144,211,56,.08);
+.card-cmd { color: var(--accent-2); font-size: .8rem; background: rgba(34,211,238,.08);
   padding: .3rem .5rem; border-radius: 7px; overflow-x: auto; white-space: nowrap; }
 .tools-index h2 { scroll-margin-top: 80px; }
 
