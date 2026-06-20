@@ -36,6 +36,12 @@ defmodule RelayWeb.SiteTest do
       assert body =~ ~s(href="/tools")
       assert body =~ ~s(href="/control/claude")
     end
+
+    test "shows the brand mascot logo and banner illustration", %{conn: conn} do
+      body = conn |> get(~p"/") |> html_response(200)
+      assert body =~ "/assets/brand/mascot.png"
+      assert body =~ "/assets/brand/banner.png"
+    end
   end
 
   describe "GET /control/:slug" do
@@ -67,6 +73,7 @@ defmodule RelayWeb.SiteTest do
       conn = get(conn, "/control/totally-not-a-real-tool-xyz")
       body = html_response(conn, 404)
       assert body =~ "OnlyTTY"
+      assert body =~ "/assets/brand/mascot.png"
       assert body =~ ~s(content="noindex,follow")
       # The slug must never be reflected into the page (no injection surface).
       refute body =~ "totally-not-a-real-tool-xyz"

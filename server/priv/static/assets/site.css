@@ -86,7 +86,7 @@ p { margin: 0 0 1rem; }
 .brand:hover { text-decoration: none; }
 .brand b { background: linear-gradient(100deg, var(--accent), var(--accent-2));
   -webkit-background-clip: text; background-clip: text; color: transparent; }
-.logo { width: 30px; height: 30px; flex: 0 0 auto; object-fit: contain; }
+.logo { width: 24px; height: 30px; flex: 0 0 auto; object-fit: contain; }
 .nav-links { display: flex; gap: 1.3rem; margin-left: auto; }
 .nav-links a { color: var(--fg); font-size: .92rem; }
 .nav-links a:hover { color: var(--fg-strong); text-decoration: none; }
@@ -235,6 +235,13 @@ p { margin: 0 0 1rem; }
 .footer nav a:hover { color: var(--accent-2); text-decoration: none; }
 .footer-bottom { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .6rem;
   margin-top: 2.5rem; padding-top: 1.5rem; border-top: 1px solid var(--border); color: var(--dim); font-size: .84rem; }
+
+/* ── brand visuals ── */
+.brand-band { padding-top: 0; }
+.banner { width: 100%; max-width: 800px; height: auto; border-radius: var(--radius-lg);
+  border: 1px solid var(--border-2); box-shadow: var(--shadow); }
+.brand-mascot { display: block; width: 108px; height: auto; margin: 0 auto 1.2rem;
+  filter: drop-shadow(0 8px 24px rgba(0, 0, 0, .5)); }
 
 /* ── focus ── */
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }

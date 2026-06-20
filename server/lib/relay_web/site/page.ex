@@ -31,7 +31,9 @@ defmodule RelayWeb.Site.Page do
         hero() <>
           trust_bar() <>
           how_section() <>
-          features_section() <> home_tools() <> testimonials() <> faq_section() <> start_section()
+          features_section() <>
+          home_tools() <>
+          testimonials() <> faq_section() <> brand_band() <> start_section()
     )
   end
 
@@ -69,6 +71,7 @@ defmodule RelayWeb.Site.Page do
       json_ld: [],
       body: """
       <section class="wrap section center">
+        <img class="brand-mascot" src="/assets/brand/mascot.png" width="120" height="151" alt="OnlyTTY mascot">
         <p class="eyebrow">404 · session not found</p>
         <h1>This link points to nothing.</h1>
         <p class="lede">Like a session that's already expired. No bytes here — just a dead cursor.</p>
@@ -331,6 +334,17 @@ defmodule RelayWeb.Site.Page do
     """
   end
 
+  defp brand_band do
+    """
+    <section class="section brand-band">
+      <div class="wrap center">
+        <img class="banner" src="/assets/brand/banner.png" width="1200" height="580" loading="lazy"
+             alt="OnlyTTY — control your CLI from anywhere">
+      </div>
+    </section>
+    """
+  end
+
   defp start_section do
     """
     <section id="start" class="section start">
@@ -534,7 +548,7 @@ defmodule RelayWeb.Site.Page do
   end
 
   defp logo do
-    ~s(<img class="logo" src="/assets/logo-mark.png" width="30" height="30" alt="" aria-hidden="true">)
+    ~s(<img class="logo" src="/assets/brand/mascot.png" width="24" height="30" alt="" aria-hidden="true">)
   end
 
   defp script do
