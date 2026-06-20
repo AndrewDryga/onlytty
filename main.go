@@ -5,6 +5,7 @@ package main
 import (
 	"context"
 	"crypto/rand"
+	"encoding/base32"
 	"encoding/base64"
 	"errors"
 	"flag"
@@ -48,6 +49,7 @@ func run() int {
 	readOnly := flag.Bool("read-only", false, "viewers may watch but never type or resize")
 	ttl := flag.Duration("ttl", 12*time.Hour, "session lifetime before the link expires")
 	withPass := flag.Bool("passphrase", false, "prompt for a passphrase to mix into the keys (shared out-of-band; the link alone won't decrypt)")
+	genPass := flag.Bool("passphrase-generate", false, "generate a strong passphrase host-side and display it (implies --passphrase)")
 	noQR := flag.Bool("no-qr", false, "print the link without a QR code")
 	allowInsecure := flag.Bool("allow-insecure", false, "allow a plain http:// relay to a non-local host (local testing only)")
 	showVer := flag.Bool("version", false, "print version and exit")
@@ -77,9 +79,17 @@ func run() int {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGHUP)
 	defer stop()
 
-	// Optional passphrase, read before we touch the terminal mode.
+	// Optional passphrase, resolved before we touch the terminal mode. --passphrase-generate
+	// builds one host-side; --passphrase prompts for it.
 	passphrase := ""
-	if *withPass {
+	switch {
+	case *genPass:
+		passphrase, err = generatePassphrase()
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "relay:", err)
+			return 1
+		}
+	case *withPass:
 		passphrase, err = promptPassphrase()
 		if err != nil {
 			fmt.Fprintln(os.Stderr, "relay:", err)
@@ -109,7 +119,7 @@ func run() int {
 	link := client.ViewerURL(sess.ID, secretB64, passphrase != "")
 
 	// Show the expiry the relay actually assigned (it clamps the TTL), not the raw flag.
-	printBanner(link, formatFingerprint(keys.Fingerprint), remaining(sess.ExpiresAt, time.Now()), *readOnly, passphrase != "", *noQR)
+	printBanner(link, formatFingerprint(keys.Fingerprint), remaining(sess.ExpiresAt, time.Now()), *readOnly, passphrase, *genPass, *noQR)
 
 	// 3) Start the command in a PTY and mirror it locally.
 	psess, err := ptysession.Start(argv, os.Environ())
@@ -216,7 +226,7 @@ func remaining(expiresAt int64, now time.Time) time.Duration {
 	return time.Unix(expiresAt, 0).Sub(now).Round(time.Second)
 }
 
-func printBanner(link, fingerprint string, expiresIn time.Duration, readOnly, passphrase, noQR bool) {
+func printBanner(link, fingerprint string, expiresIn time.Duration, readOnly bool, passphrase string, generated, noQR bool) {
 	w := os.Stderr
 	fmt.Fprintf(w, "\n  %s\n\n", bold("relay — this session is shared, end-to-end encrypted"))
 	if !noQR {
@@ -231,11 +241,30 @@ func printBanner(link, fingerprint string, expiresIn time.Duration, readOnly, pa
 		control = "read-only (viewers cannot type or resize)"
 	}
 	fmt.Fprintf(w, "  Control      %s\n", control)
-	if passphrase {
+	switch {
+	case generated:
+		// Two channels: the link/QR above go one way; the passphrase goes another.
+		// Showing them in the same message defeats the point.
+		fmt.Fprintf(w, "\n  %s\n", bold("Passphrase — send in a DIFFERENT channel than the link:"))
+		fmt.Fprintf(w, "  %s\n", bold(passphrase))
+	case passphrase != "":
 		fmt.Fprintf(w, "  Passphrase   %s\n", dim("required in the browser (the link alone won't decrypt)"))
 	}
 	fmt.Fprintf(w, "\n  %s\n", dim("Scan the QR or open the link. The relay only ever sees ciphertext."))
 	fmt.Fprintf(w, "  %s\n\n", dim("Use the command normally here; exit it to stop sharing."))
+}
+
+// generatePassphrase builds a strong, unambiguous host-side passphrase: 80 random
+// bits as RFC4648 base32 (A–Z, 2–7 — no 0/1/8/9 or case ambiguity), grouped into
+// 4-char blocks. The full grouped string (dashes included) is the passphrase; show
+// it and type it verbatim in the browser.
+func generatePassphrase() (string, error) {
+	b := make([]byte, 10) // 80 bits
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	enc := base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(b)
+	return formatFingerprint(enc), nil
 }
 
 // formatFingerprint groups the base32 fingerprint into 4-char blocks for eyeballing.

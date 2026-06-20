@@ -85,6 +85,9 @@ relay [flags] -- <cmd>...  share one command
                      (default 12h; the relay clamps every TTL to 60s–24h)
   --passphrase       prompt for a passphrase mixed into the keys; share it
                      out-of-band so the link alone cannot decrypt
+  --passphrase-generate
+                     generate a strong passphrase host-side and print it; send it
+                     in a different channel than the link (never the same message)
   --no-qr            print the link without a QR code
   --allow-insecure   allow a plain http:// relay to a non-local host
                      (development/testing only — production requires https)
