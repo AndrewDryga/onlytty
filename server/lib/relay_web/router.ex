@@ -20,6 +20,12 @@ defmodule RelayWeb.Router do
   scope "/", RelayWeb do
     pipe_through :raw
 
+    # OnlyTTY marketing site (server-rendered, indexable).
+    get "/", PageController, :home
+    get "/tools", PageController, :tools
+    get "/control/:slug", PageController, :tool
+    get "/sitemap.xml", PageController, :sitemap
+
     get "/healthz", SessionController, :healthz
     get "/s/:id", SessionController, :viewer
 

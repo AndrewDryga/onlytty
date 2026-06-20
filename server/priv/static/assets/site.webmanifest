@@ -1,0 +1,14 @@
+{
+  "name": "OnlyTTY",
+  "short_name": "OnlyTTY",
+  "description": "Run any command on your machine and drive it from your phone — end-to-end encrypted.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0b10",
+  "theme_color": "#0a0b10",
+  "icons": [
+    { "src": "/assets/icon-192.png", "type": "image/png", "sizes": "192x192" },
+    { "src": "/assets/icon-512.png", "type": "image/png", "sizes": "512x512" },
+    { "src": "/assets/apple-touch-icon.png", "type": "image/png", "sizes": "180x180" }
+  ]
+}

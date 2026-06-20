@@ -1,5 +1,10 @@
-# See https://www.robotstxt.org/robotstxt.html for documentation on how to use the robots.txt file
-#
-# To ban all spiders from the entire site uncomment the next two lines:
-# User-agent: *
-# Disallow: /
+# OnlyTTY — https://onlytty.com
+# Marketing pages are public and indexable; session viewer pages and the API are not.
+
+User-agent: *
+Allow: /
+Disallow: /s/
+Disallow: /api/
+Disallow: /ws/
+
+Sitemap: https://onlytty.com/sitemap.xml
