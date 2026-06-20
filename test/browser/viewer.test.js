@@ -82,6 +82,14 @@ test("browser viewer: connect, match fingerprint, take control, type, see output
       null, { timeout: 8000 },
     );
 
+    await page.keyboard.type("exit\r");
+    await page.waitForFunction(
+      () => document.getElementById("status-text").textContent.startsWith("ended"),
+      null, { timeout: 8000 },
+    );
+    assert.equal(await page.textContent("#control"), "ended");
+    assert.equal(await page.locator("#control").isDisabled(), true);
+
     assert.deepEqual(errors, [], "no page/console errors");
   } finally {
     if (browser) await browser.close();

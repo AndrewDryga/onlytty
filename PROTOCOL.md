@@ -132,10 +132,13 @@ relay → client:
 {"t":"peer_join"}     // runner: a viewer connected. viewer: runner is present.
 {"t":"peer_left"}
 {"t":"busy"}          // viewer slot taken (single-viewer lock); relay then closes
-{"t":"bye","reason":"expired|closed|idle"}
+{"t":"bye","reason":"expired|closed|idle|ended"}
 ```
 
-client → relay: none required in v1.
+client → relay: `{"t":"bye"}` closes that client socket. A runner may send
+`{"t":"bye","reason":"ended"}` after its command exits; the relay closes the whole
+session so viewers see an explicit final state even if the encrypted `EXIT` frame
+was missed.
 
 When a viewer connects, the relay sends the runner `{"t":"peer_join"}`; the runner
 replies (over the binary channel) with `HELLO` + buffer replay. The relay forwards

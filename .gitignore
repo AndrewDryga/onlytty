@@ -17,3 +17,13 @@ node_modules/
 # OS / editor
 .DS_Store
 *.swp
+
+# coop working state (commit knowledge, ignore state)
+.agent/*
+!.agent/rules/
+!.agent/skills/
+
+# .gemini may be globally ignored (local Gemini state); keep just the skills symlink
+!.gemini/
+.gemini/*
+!.gemini/skills

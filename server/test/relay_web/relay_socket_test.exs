@@ -159,6 +159,30 @@ defmodule RelayWeb.RelaySocketTest do
       assert {1000, _} = WSClient.recv_close(pid, ref)
       WSClient.close(pid)
     end
+
+    test "runner {\"t\":\"bye\",\"reason\":\"ended\"} closes the whole session", %{port: port} do
+      s = new_session()
+
+      runner = WSClient.open(port)
+      r_ref = WSClient.connect!(runner, "/ws/runner/#{s.id}", runner_headers(s.runner_token))
+      assert WSClient.recv_json(runner, r_ref)["t"] == "hello"
+
+      viewer = WSClient.open(port)
+      v_ref = WSClient.connect!(viewer, "/ws/viewer/#{s.id}", [])
+      assert WSClient.recv_json(viewer, v_ref)["t"] == "hello"
+      assert WSClient.recv_json(viewer, v_ref)["t"] == "peer_join"
+      assert WSClient.recv_json(runner, r_ref)["t"] == "peer_join"
+
+      WSClient.send_text(runner, r_ref, Jason.encode!(%{t: "bye", reason: "ended"}))
+
+      bye = WSClient.recv_json(viewer, v_ref)
+      assert bye["t"] == "bye" and bye["reason"] == "ended"
+      assert {4000, "ended"} = WSClient.recv_close(viewer, v_ref)
+      assert {4000, "ended"} = WSClient.recv_close(runner, r_ref)
+
+      WSClient.close(runner)
+      WSClient.close(viewer)
+    end
   end
 
   describe "single-viewer lock" do

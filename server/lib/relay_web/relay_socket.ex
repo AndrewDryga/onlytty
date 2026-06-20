@@ -11,7 +11,8 @@ defmodule RelayWeb.RelaySocket do
       the peer process and never parse, log, or store them. If there is no peer,
       we drop (the runner buffers; that is the runner's job).
     * **text** frames are the control plane (JSON, metadata only). On connect we
-      send `{"t":"hello",...}`. We honor a client `{"t":"bye"}` by closing.
+      send `{"t":"hello",...}`. A viewer `{"t":"bye"}` closes that socket; a
+      runner `{"t":"bye","reason":"ended"}` closes the whole session.
 
   Auth and session existence are checked in `RelayWeb.SocketController` *before*
   the upgrade, so by the time `init/1` runs the session is known to exist and
@@ -64,9 +65,14 @@ defmodule RelayWeb.RelaySocket do
     {:ok, state}
   end
 
-  # Text = control plane. The only client->relay message in v1 is {"t":"bye"}.
+  # Text = control plane. Viewer bye closes just that socket; runner bye is the
+  # command-exit signal and closes the whole session so viewers see a final state.
   def handle_in({data, opcode: :text}, state) do
     case decode_control(data) do
+      {:ok, %{"t" => "bye"} = msg} when state.role == :runner ->
+        Session.close(state.session, Map.get(msg, "reason", "closed"))
+        {:ok, state}
+
       {:ok, %{"t" => "bye"}} -> {:stop, :normal, {@close_normal, "closed"}, state}
       _ -> {:ok, state}
     end

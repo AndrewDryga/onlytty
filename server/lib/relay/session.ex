@@ -72,6 +72,12 @@ defmodule Relay.Session do
     GenServer.cast(session, :runner_active)
   end
 
+  @doc "Close the whole session and all connected sockets with a relay-visible reason."
+  @spec close(pid(), String.t()) :: :ok
+  def close(session, reason) when is_binary(reason) do
+    GenServer.cast(session, {:close, reason})
+  end
+
   @doc "Fetch the session's runner token, for authorizing the runner socket."
   @spec runner_token(pid()) :: String.t()
   def runner_token(session) do
@@ -165,6 +171,11 @@ defmodule Relay.Session do
   @impl true
   def handle_cast(:runner_active, state) do
     {:noreply, reset_idle_timer(state)}
+  end
+
+  def handle_cast({:close, reason}, state) do
+    close_all(state, @close_bye, reason)
+    {:stop, :normal, state}
   end
 
   @impl true

@@ -35,7 +35,7 @@ let outSeq = 0; // viewer→runner sequence (starts at HELLO baseline)
 let lastSeq = 0; // runner→viewer replay floor (monotonic, runner is one process)
 let hasControl = false;
 let ptyCols = 80, ptyRows = 24;
-let ended = false, noReconnect = false;
+let ended = false, noReconnect = false, exitSeen = false;
 let backoff = 500;
 let ctrlArmed = false;
 let everConnected = false, failCount = 0;
@@ -57,7 +57,9 @@ function updateControlUI() {
   b.className = hasControl ? "live" : "";
 }
 
-if (matchMedia("(pointer: coarse)").matches) document.body.classList.add("touch");
+// Touch key bar is for phones (coarse pointer, no hover) — not touchscreen
+// laptops/2-in-1s, which have a precise pointer available and a real keyboard.
+if (matchMedia("(pointer: coarse) and (hover: none)").matches) document.body.classList.add("touch");
 
 // --- crypto setup & connect --------------------------------------------------
 async function start(passphrase) {
@@ -87,7 +89,7 @@ function connect() {
 
   let queue = Promise.resolve(); // serialize async frame handling to preserve order
   ws.onmessage = (ev) => { queue = queue.then(() => onMessage(ev)); };
-  ws.onopen = () => { everConnected = true; failCount = 0; setStatus("connected", "ok"); backoff = 500; requestWakeLock(); };
+  ws.onopen = () => { everConnected = true; failCount = 0; setStatus("waiting for runner…", "warn"); backoff = 500; requestWakeLock(); };
   ws.onclose = () => {
     if (ended || noReconnect) return;
     // Browsers can't expose the handshake status, so a session that never
@@ -120,6 +122,7 @@ function dispatch({ kind, payload }) {
       const h = decodeHello(payload);
       outSeq = Math.max(outSeq, h.baseline - 1); // next send() uses >= baseline
       ptyCols = h.cols; ptyRows = h.rows;
+      if (!ended) setStatus("connected", "ok");
       applySize();
       break;
     }
@@ -134,7 +137,7 @@ function dispatch({ kind, payload }) {
     case Kind.Exit: {
       const code = decodeExit(payload);
       term.write(`\r\n\x1b[2m── command exited (${code}) ──\x1b[0m\r\n`);
-      ended = true; noReconnect = true;
+      ended = true; noReconnect = true; exitSeen = true; hasControl = false;
       setStatus(`ended (exit ${code})`, "warn");
       updateControlUI();
       break;
@@ -147,14 +150,23 @@ function onControlText(data) {
   try { m = JSON.parse(data); } catch { return; }
   switch (m.t) {
     case "peer_join": if (!ended) setStatus("connected", "ok"); break;
-    case "peer_left": if (!ended) setStatus("runner offline — waiting…", "warn"); break;
+    case "peer_left": if (!ended) setStatus("runner disconnected — waiting…", "warn"); break;
     case "busy":
       noReconnect = true;
       fatal("<h1>Session busy</h1><p>Another viewer is already connected. This session allows one viewer at a time.</p>");
       break;
     case "bye":
-      ended = true; noReconnect = true;
-      setStatus(`session closed (${m.reason || ""})`, "warn");
+      ended = true; noReconnect = true; hasControl = false;
+      if (!exitSeen) {
+        const reason = m.reason || "closed";
+        if (reason === "ended") {
+          term.write("\r\n\x1b[2m── session ended ──\x1b[0m\r\n");
+          setStatus("ended", "warn");
+        } else {
+          setStatus(`session closed (${reason})`, "warn");
+        }
+      }
+      updateControlUI();
       break;
   }
 }
