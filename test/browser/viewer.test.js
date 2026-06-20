@@ -24,7 +24,7 @@ function healthy() {
 // Start the runner and pull the viewer link + fingerprint from its banner (stderr).
 function startRunner(args) {
   return new Promise((resolve, reject) => {
-    const p = spawn(join(root, "relay"), ["--no-qr", ...args], {
+    const p = spawn(join(root, "onlytty"), ["--no-qr", ...args], {
       env: { ...process.env, RELAY_SERVER: base, TERM: "xterm-256color" },
       stdio: ["ignore", "ignore", "pipe"],
     });

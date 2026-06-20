@@ -12,9 +12,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/AndrewDryga/relay/internal/protocol"
-	"github.com/AndrewDryga/relay/internal/ptysession"
-	"github.com/AndrewDryga/relay/internal/relayclient"
+	"github.com/AndrewDryga/onlytty/runner/internal/protocol"
+	"github.com/AndrewDryga/onlytty/runner/internal/ptysession"
+	"github.com/AndrewDryga/onlytty/runner/internal/relayclient"
 	"github.com/coder/websocket"
 )
 

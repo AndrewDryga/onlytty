@@ -37,8 +37,8 @@ fi
 
 cd "$ROOT"
 echo "e2e: building the runner…"
-go build -o relay .
+go build -o onlytty ./runner
 echo "e2e: transport (Go viewer ↔ relay ↔ runner)…"
-RELAY_SERVER="$BASE" go test -tags e2e -count=1 ./test/e2e/
+RELAY_SERVER="$BASE" go test -tags e2e -count=1 ./runner/e2e/
 echo "e2e: browser (headless Chromium drives the real viewer)…"
 RELAY_SERVER="$BASE" node --test test/browser/*.test.js

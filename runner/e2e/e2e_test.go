@@ -4,7 +4,7 @@
 // relay. It exercises pairing, the encrypted output/input loop, take-control, and
 // exit. Run with `make e2e` (which boots the relay), or against a running relay:
 //
-//	RELAY_SERVER=http://127.0.0.1:4000 go test -tags e2e ./test/e2e/ -v
+//	RELAY_SERVER=http://127.0.0.1:4000 go test -tags e2e ./runner/e2e/ -v
 //
 // The viewer here uses the Go protocol package, which is pinned byte-for-byte to the
 // browser's web/crypto.js by the golden vectors — so it is a faithful stand-in.
@@ -18,10 +18,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/AndrewDryga/relay/internal/protocol"
-	"github.com/AndrewDryga/relay/internal/ptysession"
-	"github.com/AndrewDryga/relay/internal/relayclient"
-	"github.com/AndrewDryga/relay/internal/runner"
+	"github.com/AndrewDryga/onlytty/runner/internal/protocol"
+	"github.com/AndrewDryga/onlytty/runner/internal/ptysession"
+	"github.com/AndrewDryga/onlytty/runner/internal/relayclient"
+	"github.com/AndrewDryga/onlytty/runner/internal/runner"
 	"github.com/coder/websocket"
 )
 
@@ -77,7 +77,7 @@ func TestEndToEnd(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 
-	client, err := relayclient.New(base)
+	client, err := relayclient.New(base, false)
 	if err != nil {
 		t.Fatal(err)
 	}

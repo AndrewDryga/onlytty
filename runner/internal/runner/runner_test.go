@@ -4,8 +4,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/AndrewDryga/relay/internal/protocol"
-	"github.com/AndrewDryga/relay/internal/ptysession"
+	"github.com/AndrewDryga/onlytty/runner/internal/protocol"
+	"github.com/AndrewDryga/onlytty/runner/internal/ptysession"
 )
 
 // newTestOrch builds an Orchestrator over a real PTY running `cat`, plus the viewer's

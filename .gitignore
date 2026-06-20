@@ -1,5 +1,5 @@
 # Go runner
-/relay
+/onlytty
 /dist/
 *.test
 *.out

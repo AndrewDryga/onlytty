@@ -1,4 +1,4 @@
-module github.com/AndrewDryga/relay
+module github.com/AndrewDryga/onlytty/runner
 
 go 1.26.4
 

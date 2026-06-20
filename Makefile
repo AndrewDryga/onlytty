@@ -4,17 +4,16 @@
 VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 LDFLAGS := -s -w -X main.version=$(VERSION)
 
-build: ## Build the relay runner binary to ./relay
-	@go build -trimpath -ldflags "$(LDFLAGS)" -o relay .
+build: ## Build the runner binary to ./onlytty
+	@go build -trimpath -ldflags "$(LDFLAGS)" -o onlytty ./runner
 
-install: ## Build + install the runner to ~/.local/bin/relay
-	@go build -trimpath -ldflags "$(LDFLAGS)" -o "$(HOME)/.local/bin/relay" .
-	@echo "installed $(HOME)/.local/bin/relay ($(VERSION))"
+install: ## Build + install the runner to ~/.local/bin/onlytty
+	@go build -trimpath -ldflags "$(LDFLAGS)" -o "$(HOME)/.local/bin/onlytty" ./runner
+	@echo "installed $(HOME)/.local/bin/onlytty ($(VERSION))"
 
 runner-check: ## Runner: gofmt + vet + tests
-	@gofmt -l . | (! grep .) || { echo "gofmt: run gofmt -w ."; exit 1; }
-	@go vet ./...
-	@go test ./...
+	@gofmt -l runner | (! grep .) || { echo "gofmt: run gofmt -w runner"; exit 1; }
+	@cd runner && go vet ./... && go test ./...
 
 web-check: ## Web viewer: Node interop + unit tests
 	@node --test test/web/*.test.js
@@ -50,7 +49,7 @@ fuzz: ## Fuzz the protocol decoders (override length: make fuzz FUZZTIME=2m)
 	@t=$${FUZZTIME:-15s}; \
 	for fn in FuzzDecodeHello FuzzDecodeResize FuzzDecodeExit FuzzCipherOpen; do \
 	  echo "== $$fn ($$t) =="; \
-	  go test ./internal/protocol/ -run '^$$' -fuzz "^$$fn$$" -fuzztime="$$t" || exit 1; \
+	  (cd runner && go test ./internal/protocol/ -run '^$$' -fuzz "^$$fn$$" -fuzztime="$$t") || exit 1; \
 	done
 
 load: ## Load-test session creation against a running relay (RELAY_SERVER, args: N CONC)
@@ -67,7 +66,7 @@ doctor: ## Check required toolchains; print install hints for anything missing
 	[ $$missing -eq 0 ] && echo "doctor: all good" || { echo "doctor: install the missing tools above"; exit 1; }
 
 clean: ## Remove build artifacts
-	@rm -f relay
+	@rm -f onlytty
 	@rm -rf dist
 
 help: ## List targets
