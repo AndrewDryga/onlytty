@@ -124,10 +124,10 @@ p { margin: 0 0 1rem; }
 .brand:hover { color: var(--fg); }
 .brand b { background: linear-gradient(100deg, var(--accent), var(--accent-2));
   -webkit-background-clip: text; background-clip: text; color: transparent; }
-/* The mascot fills its image to the bottom edge, but the ears make it tall, so
-   geometric centering leaves the box hanging below the wordmark. Raise it so the
-   box bottom sits on the text baseline (measured against the 'OnlyTTY' baseline). */
-.logo { width: 26px; height: 32px; flex: 0 0 auto; object-fit: contain; transform: translateY(-11.25px); }
+/* The mascot's ears make the image tall and its dark box low-contrast on the nav,
+   so geometric centering leaves the box looking like it hangs below the wordmark.
+   Raise it so the terminal box visually sits on the text line (tuned by eye). */
+.logo { width: 26px; height: 32px; flex: 0 0 auto; object-fit: contain; transform: translateY(-7px); }
 .nav-links { display: flex; gap: 1.6rem; margin-left: auto; }
 .nav-links a { color: var(--fg-2); font-size: .92rem; font-weight: 500; transition: color .15s ease; }
 .nav-links a:hover { color: var(--fg); }
