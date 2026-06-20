@@ -275,7 +275,10 @@ defmodule RelayWeb.Site.Page do
   # ── Home sections ─────────────────────────────────────────────────────────
 
   defp hero do
-    rotate = Jason.encode!(["claude", "codex", "aider", "gemini", "psql"])
+    # Hero rotation is deliberately agents/long-runners — tools you mostly watch
+    # and steer with the odd interruption. Input-heavy tools (psql, editors,
+    # shells) live on /tools and their own /control pages, not the hero.
+    rotate = Jason.encode!(["claude", "codex", "aider", "gemini", "goose"])
 
     """
     <section class="hero">
