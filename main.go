@@ -173,6 +173,12 @@ func watchResize(ctx context.Context, orch *runner.Orchestrator) {
 }
 
 func promptPassphrase() (string, error) {
+	// Reading a passphrase is interactive-only; without a TTY, term.ReadPassword
+	// fails with a raw ENOTTY. Check first and emit something actionable, and don't
+	// print a prompt we can't read the answer to.
+	if !term.IsTerminal(int(os.Stdin.Fd())) {
+		return "", errors.New("--passphrase needs an interactive terminal")
+	}
 	fmt.Fprint(os.Stderr, "Passphrase (shared out-of-band): ")
 	b, err := term.ReadPassword(int(os.Stdin.Fd()))
 	fmt.Fprintln(os.Stderr)
