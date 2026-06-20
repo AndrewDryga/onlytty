@@ -46,6 +46,16 @@ viewer-hash: ## SHA-256 of each viewer asset (reproducible — publish with each
 	  assets/app.js assets/crypto.js assets/wire.js \
 	  assets/vendor/xterm.js assets/vendor/xterm.css assets/vendor/addon-fit.js
 
+fuzz: ## Fuzz the protocol decoders (override length: make fuzz FUZZTIME=2m)
+	@t=$${FUZZTIME:-15s}; \
+	for fn in FuzzDecodeHello FuzzDecodeResize FuzzDecodeExit FuzzCipherOpen; do \
+	  echo "== $$fn ($$t) =="; \
+	  go test ./internal/protocol/ -run '^$$' -fuzz "^$$fn$$" -fuzztime="$$t" || exit 1; \
+	done
+
+load: ## Load-test session creation against a running relay (RELAY_SERVER, args: N CONC)
+	@bash scripts/load.sh
+
 doctor: ## Check required toolchains; print install hints for anything missing
 	@missing=0; \
 	for t in go gofmt elixir mix node npm; do \
@@ -63,4 +73,4 @@ clean: ## Remove build artifacts
 help: ## List targets
 	@grep -hE '^[a-z0-9-]+:.*##' $(MAKEFILE_LIST) | sed -E 's/:.*## / — /' | sort
 
-.PHONY: build install runner-check web-check server-check check e2e audit audit-go audit-web audit-server viewer-hash doctor clean help
+.PHONY: build install runner-check web-check server-check check e2e audit audit-go audit-web audit-server viewer-hash fuzz load doctor clean help

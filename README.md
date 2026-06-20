@@ -181,6 +181,8 @@ make check     # the gate: runner (go) + web (node) + server (elixir)
 make e2e       # boots the relay, then a Go viewer and a headless-browser viewer
                # drive a real session end-to-end through it
 make audit     # opt-in dependency/security audit (not part of `check`)
+make fuzz      # fuzz the protocol decoders (they parse relay-forwarded bytes)
+make load      # concurrent session-create load against $RELAY_SERVER
 ```
 
 `make audit` runs `govulncheck ./...` (Go), `npm audit` (web), and `mix hex.audit`
