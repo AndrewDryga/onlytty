@@ -7,7 +7,7 @@ import (
 )
 
 func TestViewerURL(t *testing.T) {
-	c, err := New("https://relay.example.com")
+	c, err := New("https://relay.example.com", false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -24,19 +24,19 @@ func TestViewerURL(t *testing.T) {
 
 func TestNewValidation(t *testing.T) {
 	for _, bad := range []string{"", "ftp://x", "not a url", "https://"} {
-		if _, err := New(bad); err == nil {
+		if _, err := New(bad, false); err == nil {
 			t.Errorf("New(%q) should error", bad)
 		}
 	}
 	for _, ok := range []string{"http://localhost:4000", "https://relay.example.com"} {
-		if _, err := New(ok); err != nil {
+		if _, err := New(ok, false); err != nil {
 			t.Errorf("New(%q) unexpected error: %v", ok, err)
 		}
 	}
 }
 
 func TestSchemelessServerError(t *testing.T) {
-	_, err := New("localhost:4000")
+	_, err := New("localhost:4000", false)
 	if err == nil {
 		t.Fatal("scheme-less --server should error")
 	}
@@ -44,8 +44,25 @@ func TestSchemelessServerError(t *testing.T) {
 		t.Fatalf("error should name the input and suggest http://: %v", err)
 	}
 	// Non-http schemes are still rejected (without the http:// suggestion).
-	if _, err := New("ftp://x"); err == nil {
+	if _, err := New("ftp://x", false); err == nil {
 		t.Error("ftp:// should error")
+	}
+}
+
+func TestNonLocalHTTPGate(t *testing.T) {
+	// Loopback http and any https are fine.
+	for _, ok := range []string{"http://localhost:4000", "http://127.0.0.1:4000", "http://[::1]:4000", "https://relay.example.com"} {
+		if _, err := New(ok, false); err != nil {
+			t.Errorf("New(%q, false) unexpected error: %v", ok, err)
+		}
+	}
+	// Plain http to a non-local host is refused by default…
+	if _, err := New("http://relay.example.com", false); err == nil {
+		t.Error("non-local http should be refused by default")
+	}
+	// …but allowed with the explicit escape hatch.
+	if _, err := New("http://relay.example.com", true); err != nil {
+		t.Errorf("non-local http with allowInsecure should pass: %v", err)
 	}
 }
 

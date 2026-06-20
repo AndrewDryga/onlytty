@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"time"
@@ -22,8 +23,11 @@ type Client struct {
 	httpc *http.Client
 }
 
-// New parses the relay base URL.
-func New(base string) (*Client, error) {
+// New parses the relay base URL. Plain http:// is allowed only to a loopback host
+// (local development); for any other host it requires https unless allowInsecure
+// is set, since the relay delivers executable viewer code and the secret rides in
+// a fragment the browser refuses to use over an insecure non-local context.
+func New(base string, allowInsecure bool) (*Client, error) {
 	u, err := url.Parse(base)
 	if err != nil {
 		return nil, fmt.Errorf("relay url: %w", err)
@@ -39,7 +43,21 @@ func New(base string) (*Client, error) {
 	if u.Host == "" {
 		return nil, fmt.Errorf("relay server %q is missing a host", base)
 	}
+	if u.Scheme == "http" && !allowInsecure && !isLoopbackHost(u.Hostname()) {
+		return nil, fmt.Errorf("relay server %q is plain http to a non-local host; use https:// (or --allow-insecure for local testing)", base)
+	}
 	return &Client{base: u, httpc: &http.Client{Timeout: 20 * time.Second}}, nil
+}
+
+// isLoopbackHost reports whether host is localhost or a loopback IP literal.
+func isLoopbackHost(host string) bool {
+	if host == "localhost" {
+		return true
+	}
+	if ip := net.ParseIP(host); ip != nil {
+		return ip.IsLoopback()
+	}
+	return false
 }
 
 // Session is the relay's response to a create request. It never contains the

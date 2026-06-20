@@ -49,6 +49,7 @@ func run() int {
 	ttl := flag.Duration("ttl", 12*time.Hour, "session lifetime before the link expires")
 	withPass := flag.Bool("passphrase", false, "prompt for a passphrase to mix into the keys (shared out-of-band; the link alone won't decrypt)")
 	noQR := flag.Bool("no-qr", false, "print the link without a QR code")
+	allowInsecure := flag.Bool("allow-insecure", false, "allow a plain http:// relay to a non-local host (local testing only)")
 	showVer := flag.Bool("version", false, "print version and exit")
 	flag.Usage = usage
 	flag.Parse()
@@ -67,7 +68,7 @@ func run() int {
 	}
 
 	argv := resolveCommand(flag.Args())
-	client, err := relayclient.New(*server)
+	client, err := relayclient.New(*server, *allowInsecure)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "relay:", err)
 		return 1
