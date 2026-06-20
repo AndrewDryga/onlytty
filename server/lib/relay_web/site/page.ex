@@ -630,7 +630,7 @@ defmodule RelayWeb.Site.Page do
       :gap,
       ~s(<span class="c-b">relay — shared, end-to-end encrypted</span>),
       :gap,
-      "  " <> qr(),
+      qr(),
       ~s(  Link  <span class="c-link">onlytty.com/s/7q2k</span><span class="c-frag">#…</span>),
       ~s(  Expires  12h · <span class="c-dim">read-only</span>),
       :gap,
@@ -693,38 +693,32 @@ defmodule RelayWeb.Site.Page do
       ~s(</div></div>)
   end
 
-  # A decorative (non-scannable) QR-style mark for the demo. aria-hidden.
+  # The QR is drawn with terminal half-block characters — like the real `relay`
+  # banner. Decorative (a fixed sample link); shrunk to size via the .qr-art CSS.
   defp qr do
-    finder = fn x, y ->
-      ~s(<rect x="#{x}" y="#{y}" width="22" height="22" rx="3" fill="#0a0b10"/>) <>
-        ~s(<rect x="#{x + 4}" y="#{y + 4}" width="14" height="14" rx="2" fill="#fff"/>) <>
-        ~s(<rect x="#{x + 8}" y="#{y + 8}" width="6" height="6" rx="1" fill="#0a0b10"/>)
-    end
-
-    dots =
+    art =
       [
-        {36, 8},
-        {44, 16},
-        {36, 24},
-        {52, 24},
-        {62, 36},
-        {36, 44},
-        {44, 44},
-        {52, 52},
-        {36, 60},
-        {44, 68},
-        {62, 60},
-        {68, 44},
-        {28, 36},
-        {8, 36},
-        {16, 44}
+        "█████████████████████████████████",
+        "█████████████████████████████████",
+        "████ ▄▄▄▄▄ ██▀▄██▄  ▀█ ▄▄▄▄▄ ████",
+        "████ █   █ █▄▀█▄▀█▀ ▄█ █   █ ████",
+        "████ █▄▄▄█ ██▄▀▀    ██ █▄▄▄█ ████",
+        "████▄▄▄▄▄▄▄█ █▄▀▄▀ █ █▄▄▄▄▄▄▄████",
+        "████▄ ▄█ ▄▄▄▄▀█▀ ▄▄▄▄  ███▄█▀████",
+        "████▀ ▄█▀▀▄▀▀▀ ▄  ▀▀█ ▀▄▀█▄ ▄████",
+        "████▄█ ▄██▄▀ ▀  ▄ ▀▄▀  ██ █▄ ████",
+        "████▄▀ ▀█▀▄█ ▄ ▀▄  ▀  █▄▀█▄ ▄████",
+        "████▄█▄▄▄▄▄█▀ ▄▄▀▄▄█ ▄▄▄  █▀▀████",
+        "████ ▄▄▄▄▄ █ █ ▀▄ ▀▄ █▄█  █  ████",
+        "████ █   █ █▄▀▀▄█ ▀▀▄▄▄   ▀██████",
+        "████ █▄▄▄█ █ ▄▀█ ▀ ▄  ▀█ ▀█▀▄████",
+        "████▄▄▄▄▄▄▄█▄▄█▄▄██▄▄▄▄▄███▄▄████",
+        "█████████████████████████████████",
+        "▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀"
       ]
-      |> Enum.map_join("", fn {x, y} ->
-        ~s(<rect x="#{x}" y="#{y}" width="6" height="6" rx="1" fill="#0a0b10"/>)
-      end)
+      |> Enum.join("\n")
 
-    ~s(<svg class="qr" viewBox="0 0 80 80" aria-hidden="true"><rect width="80" height="80" rx="8" fill="#fff"/>) <>
-      finder.(6, 6) <> finder.(52, 6) <> finder.(6, 52) <> dots <> ~s(</svg>)
+    ~s(<span class="qr-art" aria-hidden="true">) <> art <> ~s(</span>)
   end
 
   defp logo do

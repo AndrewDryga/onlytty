@@ -212,7 +212,9 @@ p { margin: 0 0 1rem; }
 .c-p { color: var(--accent); } .c-dim { color: var(--dim); } .c-ok { color: var(--ok); }
 .c-b { color: var(--fg); font-weight: 700; }
 .c-link { color: var(--accent-2); } .c-frag { color: var(--pink); }
-.qr { width: 84px; height: 84px; vertical-align: middle; margin: .3rem 0; border-radius: 8px; }
+/* half-block QR rendered as text, like the real CLI; line-height:1 so rows tile */
+.qr-art { display: inline-block; white-space: pre; line-height: 1; font-size: 7px;
+  letter-spacing: 0; color: var(--fg); margin: .4rem 0; }
 .cursor { display: inline-block; width: .55em; background: var(--accent); color: transparent; animation: blink 1.1s steps(1) infinite; }
 @keyframes blink { 50% { opacity: 0; } }
 @keyframes ln-in { from { opacity: 0; } to { opacity: 1; } }
