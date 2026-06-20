@@ -33,6 +33,15 @@ config :logger, :console,
 # Use Jason for JSON parsing in Phoenix
 config :phoenix, :json_library, Jason
 
+# Backend-only error reporting. No-ops unless SENTRY_DSN is set, so dev/test/CI
+# never report. DSN, release, and environment are read from SENTRY_DSN /
+# SENTRY_RELEASE / SENTRY_ENVIRONMENT. We capture crashes via Sentry.LoggerHandler
+# only (see Relay.Application) and attach no request context — so events never
+# carry IPs, request bodies, or other PII; terminal IO is E2E and never on the server.
+config :sentry,
+  environment_name: config_env(),
+  enable_source_code_context: false
+
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.
 import_config "#{config_env()}.exs"

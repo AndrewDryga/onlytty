@@ -7,6 +7,16 @@ defmodule Relay.Application do
 
   @impl true
   def start(_type, _args) do
+    # Backend-only crash reporting, attached only when SENTRY_DSN is set (so dev/
+    # test/CI never report). Captures process crashes via the logger; we attach no
+    # request context, so events carry no IPs or request bodies. No viewer/browser
+    # reporting exists by design — a browser SDK would capture the URL fragment secret.
+    if System.get_env("SENTRY_DSN") do
+      :logger.add_handler(:sentry_handler, Sentry.LoggerHandler, %{
+        config: %{metadata: [:request_id], capture_log_messages: false}
+      })
+    end
+
     children = [
       RelayWeb.Telemetry,
       {DNSCluster, query: Application.get_env(:relay, :dns_cluster_query) || :ignore},

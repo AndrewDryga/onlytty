@@ -138,6 +138,13 @@ context. Without HTTPS the viewer refuses to run (and the secret could leak in t
 | `RELAY_MAX_SESSIONS` | `2000` | cap on concurrent sessions (bounds create-spam) |
 | `RELAY_RATELIMIT_MAX` | `30` | max `POST /api/sessions` per window per IP (`0` disables) |
 | `RELAY_RATELIMIT_WINDOW` | `60` | rate-limit window in seconds |
+| `SENTRY_DSN` | — | backend error reporting; unset disables it (dev/test/CI never report) |
+| `SENTRY_RELEASE` | — | optional release tag for Sentry events |
+
+Error reporting is **backend-only**: the server captures crashes via Sentry's logger
+handler (no request context attached, so no IPs or bodies; terminal IO is E2E and never
+reaches the server). The browser viewer ships **no** Sentry/telemetry by design — a
+client SDK would capture the URL fragment that holds the session secret.
 
 Throttling keys on the **direct peer IP** (`conn.remote_ip`), which is correct when the
 relay faces clients directly. Behind a reverse proxy that is your proxy's address, so

@@ -38,6 +38,10 @@ defmodule Relay.MixProject do
       {:jason, "~> 1.2"},
       {:dns_cluster, "~> 0.1.1"},
       {:bandit, "~> 1.5"},
+      # Backend-only error reporting; no-ops unless SENTRY_DSN is set (hackney is
+      # Sentry's default HTTP transport).
+      {:sentry, "~> 10.0"},
+      {:hackney, "~> 1.20"},
       # WebSocket client used only to drive the relay end-to-end in tests.
       {:gun, "~> 2.1", only: :test}
     ]
