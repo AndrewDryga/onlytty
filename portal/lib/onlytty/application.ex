@@ -20,14 +20,22 @@ defmodule Onlytty.Application do
     # Allocate the operator-metrics counter array before anything can bump it.
     Onlytty.Metrics.setup()
 
+    # Graceful drain on SIGTERM (deploys): flip /healthz to 503, nudge connected
+    # clients to reconnect elsewhere, brief grace, then stop. Prod only (runtime.exs).
+    if Application.get_env(:onlytty, :drain_on_sigterm, false), do: Onlytty.Drain.install()
+
     children = [
       OnlyttyWeb.Telemetry,
-      {DNSCluster, query: Application.get_env(:onlytty, :dns_cluster_query) || :ignore},
+      # Forms the BEAM cluster so sessions registered under `:global` resolve across
+      # instances. On a GCP MIG, `:cluster_topologies` (runtime.exs) wires libcluster's
+      # GCE strategy; empty in dev/test/single-node → the supervisor starts no strategy.
+      {Cluster.Supervisor,
+       [Application.get_env(:onlytty, :cluster_topologies, []), [name: Onlytty.ClusterSupervisor]]},
       {Phoenix.PubSub, name: Onlytty.PubSub},
-      # In-memory session registry + one supervised GenServer per session. The
-      # supervisor is capped so unauthenticated session creation cannot exhaust the
-      # node (see Onlytty.SessionStore.create/1); tune with ONLYTTY_MAX_SESSIONS.
-      {Registry, keys: :unique, name: Onlytty.Registry},
+      # One supervised GenServer per session, registered cluster-wide under `:global`
+      # by id (so any node can route to a session created on another). The per-node
+      # supervisor is capped so unauthenticated session creation cannot exhaust a node
+      # (see Onlytty.SessionStore.create_or_attach/3); tune with ONLYTTY_MAX_SESSIONS (per node).
       {DynamicSupervisor,
        name: Onlytty.SessionSupervisor,
        strategy: :one_for_one,

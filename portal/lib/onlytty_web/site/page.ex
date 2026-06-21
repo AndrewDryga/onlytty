@@ -107,7 +107,7 @@ defmodule OnlyttyWeb.Site.Page do
     <h2>The link is a capability</h2>
     <p>Each session is reached by a link whose <code>#fragment</code> holds the secret. Anyone with the full link is a viewer, and — unless you started the session read-only — can take control and type into it. Treat the link like a password: share it deliberately, use <code>--control view-only</code> or <code>--passphrase</code> when you need to, and stop sharing by exiting the command.</p>
     <h2>No accounts, ephemeral sessions</h2>
-    <p>There are no accounts. Sessions live in memory only and expire (by default within hours, capped at 7 days); when a session ends, it is gone.</p>
+    <p>There are no accounts. Sessions live in memory only; by default a session lasts as long as you keep it running and is gone the moment you stop it (set <code>--ttl</code> to expire it on a clock instead).</p>
     <h2>Acceptable use</h2>
     <p>Your use must follow the <a href="/acceptable-use">Acceptable Use Policy</a>. We may drop sessions or block traffic that abuses the service.</p>
     <h2>No warranty</h2>
@@ -831,7 +831,7 @@ defmodule OnlyttyWeb.Site.Page do
       {"Is it really free and open source?",
        ~s(Yes. The relay server and the CLI are open source — host your own relay or audit the code on <a href="#{@github}" rel="noopener">GitHub</a>. No accounts, no tracking.)},
       {"How long does a session last, and what if my connection drops?",
-       ~s(As long as you want it to. Sessions are long-lived, and your phone or laptop rides out flaky networks, sleep, and dead zones — the viewer reconnects on its own so you can drop off Wi-Fi and pick right back up. Set the lifetime with <code>--ttl</code>, up to 7 days. When you exit the command or it expires, it's gone — the relay stores nothing.)}
+       ~s(As long as you keep it running — there's no expiry by default. Your phone or laptop rides out flaky networks, sleep, and dead zones, reconnecting on its own, so you can drop off Wi-Fi and pick right back up. Want it to self-destruct on a clock? Set <code>--ttl</code>. When you exit the command, it's gone — the relay stores nothing.)}
     ]
   end
 

@@ -36,7 +36,7 @@ defmodule Onlytty.MixProject do
       {:telemetry_metrics, "~> 1.0"},
       {:telemetry_poller, "~> 1.0"},
       {:jason, "~> 1.2"},
-      {:dns_cluster, "~> 0.1.1"},
+      {:libcluster, "~> 3.5"},
       {:bandit, "~> 1.5"},
       # Backend-only error reporting; no-ops unless SENTRY_DSN is set (hackney is
       # Sentry's default HTTP transport).

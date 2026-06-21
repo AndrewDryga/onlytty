@@ -25,10 +25,10 @@ jobs:
     name: gate (check + e2e + audit)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
           ref: ${{ inputs.ref || github.ref }}
-      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+      - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6
         with:
           go-version-file: runner/go.mod
           cache-dependency-path: runner/go.sum
@@ -36,7 +36,7 @@ jobs:
         with:
           otp-version: "29"
           elixir-version: "1.20"
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
           node-version: "26"
       - run: mix deps.get
@@ -58,10 +58,10 @@ jobs:
       id-token: write # mint the OIDC token Sigstore signs the attestation with
       attestations: write # record the build provenance
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
           ref: ${{ inputs.ref || github.ref }}
-      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+      - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6
         with:
           go-version-file: runner/go.mod
           cache-dependency-path: runner/go.sum
@@ -104,7 +104,7 @@ jobs:
       id-token: write # mint the OIDC token Sigstore signs the attestation with
       attestations: write # record the build provenance
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
           ref: ${{ inputs.ref || github.ref }}
       - name: Image name (GHCR requires lowercase)

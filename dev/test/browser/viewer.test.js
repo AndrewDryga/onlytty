@@ -397,7 +397,8 @@ test("browser viewer: shows an expiry countdown and Disconnect frees the viewer 
   try { ({ chromium } = await import("playwright")); } catch { t.skip("playwright not installed"); return; }
   if (!(await healthy())) { t.skip("relay not reachable at " + base); return; }
 
-  const { proc, link } = await startRunner(["--", "bash", "--norc", "--noprofile", "-i"]);
+  // Sessions have no expiry by default now, so set an explicit --ttl to exercise the countdown.
+  const { proc, link } = await startRunner(["--ttl", "1h", "--", "bash", "--norc", "--noprofile", "-i"]);
   let browser;
   try {
     browser = await chromium.launch();

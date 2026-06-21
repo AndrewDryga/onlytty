@@ -1,0 +1,11 @@
+# VCS-driven HCP Terraform ingests the WHOLE repository from the repo root and
+# reads .terraformignore from HERE. (infra/.terraformignore only governs
+# CLI-driven runs, where the package root is infra/ — it is inert for VCS runs.)
+#
+# This is a monorepo and the Terraform config is self-contained in infra/, so
+# ship only that: keep the app source (portal/, runner/, web), the agent/dev
+# dirs, CI, and docs out of the uploaded configuration version. Git-ignored
+# local artifacts (.terraform/, terraform.tfvars, *.tfstate) are already absent
+# from VCS ingestion, but excluding everything-but-infra is the durable guard.
+/*
+!/infra

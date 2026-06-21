@@ -1,8 +1,10 @@
 #cloud-config
-# Runs on Container-Optimized OS. One container: the onlytty relay, listening on
-# 0.0.0.0:${app_port} so the Google HTTPS load balancer can reach it (the LB
-# terminates TLS — not a sidecar proxy). The image is pulled anonymously from
-# public GHCR. SECRET_KEY_BASE is fetched from Secret Manager at boot.
+# Runs on Container-Optimized OS. One container (--network host): the onlytty relay,
+# binding the host's :${app_port} so the Google HTTPS load balancer can reach it (the
+# LB terminates TLS — not a sidecar proxy), plus epmd + the Erlang distribution ports
+# so sibling instances form one BEAM cluster. The image is pulled anonymously from
+# public GHCR. SECRET_KEY_BASE is fetched from Secret Manager at boot; the BEAM
+# RELEASE_COOKIE is derived from it so rolling updates keep one stable cluster cookie.
 #
 # Note: dollar-brace placeholders are Terraform interpolation; $NAME (no braces) is shell.
 
@@ -21,14 +23,31 @@ write_files:
       [ -n "$DATA" ] || { echo "failed to read secret ${secret_name} from Secret Manager" >&2; exit 1; }
       SECRET_KEY_BASE=$(printf '%s' "$DATA" | base64 -d)
       [ -n "$SECRET_KEY_BASE" ] || { echo "decoded SECRET_KEY_BASE is empty" >&2; exit 1; }
+      # The release bakes a random cookie into each image build. That is fine for one
+      # node, but multi-node rolling updates need old and new images to share a cookie
+      # while they overlap. Derive a stable, hex-safe cookie from the deployment secret.
+      RELEASE_COOKIE=$(printf 'onlytty-release-cookie:%s' "$SECRET_KEY_BASE" | sha256sum | cut -d' ' -f1)
+      [ -n "$RELEASE_COOKIE" ] || { echo "failed to derive RELEASE_COOKIE" >&2; exit 1; }
+      # This instance's internal IP becomes the BEAM node name (onlytty@<ip>) so peers
+      # can reach it; --network host puts epmd + the distribution ports on this IP.
+      NODE_IP=$(curl -s -H "Metadata-Flavor: Google" http://metadata.google.internal/computeMetadata/v1/instance/network-interfaces/0/ip)
+      [ -n "$NODE_IP" ] || { echo "failed to read this instance's internal IP" >&2; exit 1; }
       docker rm -f onlytty 2>/dev/null || true
       # Public GHCR pull — no credentials. For a private repo, `docker login
       # ghcr.io` here with a read-only PAT injected via Secret Manager.
       docker pull ${container_image}
-      exec docker run --rm --name onlytty \
+      # --network host so the app binds the host's :${app_port} for the LB and epmd +
+      # the distribution ports (9100-9105) bind the host IP for clustering. The
+      # ONLYTTY_CLUSTER_* vars switch on libcluster's GCE strategy, which finds the other
+      # relay instances via the Compute API (matched by the cluster_name=onlytty label).
+      exec docker run --rm --name onlytty --network host \
         -e SECRET_KEY_BASE="$SECRET_KEY_BASE" \
+        -e RELEASE_COOKIE="$RELEASE_COOKIE" \
         -e PHX_SERVER=true -e PHX_HOST=${domain} -e PORT=${app_port} \
-        -p 0.0.0.0:${app_port}:${app_port} ${container_image}
+        -e NODE_IP="$NODE_IP" \
+        -e ONLYTTY_CLUSTER_PROJECT="${project_id}" \
+        -e ONLYTTY_CLUSTER_VALUE="onlytty" \
+        ${container_image}
 
   - path: /etc/systemd/system/onlytty.service
     permissions: "0644"
@@ -40,8 +59,13 @@ write_files:
       [Service]
       Restart=always
       RestartSec=5
+      # Graceful drain on a deploy: `docker stop` sends SIGTERM; the relay flips
+      # /healthz to 503, nudges clients to reconnect elsewhere, waits its grace, then
+      # stops. -t 30 must exceed the in-app grace (~10s); TimeoutStopSec must exceed -t
+      # so systemd doesn't kill `docker stop` mid-drain.
+      TimeoutStopSec=45
       ExecStart=/var/lib/onlytty/start.sh
-      ExecStop=/usr/bin/docker stop onlytty
+      ExecStop=/usr/bin/docker stop -t 30 onlytty
       [Install]
       WantedBy=multi-user.target
 

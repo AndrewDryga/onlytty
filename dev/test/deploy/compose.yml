@@ -4,7 +4,8 @@
 services:
   onlytty:
     build:
-      context: ../../portal
+      # Relative to this file (dev/test/deploy/) → the repo-root portal/ (three levels up).
+      context: ../../../portal
     environment:
       PHX_SERVER: "true"
       SECRET_KEY_BASE: ${SECRET_KEY_BASE:?set SECRET_KEY_BASE}

@@ -68,9 +68,15 @@ type Session struct {
 	ExpiresAt   int64  `json:"expires_at"`
 }
 
-// CreateSession asks the relay for a new session with the given TTL.
-func (c *Client) CreateSession(ctx context.Context, ttl time.Duration) (*Session, error) {
-	body, _ := json.Marshal(map[string]int{"ttl_seconds": int(ttl.Seconds())})
+// CreateSession registers the runner-chosen session id + token with the relay, or
+// re-claims them after a node loss. The runner generates both so the SAME session can
+// be re-established on any relay node. Returns the relay's view (the assigned expiry).
+func (c *Client) CreateSession(ctx context.Context, id, runnerToken string, ttl time.Duration) (*Session, error) {
+	body, _ := json.Marshal(map[string]any{
+		"id":           id,
+		"runner_token": runnerToken,
+		"ttl_seconds":  int(ttl.Seconds()),
+	})
 	u := c.base.JoinPath("api", "sessions").String()
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u, bytes.NewReader(body))
 	if err != nil {
@@ -125,6 +131,11 @@ func (e *FatalDialError) Error() string {
 		return fmt.Sprintf("relay rejected the connection (%d)", e.Status)
 	}
 }
+
+// NotFound reports whether the relay had no such session (404). Unlike a 401 token
+// rejection, this is recoverable: the runner can re-create the same id+token (e.g.
+// after the relay node was replaced in a deploy) and keep relaying.
+func (e *FatalDialError) NotFound() bool { return e.Status == http.StatusNotFound }
 
 // DialRunner opens the privileged runner WebSocket. A 401/404 handshake response is
 // returned as *FatalDialError; other failures are transient and worth retrying.

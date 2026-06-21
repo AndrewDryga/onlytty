@@ -48,7 +48,7 @@ defmodule Onlytty.Session do
 
   def start_link(opts) do
     id = Keyword.fetch!(opts, :id)
-    GenServer.start_link(__MODULE__, opts, name: Onlytty.SessionStore.via(id))
+    GenServer.start_link(__MODULE__, opts, name: Onlytty.SessionStore.name(id))
   end
 
   @doc "Register the calling process as the runner. Returns the hello snapshot."
@@ -87,10 +87,30 @@ defmodule Onlytty.Session do
     GenServer.cast(session, {:close, reason})
   end
 
+  @doc """
+  Nudge connected sockets that the relay node is going away (a deploy drain), so they
+  reconnect elsewhere now. The session stays up for the drain grace; the sockets break
+  when the node actually stops, by which point clients have migrated.
+  """
+  @spec drain(pid()) :: :ok
+  def drain(session), do: GenServer.cast(session, :drain)
+
   @doc "Fetch the session's runner token, for authorizing the runner socket."
   @spec runner_token(pid()) :: String.t()
   def runner_token(session) do
     GenServer.call(session, :runner_token)
+  end
+
+  @doc "Constant-time check that `presented` matches this session's runner token."
+  @spec valid_runner_token?(pid(), String.t()) :: boolean()
+  def valid_runner_token?(session, presented) when is_binary(presented) do
+    GenServer.call(session, {:valid_runner_token?, presented})
+  end
+
+  @doc "The session's absolute expiry (unix seconds; 0 = no expiry)."
+  @spec expires_at(pid()) :: integer()
+  def expires_at(session) do
+    GenServer.call(session, :expires_at)
   end
 
   # --- server ----------------------------------------------------------------
@@ -106,7 +126,7 @@ defmodule Onlytty.Session do
       id: Keyword.fetch!(opts, :id),
       runner_token: Keyword.fetch!(opts, :runner_token),
       created_at: now,
-      expires_at: now + ttl,
+      expires_at: if(ttl > 0, do: now + ttl, else: 0),
       runner: nil,
       runner_ref: nil,
       viewer: nil,
@@ -115,7 +135,7 @@ defmodule Onlytty.Session do
       idle_ms: idle_ms,
       idle_timer: nil,
       unconnected_ms: unconnected_ms,
-      ttl_timer: Process.send_after(self(), :ttl_expired, ttl * 1000),
+      ttl_timer: if(ttl > 0, do: Process.send_after(self(), :ttl_expired, ttl * 1000), else: nil),
       unconnected_timer: Process.send_after(self(), :reap_unconnected, unconnected_ms)
     }
 
@@ -125,6 +145,14 @@ defmodule Onlytty.Session do
   @impl true
   def handle_call(:runner_token, _from, state) do
     {:reply, state.runner_token, state}
+  end
+
+  def handle_call({:valid_runner_token?, presented}, _from, state) do
+    {:reply, secure_equal?(presented, state.runner_token), state}
+  end
+
+  def handle_call(:expires_at, _from, state) do
+    {:reply, state.expires_at, state}
   end
 
   def handle_call({:join_runner, pid}, _from, state) do
@@ -196,6 +224,15 @@ defmodule Onlytty.Session do
   def handle_cast({:close, reason}, state) do
     close_all(state, @close_bye, reason)
     {:stop, :normal, state}
+  end
+
+  def handle_cast(:drain, state) do
+    # The node is shutting down: tell each side to reconnect elsewhere. We don't close
+    # the sockets — traffic keeps flowing over this node until it actually stops.
+    msg = {:onlytty_control, control(:going_away)}
+    if state.runner, do: send(state.runner, msg)
+    if state.viewer, do: send(state.viewer, msg)
+    {:noreply, state}
   end
 
   @impl true
@@ -273,8 +310,17 @@ defmodule Onlytty.Session do
   # Control-plane JSON, metadata only — never any terminal content.
   defp control(:peer_join), do: Jason.encode!(%{t: "peer_join"})
   defp control(:peer_left), do: Jason.encode!(%{t: "peer_left"})
+  defp control(:going_away), do: Jason.encode!(%{t: "going_away"})
 
   # The session id is the viewer connect capability; log only a short prefix so a
   # leaked log can't be used to connect to live sessions.
   defp short(id), do: String.slice(id, 0, 8)
+
+  # Constant-time compare so a wrong token can't be guessed by timing.
+  defp secure_equal?(a, b) when is_binary(a) and is_binary(b) do
+    :crypto.hash_equals(a, b)
+  rescue
+    # hash_equals raises on length mismatch on some OTPs; treat as not-equal.
+    ArgumentError -> false
+  end
 end
