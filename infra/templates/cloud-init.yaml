@@ -64,7 +64,9 @@ write_files:
       # stops. -t 30 must exceed the in-app grace (~10s); TimeoutStopSec must exceed -t
       # so systemd doesn't kill `docker stop` mid-drain.
       TimeoutStopSec=45
-      ExecStart=/var/lib/onlytty/start.sh
+      # COS mounts /var noexec, so systemd can't execve the script directly — run it
+      # through bash (reading the script from /var is fine; bash is on the exec rootfs).
+      ExecStart=/bin/bash /var/lib/onlytty/start.sh
       ExecStop=/usr/bin/docker stop -t 30 onlytty
       [Install]
       WantedBy=multi-user.target
