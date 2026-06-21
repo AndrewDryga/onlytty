@@ -85,6 +85,13 @@ Plaintext, before sealing:
 `seq` is a per-direction counter for **replay protection** (it is authenticated, so
 the relay cannot alter it). See "Replay" below.
 
+> **JS precision note.** `seq` (and `HELLO.baseline`) are uint64 on the wire. The Go
+> runner uses `uint64`; the browser viewer represents them as JS `Number`, which is
+> exact only up to 2^53 (`Number.MAX_SAFE_INTEGER`). A session would need ~9
+> quadrillion frames to reach that, so the conversion is lossless in every real
+> session — the viewer does not use `BigInt` end-to-end. This is asserted by a unit
+> test (`dev/test/web/wire.test.js`).
+
 #### Message kinds
 
 runner → viewer (sealed with `k_r2v`):

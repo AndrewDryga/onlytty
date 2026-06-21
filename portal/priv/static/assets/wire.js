@@ -17,6 +17,10 @@ export const Control = { ReadOnly: 0, Granted: 1 };
 export function decodeHello(b) {
   if (b.length < 12) throw new Error("short hello");
   const dv = new DataView(b.buffer, b.byteOffset, b.byteLength);
+  // The protocol's sequence numbers are uint64; JS represents them as Number, which
+  // is exact only up to 2^53 (Number.MAX_SAFE_INTEGER). A terminal session would
+  // need ~9 quadrillion frames to reach that, so the assumption never bites in
+  // practice — see PROTOCOL.md. Same conversion in crypto.js seal/open.
   return { baseline: Number(dv.getBigUint64(0)), cols: dv.getUint16(8), rows: dv.getUint16(10) };
 }
 

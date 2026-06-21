@@ -101,6 +101,8 @@ export async function newCipher(keyBytes, aad) {
 
   async function sealWithNonce(nonce, seq, kind, payload) {
     const pt = new Uint8Array(SEQ_LEN + 1 + payload.length);
+    // seq is a JS Number; BigInt(seq) is exact up to 2^53 (open() converts back the
+    // same way). Unreachable in a terminal session — see PROTOCOL.md.
     new DataView(pt.buffer).setBigUint64(0, BigInt(seq));
     pt[SEQ_LEN] = kind;
     pt.set(payload, SEQ_LEN + 1);
