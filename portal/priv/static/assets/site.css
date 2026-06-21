@@ -287,7 +287,7 @@ p { margin: 0 0 1rem; }
   animation: phone-in .6s var(--ease) .55s backwards; }
 .phone-scr { display: flex; flex-direction: column; border-radius: 23px; overflow: hidden;
   background: #0a0d15; border: 1px solid var(--line); }
-.phone-bar { display: flex; align-items: center; justify-content: flex-end; gap: .4rem;
+.phone-bar { display: flex; align-items: center; justify-content: center; gap: .4rem;
   padding: .5rem .65rem; background: #11151f; border-bottom: 1px solid var(--line); }
 .phone-stat { display: inline-flex; align-items: center; gap: .35rem; font-size: .54rem;
   font-weight: 600; color: var(--dim); line-height: 1; }
