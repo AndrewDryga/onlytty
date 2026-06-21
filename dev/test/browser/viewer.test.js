@@ -351,6 +351,35 @@ test("browser viewer: mobile layout — Take control stays on-screen at 360px; ^
   }
 });
 
+test("browser viewer: an unknown session id shows 'Session not found' quickly", async (t) => {
+  let chromium;
+  try { ({ chromium } = await import("playwright")); } catch { t.skip("playwright not installed"); return; }
+  if (!(await healthy())) { t.skip("relay not reachable at " + base); return; }
+
+  let browser;
+  try {
+    browser = await chromium.launch();
+    const page = await browser.newPage();
+    // A well-formed link (valid 32-byte key fragment) to a session id that doesn't
+    // exist — so we pass the "broken link" check and hit the 404/not-found path.
+    const frag = "A".repeat(43); // 43 base64url chars = 32 bytes
+    const t0 = Date.now();
+    await page.goto(`${base}/s/no-such-session-${t0}#${frag}`);
+
+    // The not-found message must appear well within the old ~7.5s (5 retries); the
+    // 3-retry backoff resolves in ~1.5s, so 6s is a comfortable, non-flaky bound.
+    await page.waitForFunction(
+      () => document.getElementById("overlay-card").textContent.includes("Session not found"),
+      null, { timeout: 6000 },
+    );
+    const body = await page.locator("#overlay-card").textContent();
+    assert.match(body, /onlytty/, "copy names onlytty, not relay");
+    assert.doesNotMatch(body, /with relay\b/, "no stale 'relay' brand in the not-found copy");
+  } finally {
+    if (browser) await browser.close();
+  }
+});
+
 test("browser viewer: session fingerprint is verified once, then remembered per session", async (t) => {
   let chromium;
   try { ({ chromium } = await import("playwright")); } catch { t.skip("playwright not installed"); return; }

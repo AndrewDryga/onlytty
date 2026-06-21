@@ -155,9 +155,11 @@ function connect() {
     if (ended || noReconnect) return;
     // Browsers can't expose the handshake status, so a session that never
     // connects (404 from an unknown/expired id) looks like repeated failures.
-    if (!everConnected && ++failCount >= 5) {
+    // Three quick tries (~1.5s with the 500ms/1000ms backoff) is a strong signal
+    // it's gone, while still riding out a one-off blip on the very first connect.
+    if (!everConnected && ++failCount >= 3) {
       noReconnect = true;
-      fatal("<h1>Session not found</h1><p>This session is unknown or has expired. Start a new one with <code>relay</code> and open the fresh link.</p>");
+      fatal("<h1>Session not found</h1><p>This session is unknown or has expired. Start a new one with <code>onlytty</code> and open the fresh link.</p>");
       return;
     }
     setStatus("reconnecting…", "warn");
