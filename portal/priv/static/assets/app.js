@@ -240,9 +240,10 @@ async function onMessage(ev) {
   } catch {
     // Frames are arriving but none authenticate → the keys are wrong (wrong passphrase,
     // or a link secret that doesn't match this session). Don't hang silently: after a
-    // short grace with no successful decrypt, surface a recoverable overlay.
+    // short grace with no successful decrypt, surface a recoverable overlay. HELLO is the
+    // first frame, so ~400ms is plenty to avoid a false positive while feeling instant.
     if (!everDecoded && !mismatchTimer) {
-      mismatchTimer = setTimeout(() => { if (!everDecoded) showKeyMismatch(); }, 1200);
+      mismatchTimer = setTimeout(() => { if (!everDecoded) showKeyMismatch(); }, 400);
     }
     return;
   }
