@@ -1,5 +1,6 @@
-# The *production* onlytty release image behind a Caddy proxy — the deployed topology.
-# Driven by `make deploy-check`. SECRET_KEY_BASE comes from the environment.
+# The *production* onlytty release image behind a Caddy proxy — a LOCAL TLS-terminating
+# stand-in for the prod Google HTTPS LB (you can't run a Google LB locally), not the
+# deployed topology itself. Driven by `make deploy-check`. SECRET_KEY_BASE comes from the environment.
 services:
   onlytty:
     build:

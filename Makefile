@@ -58,7 +58,7 @@ load: ## Load-test session creation against a running relay (ONLYTTY_SERVER, arg
 soak: ## Soak N full runner↔viewer pairs through reconnect storms (ONLYTTY_SERVER; vars: N DURATION)
 	@bash dev/scripts/soak.sh
 
-deploy-check: ## Pre-deploy: build+boot the prod image behind Caddy, smoke + e2e + cross-build (needs Docker)
+deploy-check: ## Pre-deploy: build+boot the prod image behind a local TLS proxy (Caddy stand-in for the prod LB), smoke + e2e + cross-build (needs Docker)
 	@bash dev/scripts/deploy-check.sh
 
 doctor: ## Check required toolchains; print install hints for anything missing

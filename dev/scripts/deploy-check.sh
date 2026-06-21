@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Comprehensive pre-deploy check. Builds the PRODUCTION release image, runs it behind a
-# Caddy proxy (the deployed topology), smokes the HTTP surface, drives the full encrypted
+# Caddy proxy as a LOCAL TLS-terminating stand-in for the prod Google HTTPS LB (you can't
+# run a Google LB locally; this just validates the container behind *a* TLS proxy), smokes
+# the HTTP surface, drives the full encrypted
 # e2e against the real artifact, cross-compiles the release binaries, and syntax-checks
 # the VM start script. Catches the "passes `make check` but breaks after deploy" class of
 # failure (Dockerfile/release config, prod force_ssl behind a proxy, cross-build, etc.).
@@ -30,7 +32,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
-step "Build the production release image + bring up the deployed topology (onlytty + Caddy)"
+step "Build the production release image + bring it up behind a local TLS proxy (onlytty + Caddy stand-in for the prod LB)"
 ( cd dev/test/deploy && docker compose up -d --build )
 
 step "Wait for the release to become healthy (through the proxy)"
