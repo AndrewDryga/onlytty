@@ -286,7 +286,7 @@ defmodule OnlyttyWeb.Site.Page do
         </nav>
       </div>
       <div class="wrap footer-bottom">
-        <span>© OnlyTTY · open source · built by <a href="https://dryga.com" rel="noopener">Andrew Dryga</a></span>
+        <span>© OnlyTTY · built by <a href="https://dryga.com" rel="noopener">Andrew Dryga</a> using <a href="https://coop.dryga.com" rel="noopener">co:op</a></span>
       </div>
     </footer>
     """
