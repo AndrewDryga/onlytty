@@ -767,7 +767,7 @@ defmodule OnlyttyWeb.Site.Page do
           ~s(<span class="c-ok">✻</span> <span class="c-b">#{h(name)}</span> <span class="c-dim">live</span>),
           ~s(<span class="c-ok">●</span> <span class="c-dim">shared · read-only</span>),
           ~s(<span class="c-ok">●</span> <span class="c-dim">end-to-end encrypted</span>),
-          ~s(<span class="c-ok">●</span> <span class="c-dim">2 viewers watching</span>),
+          ~s(<span class="c-ok">●</span> <span class="c-dim">1 viewer watching</span>),
           ~s(<span class="c-ok">●</span> <span class="c-dim">expires in 12h</span>),
           prompt_tail(opts)
         ]
