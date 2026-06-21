@@ -17,6 +17,19 @@ defmodule OnlyttyWeb.Site.Page do
   @github "https://github.com/AndrewDryga/onlytty"
   @og_image "/assets/og.png"
 
+  # Cache-bust the stylesheet whenever its contents change, so returning visitors
+  # never get a stale site.css. The version is the file's content hash, computed at
+  # compile time; @external_resource makes a CSS edit trigger a recompile.
+  @css_path Path.join(__DIR__, "../../../priv/static/assets/site.css")
+  @external_resource @css_path
+  @assets_vsn (case File.read(@css_path) do
+                 {:ok, css} ->
+                   :crypto.hash(:sha, css) |> Base.encode16(case: :lower) |> binary_part(0, 8)
+
+                 _ ->
+                   "0"
+               end)
+
   # ── Public page builders ──────────────────────────────────────────────────
 
   @doc "The home page."
@@ -204,7 +217,7 @@ defmodule OnlyttyWeb.Site.Page do
     <link rel="icon" href="/favicon.ico" sizes="any">
     <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
     <link rel="manifest" href="/assets/site.webmanifest">
-    <link rel="stylesheet" href="/assets/site.css">
+    <link rel="stylesheet" href="/assets/site.css?v=#{@assets_vsn}">
     #{ld_tags}
     </head>
     <body>
@@ -718,7 +731,7 @@ defmodule OnlyttyWeb.Site.Page do
   # a status bar (connected + a control button), the terminal, and a key toolbar.
   defp phone(name, opts) do
     ~s(<div class="phone" aria-hidden="true"><div class="phone-scr">) <>
-      ~s(<div class="phone-bar"><span class="phone-stat"><i></i>connected</span><span class="phone-ctl">control</span></div>) <>
+      ~s(<div class="phone-bar"><span class="phone-stat"><i></i>connected</span></div>) <>
       ~s(<div class="phone-term"><pre>) <>
       phone_body(name, opts) <>
       ~s(</pre></div>) <>
