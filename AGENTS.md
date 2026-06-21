@@ -15,6 +15,9 @@
 
 ## The gate (adapt to this repo)
 `<format-check> && <build --warnings-as-errors> && <tests>`
+Here: **`make check`** (runner go + web node + portal elixir) and **`make e2e`**.
+CI runs both on every PR as the jobs `runner (go)` / `web (node)` / `portal (elixir)`
+/ `e2e (…)`; those four are the required status checks on `main` (see README → CI).
 
 ## The contract
 - States: `[ ]` todo · `[w]` claimed · `[x]` done+gated+committed · `[B]` blocked.

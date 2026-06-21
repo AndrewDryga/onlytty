@@ -237,6 +237,30 @@ make load      # concurrent session-create load against $ONLYTTY_SERVER
 of the local `check` gate. Install the Go scanner once with
 `go install golang.org/x/vuln/cmd/govulncheck@latest`.
 
+### CI / required checks
+
+`.github/workflows/ci.yml` runs four jobs on every pull request (and push to `main`):
+**`runner (go)`**, **`web (node)`**, **`portal (elixir)`**, and **`e2e (runner ↔ relay
+↔ viewer)`** — i.e. the full `make check` gate plus `make e2e`. All four must be green
+to merge.
+
+Enforcement lives in GitHub branch protection (it can't be set from a repo file). Make
+those four the **required status checks** on `main`, e.g.:
+
+```bash
+gh api -X PUT repos/AndrewDryga/onlytty/branches/main/protection \
+  -f 'required_status_checks[strict]=true' \
+  -f 'required_status_checks[checks][][context]=runner (go)' \
+  -f 'required_status_checks[checks][][context]=web (node)' \
+  -f 'required_status_checks[checks][][context]=portal (elixir)' \
+  -f 'required_status_checks[checks][][context]=e2e (runner ↔ relay ↔ viewer)' \
+  -F 'enforce_admins=true' \
+  -F 'required_pull_request_reviews=null' \
+  -F 'restrictions=null'
+```
+
+(Or set them under Settings → Branches → Branch protection rules.)
+
 | Path | What |
 |------|------|
 | `runner/` | the `onlytty` runner (Go CLI) |
