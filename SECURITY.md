@@ -28,6 +28,9 @@ read-only viewer cannot type or resize the host. The full contract is [PROTOCOL.
 - **Browser-delivered code.** The viewer is JS served by the relay host, so host
   trust is reduced to *code-delivery time*, not *relay time*. Vendored third-party
   code (xterm) is Subresource-Integrity-pinned; a native viewer would remove this.
+  Vendored files carry a content hash in their filename (e.g. `xterm.<hash>.js`) and
+  are served `immutable`, so any upgrade changes the URL — a browser can never reuse
+  a stale cached copy that would fail the new page's SRI check.
 - **The link is a capability.** Anyone with the link is a viewer. Use a short
   `--ttl`, the single-viewer lock (on by default), and `--passphrase` to require a
   second secret shared out-of-band. As defense-in-depth, browser viewer WebSocket
