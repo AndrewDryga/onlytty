@@ -1,9 +1,10 @@
 name: Deploy
 
-# Rolls the production relay VM (it re-pulls onlytty:latest on boot). Runs after a
-# release is published, or manually. No-ops until GCP Workload Identity Federation is
-# wired up — set repo variables GCP_PROJECT / GCP_ZONE and secrets
-# GCP_WORKLOAD_IDENTITY_PROVIDER / GCP_SERVICE_ACCOUNT (see infra/README.md).
+# Rolls the production relay by replacing the regional MIG's instances (each re-pulls
+# the onlytty image on boot via cloud-init). Runs after a release is published, or
+# manually. No-ops until GCP Workload Identity Federation is wired up — set repo
+# variables GCP_PROJECT / GCP_REGION and secrets GCP_WORKLOAD_IDENTITY_PROVIDER /
+# GCP_SERVICE_ACCOUNT (see infra/README.md).
 
 on:
   release:
@@ -20,7 +21,7 @@ permissions:
 
 jobs:
   deploy:
-    name: roll the relay VM
+    name: roll the relay MIG
     runs-on: ubuntu-latest
     environment: production
     if: vars.GCP_PROJECT != ''
@@ -30,7 +31,8 @@ jobs:
           workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
       - uses: google-github-actions/setup-gcloud@v2
-      - name: Reset the VM to pull the new image
+      - name: Rolling-replace the MIG instances (each re-pulls the image on boot)
         run: |
-          gcloud compute instances reset onlytty-relay \
-            --zone="${{ vars.GCP_ZONE }}" --project="${{ vars.GCP_PROJECT }}"
+          gcloud compute instance-groups managed rolling-action replace onlytty-mig \
+            --region="${{ vars.GCP_REGION }}" --project="${{ vars.GCP_PROJECT }}" \
+            --max-surge=1 --max-unavailable=0

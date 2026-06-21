@@ -82,8 +82,10 @@ state. `terraform.tfvars` and `*.tfstate*` are git-ignored.
 ## Notes
 
 - **Updating the app:** push a new image tag, set `container_image`, `terraform apply`
-  (a rolling MIG update replaces the instance), or `gcloud compute instance-groups
-  managed rolling-action restart onlytty-mig --region=<region>`.
+  (a rolling MIG update replaces the instance). For a plain image re-pull at the current
+  tag, the `Deploy` GitHub workflow (`.github/workflows/deploy.yml`) runs
+  `gcloud compute instance-groups managed rolling-action replace onlytty-mig
+  --region=<region>` after a release; run that command manually for an ad-hoc roll.
 - **SSH:** via Identity-Aware Proxy only — `gcloud compute ssh <instance>
   --tunnel-through-iap`. No `0.0.0.0/0` SSH rule.
 - **Validate locally (no creds):**
