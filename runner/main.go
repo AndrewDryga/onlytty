@@ -46,7 +46,8 @@ func main() { os.Exit(run()) }
 
 func run() int {
 	server := flag.String("server", os.Getenv("ONLYTTY_SERVER"), "relay server origin, e.g. https://relay.example.com (or set ONLYTTY_SERVER)")
-	readOnly := flag.Bool("read-only", false, "viewers may watch but never type or resize")
+	control := flag.String("control", "ask", "viewer control policy: ask (grant on request), view-only (never), once (grant the first request only)")
+	readOnly := flag.Bool("read-only", false, "deprecated alias for --control view-only")
 	ttl := flag.Duration("ttl", 12*time.Hour, "session lifetime before the link expires")
 	withPass := flag.Bool("passphrase", false, "prompt for a passphrase to mix into the keys (shared out-of-band; the link alone won't decrypt)")
 	genPass := flag.Bool("passphrase-generate", false, "generate a strong passphrase host-side and display it (implies --passphrase)")
@@ -66,6 +67,17 @@ func run() int {
 	}
 	if *ttl <= 0 {
 		fmt.Fprintln(os.Stderr, "onlytty: --ttl must be positive")
+		return 2
+	}
+	controlSet := false
+	flag.Visit(func(f *flag.Flag) {
+		if f.Name == "control" {
+			controlSet = true
+		}
+	})
+	controlMode, err := resolveControl(*control, *readOnly, controlSet)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "onlytty:", err)
 		return 2
 	}
 
@@ -119,7 +131,7 @@ func run() int {
 	link := client.ViewerURL(sess.ID, secretB64, passphrase != "")
 
 	// Show the expiry the relay actually assigned (it clamps the TTL), not the raw flag.
-	printBanner(link, formatFingerprint(keys.Fingerprint), remaining(sess.ExpiresAt, time.Now()), *readOnly, passphrase, *genPass, *noQR)
+	printBanner(link, formatFingerprint(keys.Fingerprint), remaining(sess.ExpiresAt, time.Now()), controlMode, passphrase, *genPass, *noQR)
 
 	// 3) Start the command in a PTY and mirror it locally.
 	psess, err := ptysession.Start(argv, os.Environ())
@@ -144,7 +156,7 @@ func run() int {
 
 	orch, err := runner.New(runner.Config{
 		Client: client, Session: psess, Keys: keys, SessionID: sess.ID, Token: sess.RunnerToken,
-		ReadOnly: *readOnly, LocalIn: os.Stdin, LocalOut: os.Stdout,
+		Control: controlMode, LocalIn: os.Stdin, LocalOut: os.Stdout,
 		Notify: notifier(), Fingerprint: formatFingerprint(keys.Fingerprint),
 	})
 	if err != nil {
@@ -154,10 +166,34 @@ func run() int {
 
 	// Forward local terminal resizes to the PTY.
 	go watchResize(ctx, orch)
+	// SIGUSR1 revokes control (take it back from a viewer) without touching stdin.
+	go watchRevoke(ctx, orch)
 
 	code := orch.Run(ctx)
 	fmt.Fprintf(os.Stderr, "\r\n%s\r\n", dim("onlytty: session ended (exit "+itoa(code)+")"))
 	return code
+}
+
+// resolveControl maps the --control flag (and the deprecated --read-only alias) to a
+// runner.ControlMode. --read-only forces view-only; combining it with a conflicting
+// --control is an error.
+func resolveControl(controlFlag string, readOnly, controlSet bool) (runner.ControlMode, error) {
+	if readOnly {
+		if controlSet && controlFlag != "view-only" {
+			return 0, fmt.Errorf("--read-only is a deprecated alias for --control view-only; it conflicts with --control %s", controlFlag)
+		}
+		return runner.ControlViewOnly, nil
+	}
+	switch controlFlag {
+	case "ask":
+		return runner.ControlAsk, nil
+	case "view-only":
+		return runner.ControlViewOnly, nil
+	case "once":
+		return runner.ControlOnce, nil
+	default:
+		return 0, fmt.Errorf("--control must be ask, view-only, or once (got %q)", controlFlag)
+	}
 }
 
 // resolveCommand returns the user's command, or the login shell when none is given.
@@ -184,6 +220,23 @@ func watchResize(ctx context.Context, orch *runner.Orchestrator) {
 			if ws, err := pty.GetsizeFull(os.Stdin); err == nil {
 				orch.Resize(ws.Cols, ws.Rows)
 			}
+		}
+	}
+}
+
+// watchRevoke lets the host take control back from a viewer by sending SIGUSR1
+// (e.g. `kill -USR1 <pid>`). A signal is used rather than a key sequence because
+// pumpInput owns the host's PTY stdin in raw mode.
+func watchRevoke(ctx context.Context, orch *runner.Orchestrator) {
+	ch := make(chan os.Signal, 1)
+	signal.Notify(ch, syscall.SIGUSR1)
+	defer signal.Stop(ch)
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ch:
+			orch.Revoke()
 		}
 	}
 }
@@ -226,7 +279,7 @@ func remaining(expiresAt int64, now time.Time) time.Duration {
 	return time.Unix(expiresAt, 0).Sub(now).Round(time.Second)
 }
 
-func printBanner(link, fingerprint string, expiresIn time.Duration, readOnly bool, passphrase string, generated, noQR bool) {
+func printBanner(link, fingerprint string, expiresIn time.Duration, control runner.ControlMode, passphrase string, generated, noQR bool) {
 	w := os.Stderr
 	fmt.Fprintf(w, "\n  %s\n\n", bold("onlytty — this session is shared, end-to-end encrypted"))
 	if !noQR {
@@ -236,11 +289,14 @@ func printBanner(link, fingerprint string, expiresIn time.Duration, readOnly boo
 	fmt.Fprintf(w, "  Link         %s\n", link)
 	fmt.Fprintf(w, "  Fingerprint  %s  %s\n", fingerprint, dim("(must match in the browser)"))
 	fmt.Fprintf(w, "  Expires      in %s\n", expiresIn)
-	control := "viewers may request control"
-	if readOnly {
-		control = "read-only (viewers cannot type or resize)"
+	controlDesc := "viewers may request control"
+	switch control {
+	case runner.ControlViewOnly:
+		controlDesc = "view-only (viewers cannot type or resize)"
+	case runner.ControlOnce:
+		controlDesc = "one viewer may take control once"
 	}
-	fmt.Fprintf(w, "  Control      %s\n", control)
+	fmt.Fprintf(w, "  Control      %s\n", controlDesc)
 	switch {
 	case generated:
 		// Two channels: the link/QR above go one way; the passphrase goes another.
@@ -306,7 +362,7 @@ Flags:
 		}
 		fmt.Fprintf(w, "  %-*s  %s%s\n", width, "--"+f.Name, f.Usage, def)
 	}
-	fmt.Fprintf(w, "\nExamples:\n  onlytty -- claude\n  onlytty --read-only -- htop\n  onlytty --passphrase\n")
+	fmt.Fprintf(w, "\nExamples:\n  onlytty -- claude\n  onlytty --control view-only -- htop\n  onlytty --passphrase\n")
 }
 
 // Small ANSI helpers, gated on stderr being a terminal.

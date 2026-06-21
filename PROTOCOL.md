@@ -105,6 +105,10 @@ viewer → runner (sealed with `k_v2r`):
 | 0x12 | CTRL_REQ  | (empty) — request to take control |
 | 0x13 | CTRL_REL  | (empty) — release control         |
 
+`CONTROL.state` stays 0/1 on the wire; the host's `--control` policy (`ask` /
+`view-only` / `once`) and the `SIGUSR1` revoke only decide *when* the runner emits
+`granted` vs `read-only` — they add no new frame kinds.
+
 `HELLO` is the first frame the runner sends to a newly-joined viewer; `baseline` is
 the seq the viewer must start its `k_v2r` counter at (see Replay). The runner then
 replays its output ring buffer (as `OUTPUT` frames with fresh seq) so the screen

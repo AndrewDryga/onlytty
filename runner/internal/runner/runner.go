@@ -29,13 +29,27 @@ const (
 
 // Config wires an Orchestrator. LocalIn/LocalOut are the user's terminal; Notify
 // receives short human notices (viewer connect/disconnect/control); both may be nil.
+// ControlMode is the host's policy for viewer control requests.
+type ControlMode int
+
+const (
+	// ControlAsk grants control on every request — the default, for the
+	// "my phone drives my own shell" case.
+	ControlAsk ControlMode = iota
+	// ControlViewOnly never grants control; viewers may only watch.
+	ControlViewOnly
+	// ControlOnce grants the first request, then denies later ones once that grant
+	// has been released or the viewer disconnected.
+	ControlOnce
+)
+
 type Config struct {
 	Client      *relayclient.Client
 	Session     *ptysession.Session
 	Keys        protocol.Keys
 	SessionID   string
 	Token       string
-	ReadOnly    bool
+	Control     ControlMode
 	LocalIn     io.Reader
 	LocalOut    io.Writer
 	Notify      func(string)
@@ -47,7 +61,7 @@ type Orchestrator struct {
 	client   *relayclient.Client
 	sess     *ptysession.Session
 	id, tok  string
-	readOnly bool
+	control  ControlMode
 	r2v, v2r *protocol.Cipher
 	ring     *ptysession.Ring
 	localIn  io.Reader
@@ -59,8 +73,9 @@ type Orchestrator struct {
 	outSeq uint64
 	inSeq  atomic.Uint64 // viewer→runner replay floor, session-long
 
-	granted atomic.Bool
-	viewers atomic.Int32
+	granted  atomic.Bool
+	onceUsed atomic.Bool // ControlOnce: the one-time grant has been consumed
+	viewers  atomic.Int32
 
 	connMu sync.Mutex
 	conn   *connState
@@ -94,7 +109,7 @@ func New(cfg Config) (*Orchestrator, error) {
 	}
 	return &Orchestrator{
 		client: cfg.Client, sess: cfg.Session, id: cfg.SessionID, tok: cfg.Token,
-		readOnly: cfg.ReadOnly, r2v: r2v, v2r: v2r,
+		control: cfg.Control, r2v: r2v, v2r: v2r,
 		ring:     ptysession.NewRing(ringBytes),
 		localIn:  cfg.LocalIn,
 		localOut: cfg.LocalOut,
@@ -399,22 +414,25 @@ func (o *Orchestrator) handleBinary(frame []byte) {
 	}
 	switch kind {
 	case protocol.KindInput:
-		if !o.readOnly && o.granted.Load() {
+		if o.granted.Load() {
 			_, _ = o.sess.Write(payload)
 		}
 	case protocol.KindResize:
 		// Resizing the host PTY is a write-side effect (it SIGWINCHes the command),
 		// so it is gated exactly like input: only a viewer that holds control may do
 		// it. A read-only viewer sizes its own xterm to the host instead.
-		if !o.readOnly && o.granted.Load() {
+		if o.granted.Load() {
 			if cols, rows, err := protocol.DecodeResize(payload); err == nil {
 				_ = o.sess.SetSize(cols, rows)
 			}
 		}
 	case protocol.KindCtrlReq:
-		if o.readOnly {
+		if o.control == ControlViewOnly || (o.control == ControlOnce && o.onceUsed.Load()) {
 			o.emit(protocol.KindControl, []byte{protocol.ControlReadOnly})
 		} else {
+			if o.control == ControlOnce {
+				o.onceUsed.Store(true)
+			}
 			o.granted.Store(true)
 			o.emit(protocol.KindControl, []byte{protocol.ControlGranted})
 			o.note("onlytty: viewer took control")
@@ -429,6 +447,16 @@ func (o *Orchestrator) handleBinary(frame []byte) {
 func (o *Orchestrator) note(s string) {
 	if o.notify != nil {
 		o.notify(s)
+	}
+}
+
+// Revoke takes control back from the viewer: it clears the grant, tells the viewer
+// it is read-only again, and notes it. Safe to call from any goroutine (e.g. a signal
+// handler); a no-op when no viewer currently holds control.
+func (o *Orchestrator) Revoke() {
+	if o.granted.CompareAndSwap(true, false) {
+		o.emit(protocol.KindControl, []byte{protocol.ControlReadOnly})
+		o.note("onlytty: host revoked control")
 	}
 }
 
