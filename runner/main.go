@@ -46,7 +46,7 @@ func main() { os.Exit(run()) }
 
 func run() int {
 	server := flag.String("server", os.Getenv("ONLYTTY_SERVER"), "relay server origin, e.g. https://relay.example.com (or set ONLYTTY_SERVER)")
-	control := flag.String("control", "ask", "viewer control policy: ask (grant on request), view-only (never), once (grant the first request only)")
+	control := flag.String("control", "ask", "viewer control policy: ask (auto-grant control to any viewer that requests it — no host prompt; revoke with SIGUSR1), view-only (never), once (auto-grant the first request only)")
 	readOnly := flag.Bool("read-only", false, "deprecated alias for --control view-only")
 	ttl := flag.Duration("ttl", 12*time.Hour, "session lifetime before the link expires")
 	withPass := flag.Bool("passphrase", false, "prompt for a passphrase to mix into the keys (shared out-of-band; the link alone won't decrypt)")
@@ -296,12 +296,12 @@ func printBanner(link, fingerprint string, expiresIn time.Duration, control runn
 	fmt.Fprintf(w, "  Link         %s\n", link)
 	fmt.Fprintf(w, "  Fingerprint  %s  %s\n", fingerprint, dim("(must match in the browser)"))
 	fmt.Fprintf(w, "  Expires      in %s\n", expiresIn)
-	controlDesc := "viewers may request control"
+	controlDesc := "any viewer may take control on request (auto-granted; SIGUSR1 to revoke)"
 	switch control {
 	case runner.ControlViewOnly:
 		controlDesc = "view-only (viewers cannot type or resize)"
 	case runner.ControlOnce:
-		controlDesc = "one viewer may take control once"
+		controlDesc = "the first viewer to ask is auto-granted control, once"
 	}
 	fmt.Fprintf(w, "  Control      %s\n", controlDesc)
 	switch {

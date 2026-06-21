@@ -104,9 +104,11 @@ onlytty [flags]              share your $SHELL
 onlytty [flags] -- <cmd>...  share one command
 
   --server <url>     relay origin (or ONLYTTY_SERVER), e.g. https://relay.example.com
-  --control <mode>   viewer control policy: ask (default; grant on request),
-                     view-only (never), or once (grant the first request only).
-                     Take control back any time with: kill -USR1 <onlytty-pid>
+  --control <mode>   viewer control policy: ask (default; auto-grants control to
+                     any viewer that requests it — there is no host approval
+                     prompt), view-only (never), or once (auto-grant the first
+                     request only). Take control back any time (any mode) with:
+                     kill -USR1 <onlytty-pid>
   --read-only        deprecated alias for --control view-only
   --ttl <dur>        session lifetime before the link expires
                      (default 12h; the relay clamps every TTL to 60s–7d)
@@ -134,7 +136,7 @@ passphrase without reloading, instead of hanging silently.
 
 The browser viewer (xterm.js, no framework, no build step) is built for phones:
 
-- **Read-only by default.** Tap **Take control** to type; the host sets the policy with `--control` (`ask`/`view-only`/`once`) and can take control back any time with `kill -USR1 <onlytty-pid>`.
+- **View-only by default.** Tap **Take control** to type; the host sets the policy with `--control` — `ask` (the default) **auto-grants** control to any viewer who asks, with no host prompt; `view-only` never grants; `once` auto-grants the first request only. The host can take control back any time with `kill -USR1 <onlytty-pid>`.
 - **Touch key bar** — Esc, Tab, Ctrl (sticky, for `Ctrl-<key>`), arrows, `^C`, `^D`.
 - **Paste guard** confirms before sending a multi-line paste.
 - **Reconnect & resume** — drops are repainted from the runner's ring buffer.
