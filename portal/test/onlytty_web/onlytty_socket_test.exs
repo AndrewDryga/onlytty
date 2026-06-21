@@ -230,6 +230,38 @@ defmodule OnlyttyWeb.OnlyttySocketTest do
       WSClient.close(viewer)
     end
 
+    test "a reconnecting runner displaces and closes the old runner socket", %{port: port} do
+      s = new_session()
+
+      r1 = WSClient.open(port)
+      r1_ref = WSClient.connect!(r1, "/ws/runner/#{s.id}", runner_headers(s.runner_token))
+      assert WSClient.recv_json(r1, r1_ref)["t"] == "hello"
+
+      viewer = WSClient.open(port)
+      v_ref = WSClient.connect!(viewer, "/ws/viewer/#{s.id}", [])
+      assert WSClient.recv_json(viewer, v_ref)["t"] == "hello"
+      assert WSClient.recv_json(viewer, v_ref)["t"] == "peer_join"
+      assert WSClient.recv_json(r1, r1_ref)["t"] == "peer_join"
+
+      # runner2 reconnects with the same id/token → it displaces runner1.
+      r2 = WSClient.open(port)
+      r2_ref = WSClient.connect!(r2, "/ws/runner/#{s.id}", runner_headers(s.runner_token))
+      assert WSClient.recv_json(r2, r2_ref)["t"] == "hello"
+
+      # The displaced runner1 socket is closed by the relay (4000 bye, or a hard down).
+      assert WSClient.recv_close_or_down(r1, r1_ref) in [4000, :down]
+
+      # The viewer is re-told its peer is present (the new runner), then runner2 ↔ viewer
+      # relays normally — proving the new socket, not the zombie, owns the channel.
+      assert WSClient.recv_json(viewer, v_ref)["t"] == "peer_join"
+      payload = <<7, 8, 9, 10>>
+      WSClient.send_binary(r2, r2_ref, payload)
+      assert WSClient.recv_binary(viewer, v_ref) == payload
+
+      WSClient.close(r2)
+      WSClient.close(viewer)
+    end
+
     test "client {\"t\":\"bye\"} closes that socket", %{port: port} do
       s = new_session()
       pid = WSClient.open(port)

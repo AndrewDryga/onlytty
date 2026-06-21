@@ -131,6 +131,12 @@ defmodule Onlytty.Session do
     # A runner may reconnect to the same id; replace any previous runner socket.
     if state.unconnected_timer, do: Process.cancel_timer(state.unconnected_timer)
 
+    # Fence a displaced runner: close the old socket so its stale peer wiring dies and
+    # a zombie can't keep injecting frames into the viewer after being replaced. We
+    # demonitor it (:flush) below, so its :DOWN won't trip the runner-gone grace.
+    old = state.runner
+    if is_pid(old) and old != pid, do: send(old, {:close, @close_bye, "replaced"})
+
     state =
       state
       |> maybe_demonitor(:runner)
