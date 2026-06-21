@@ -48,7 +48,11 @@ step "Smoke the production HTTP surface"
 get "$BASE/" && grep -q "OnlyTTY" /tmp/dc.body && pass "home page served by the release" || fail "home page"
 get "$BASE/sitemap.xml" && grep -q "<urlset" /tmp/dc.body && pass "sitemap.xml" || fail "sitemap"
 get "$BASE/robots.txt" && grep -q "Disallow: /s/" /tmp/dc.body && pass "robots.txt" || fail "robots"
-get "$BASE/api/sessions" -X POST -H 'content-type: application/json' -d '{}' || fail "session create"
+# The runner now supplies its own id + token; generate a pair for the smoke check.
+sid_id="$(openssl rand -hex 16)"
+sid_tok="$(openssl rand -hex 16)"
+get "$BASE/api/sessions" -X POST -H 'content-type: application/json' \
+  -d "{\"id\":\"$sid_id\",\"runner_token\":\"$sid_tok\"}" || fail "session create"
 SID="$(grep -oE '"id":"[^"]+"' /tmp/dc.body | cut -d'"' -f4)"
 [ -n "$SID" ] && pass "POST /api/sessions → session $SID" || fail "session create (no id in response)"
 get "$BASE/s/$SID" && grep -q "xterm" /tmp/dc.body && pass "GET /s/:id → viewer page" || fail "viewer page"
