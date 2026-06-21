@@ -4,8 +4,15 @@ name: Deploy
 # `container_image` Terraform variable in the TFC workspace to the requested version
 # and QUEUES a run; a human approves it in TFC ("Confirm & Apply") — that approval is
 # the deploy gate. Terraform's update_policy then rolls the MIG, draining each old
-# instance gracefully (see Onlytty.Drain). Needs the TF_API_TOKEN secret (a TFC API
-# token with access to the workspace). No-ops if the token is unset.
+# instance gracefully (see Onlytty.Drain).
+#
+# Needs the TF_API_TOKEN secret: a TFC *user* or *team* token with Apply / "Queue
+# plans" access to the workspace. An ORGANIZATION token can read/write variables but
+# CANNOT create runs (the queue-run call 404s). No-ops if the token is unset.
+#
+# Note: a release published by the default GITHUB_TOKEN does NOT trigger this workflow
+# (GitHub's recursion guard), so the `release` trigger only fires for releases created
+# with a PAT; otherwise deploy via workflow_dispatch.
 
 on:
   workflow_dispatch:
@@ -44,6 +51,29 @@ jobs:
           org="OnlyTTY"
           workspace="onlytty"
           api="https://app.terraform.io/api/v2"
+          auth=(-H "Authorization: Bearer $TF_API_TOKEN" -H "Content-Type: application/vnd.api+json")
+
+          # curl wrapper that surfaces the TFC error body instead of a bare exit code.
+          tf() {  # METHOD URL [DATA]
+            local method="$1" url="$2" data="${3:-}" out code body
+            if [ -n "$data" ]; then
+              out=$(curl -sS -w $'\n%{http_code}' -X "$method" "${auth[@]}" "$url" -d "$data")
+            else
+              out=$(curl -sS -w $'\n%{http_code}' -X "$method" "${auth[@]}" "$url")
+            fi
+            code=${out##*$'\n'}
+            body=${out%$'\n'*}
+            if [ "${code:-000}" -lt 200 ] || [ "${code:-000}" -ge 300 ]; then
+              echo "TFC API error: $method $url -> HTTP ${code:-(no response)}" >&2
+              echo "${body}" | head -c 2000 >&2
+              echo >&2
+              if [ "${code:-000}" = "404" ]; then
+                echo "hint: a 404 on POST /runs usually means the token can't queue runs — use a user/team token with Apply access, not an org token." >&2
+              fi
+              return 1
+            fi
+            printf '%s' "$body"
+          }
 
           # Prefer the workflow_dispatch input; otherwise the published release tag.
           version="${INPUT_VERSION:-$RELEASE_TAG}"
@@ -52,28 +82,26 @@ jobs:
           image="ghcr.io/$(echo "$OWNER" | tr '[:upper:]' '[:lower:]')/onlytty:${version}"
           echo "Deploying image: $image"
 
-          auth=(-H "Authorization: Bearer $TF_API_TOKEN" -H "Content-Type: application/vnd.api+json")
-
-          ws=$(curl -fsS "${auth[@]}" "$api/organizations/$org/workspaces/$workspace" | jq -r '.data.id')
+          ws=$(tf GET "$api/organizations/$org/workspaces/$workspace" | jq -r '.data.id')
           [ -n "$ws" ] && [ "$ws" != "null" ] || { echo "could not resolve workspace $org/$workspace"; exit 1; }
 
-          var=$(curl -fsS "${auth[@]}" "$api/workspaces/$ws/vars" \
+          var=$(tf GET "$api/workspaces/$ws/vars" \
             | jq -r '.data[] | select(.attributes.key=="container_image") | .id')
 
           if [ -n "$var" ] && [ "$var" != "null" ]; then
-            curl -fsS -X PATCH "${auth[@]}" "$api/workspaces/$ws/vars/$var" \
-              -d "$(jq -nc --arg id "$var" --arg v "$image" \
+            tf PATCH "$api/workspaces/$ws/vars/$var" \
+              "$(jq -nc --arg id "$var" --arg v "$image" \
                 '{data:{id:$id,type:"vars",attributes:{value:$v}}}')" >/dev/null
             echo "updated container_image -> $image"
           else
-            curl -fsS -X POST "${auth[@]}" "$api/workspaces/$ws/vars" \
-              -d "$(jq -nc --arg v "$image" \
+            tf POST "$api/workspaces/$ws/vars" \
+              "$(jq -nc --arg v "$image" \
                 '{data:{type:"vars",attributes:{key:"container_image",value:$v,category:"terraform"}}}')" >/dev/null
             echo "created container_image -> $image"
           fi
 
-          run_id=$(curl -fsS -X POST "${auth[@]}" "$api/runs" \
-            -d "$(jq -nc --arg ws "$ws" --arg m "Deploy $image" \
+          run_id=$(tf POST "$api/runs" \
+            "$(jq -nc --arg ws "$ws" --arg m "Deploy $image" \
               '{data:{type:"runs",attributes:{message:$m},relationships:{workspace:{data:{type:"workspaces",id:$ws}}}}}')" \
             | jq -r '.data.id')
 
