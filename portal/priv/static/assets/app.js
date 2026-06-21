@@ -28,6 +28,23 @@ const fit = new FitAddon.FitAddon();
 term.loadAddon(fit);
 term.open($("terminal"));
 
+// Mobile IME / composition / predictive text is delegated entirely to xterm's
+// hidden helper textarea (it emits committed text through `onData`). This is a
+// deliberate choice: a terminal is a raw byte stream, not a text field, so we do
+// NOT add our own `compositionstart/end`/`beforeinput` layer — that would risk
+// double-sending composed input or fighting xterm's own handling. Known tradeoff:
+// some mobile keyboards' predictive/CJK composition has rough edges inside xterm's
+// textarea; if that becomes a real problem, handle composition here rather than in
+// xterm. We do nudge the soft keyboard to a terminal-friendly mode (no autocorrect/
+// autocapitalize, "send" enter hint) on the helper textarea it just created.
+const helper = $("terminal").querySelector(".xterm-helper-textarea");
+if (helper) {
+  helper.setAttribute("autocorrect", "off");
+  helper.setAttribute("autocapitalize", "off");
+  helper.setAttribute("spellcheck", "false");
+  helper.setAttribute("enterkeyhint", "send");
+}
+
 // --- state -------------------------------------------------------------------
 let openC, sealC; // r2v (open), v2r (seal)
 let ws = null;
