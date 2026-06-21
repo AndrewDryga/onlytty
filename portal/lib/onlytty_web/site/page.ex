@@ -155,19 +155,15 @@ defmodule OnlyttyWeb.Site.Page do
   pages that actually exist.
   """
   def sitemap do
+    # No <priority>/<changefreq> — major engines ignore them — and no <lastmod>
+    # since there's no real per-URL timestamp source to back it (faking it is worse).
     urls =
-      [
-        {"/", "1.0"},
-        {"/tools", "0.8"},
-        {"/terms", "0.3"},
-        {"/privacy", "0.3"},
-        {"/acceptable-use", "0.3"}
-      ] ++
-        Enum.map(Tools.all(), &{"/control/#{&1.slug}", "0.6"})
+      ["/", "/tools", "/terms", "/privacy", "/acceptable-use"] ++
+        Enum.map(Tools.all(), &"/control/#{&1.slug}")
 
     entries =
-      Enum.map_join(urls, "\n", fn {path, priority} ->
-        "  <url><loc>#{base_url()}#{path}</loc><priority>#{priority}</priority></url>"
+      Enum.map_join(urls, "\n", fn path ->
+        "  <url><loc>#{base_url()}#{path}</loc></url>"
       end)
 
     """
