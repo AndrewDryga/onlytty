@@ -40,7 +40,7 @@ defmodule OnlyttyWeb.Site.Page do
   @doc "The home page."
   def home do
     layout(
-      title: "OnlyTTY — your terminal, on your phone (yes, even on the toilet)",
+      title: "OnlyTTY — your terminal, on your phone",
       description:
         "Run any command on your machine and drive it from your phone — Claude, Vim, k9s, psql, your whole shell. End-to-end encrypted, no inbound ports, nothing stored.",
       path: "/",
@@ -458,7 +458,7 @@ defmodule OnlyttyWeb.Site.Page do
           """
           <section class="section">
             <div class="wrap">
-              <h2 class="center">More #{h(String.downcase(t.category))} to run from the loo</h2>
+              <h2 class="center">More #{h(String.downcase(t.category))} to run from your phone</h2>
               <div class="chips">#{Enum.map_join(rs, "", &chip/1)}</div>
               <p class="center more"><a class="btn btn-ghost" href="/tools">Browse all tools →</a></p>
             </div>
@@ -474,7 +474,7 @@ defmodule OnlyttyWeb.Site.Page do
         <div class="hero-copy">
           <nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a> <span aria-hidden="true">›</span> <a href="/tools">Tools</a> <span aria-hidden="true">›</span> <span>#{h(t.name)}</span></nav>
           <p class="eyebrow">#{h(t.category)}</p>
-          <h1>Want to control <span class="hl">#{h(t.name)}</span> while sitting on the toilet?</h1>
+          <h1>Control <span class="hl">#{h(t.name)}</span> from your phone</h1>
           <p class="lede">#{h(t.why)}</p>
           #{snippet("onlytty -- #{t.cmd}")}
           <div class="cta-row"><a class="btn btn-primary" href="#start">Get started</a><a class="btn btn-ghost" href="/tools">All tools</a></div>
@@ -536,7 +536,7 @@ defmodule OnlyttyWeb.Site.Page do
     <section class="hero">
       <div class="wrap">
         <p class="eyebrow">#{length(Tools.all())} ready-made guides</p>
-        <h1>If it runs in a terminal, you can run it from the toilet.</h1>
+        <h1>If it runs in a terminal, you can run it from your phone.</h1>
         <p class="lede">OnlyTTY works with any command — these just have a page already. Pick one, copy the snippet, scan the link.</p>
         <div class="cta-row"><a class="btn btn-primary" href="/#start">Get started — it's free</a></div>
       </div>
@@ -835,9 +835,7 @@ defmodule OnlyttyWeb.Site.Page do
       {"Is it really free and open source?",
        ~s(Yes. The relay server and the CLI are open source — host your own relay or audit the code on <a href="#{@github}" rel="noopener">GitHub</a>. No accounts, no tracking.)},
       {"How long does a session last, and what if my connection drops?",
-       ~s(As long as you want it to. Sessions are long-lived, and your phone or laptop rides out flaky networks, sleep, and dead zones — the viewer reconnects on its own so you can drop off Wi-Fi and pick right back up. Set the lifetime with <code>--ttl</code>, up to 7 days. When you exit the command or it expires, it's gone — the relay stores nothing.)},
-      {"Okay, but the toilet thing?",
-       "We're simply acknowledging that the bathroom is now a valid on-call location. Approve the deploy, kill the runaway process, answer your agent's question — then wash your hands. You're welcome."}
+       ~s(As long as you want it to. Sessions are long-lived, and your phone or laptop rides out flaky networks, sleep, and dead zones — the viewer reconnects on its own so you can drop off Wi-Fi and pick right back up. Set the lifetime with <code>--ttl</code>, up to 7 days. When you exit the command or it expires, it's gone — the relay stores nothing.)}
     ]
   end
 

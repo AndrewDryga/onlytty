@@ -49,7 +49,7 @@ defmodule OnlyttyWeb.SiteTest do
     test "renders a known tool page with a tailored, indexable heading", %{conn: conn} do
       conn = get(conn, ~p"/control/claude")
       body = html_response(conn, 200)
-      assert body =~ "Want to control"
+      assert body =~ "Control <span class=\"hl\">Claude Code</span> from your phone"
       assert body =~ "Claude Code"
       assert body =~ "onlytty -- claude"
       assert body =~ ~s(rel="canonical")
