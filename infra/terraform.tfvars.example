@@ -1,6 +1,10 @@
 # Copy to terraform.tfvars (gitignored) and fill in. Then:
-#   terraform init -backend-config="bucket=<your-tf-state-bucket>"
+#   terraform login
+#   terraform init
 #   terraform apply
+#
+# If the Terraform Cloud workspace uses remote execution, set these values as
+# workspace variables instead; .terraformignore excludes local *.tfvars files.
 
 project_id = "onlytty"
 region     = "us-central1"

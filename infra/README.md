@@ -52,15 +52,14 @@ and add a `docker login ghcr.io` step in `templates/cloud-init.yaml` before the 
 ## First-time setup
 
 ```bash
-# 0. A versioned GCS bucket for Terraform state (once):
-gcloud storage buckets create gs://<tf-state-bucket> --location=us-central1
-gcloud storage buckets update gs://<tf-state-bucket> --versioning
+# 0. Log in to Terraform Cloud (once):
+terraform login
 
 # 1. Configure:
 cp terraform.tfvars.example terraform.tfvars   # then edit (project, domain, dns_name, image)
 
 # 2. Apply:
-terraform init -backend-config="bucket=<tf-state-bucket>"
+terraform init
 terraform apply
 
 # 3. Delegate your domain's nameservers to the Cloud DNS zone:
@@ -77,6 +76,13 @@ openssl rand -base64 64 | gcloud secrets versions add onlytty-secret-key-base \
 
 The Google-managed cert goes ACTIVE once the DNS authorization resolves (minutes after
 the NS delegation propagates). Then `GET https://<domain>/healthz` returns 200.
+
+State is stored in the Terraform Cloud workspace
+`OnlyTTY/onlytty` (`https://app.terraform.io/app/OnlyTTY/workspaces/onlytty`). If the
+workspace uses local execution, your local `gcloud` credentials perform the plan/apply.
+If it uses remote execution, configure GCP credentials in the Terraform Cloud workspace
+variables before applying, and set the Terraform input variables there too
+(`terraform.tfvars` is intentionally excluded by `.terraformignore`).
 
 ## Variables & secrets
 
@@ -108,7 +114,7 @@ state. `terraform.tfvars` and `*.tfstate*` are git-ignored.
   ingress arrives from the LB over the internal network.
 - **SSH:** via Identity-Aware Proxy only — `gcloud compute ssh <instance>
   --tunnel-through-iap` (works without a public IP). No `0.0.0.0/0` SSH rule.
-- **Validate locally (no creds):**
-  `terraform fmt -check -recursive && terraform init -backend=false && terraform validate`.
+- **Validate locally:** after `terraform login` + `terraform init`, run
+  `terraform fmt -check -recursive && terraform validate`.
 - **Live `plan`/`apply` + end-to-end HTTPS/WS verification** is the separate
   creds-gated deploy step.

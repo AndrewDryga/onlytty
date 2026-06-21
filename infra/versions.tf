@@ -17,11 +17,13 @@ terraform {
     }
   }
 
-  # Remote state in a pre-created, versioned GCS bucket. Create it once:
-  #   gcloud storage buckets create gs://<your-tf-state-bucket> --location=<region>
-  #   gcloud storage buckets update gs://<your-tf-state-bucket> --versioning
-  # then: terraform init -backend-config="bucket=<your-tf-state-bucket>"
-  backend "gcs" {
-    prefix = "onlytty"
+  # State lives in Terraform Cloud:
+  # https://app.terraform.io/app/OnlyTTY/workspaces/onlytty
+  cloud {
+    organization = "OnlyTTY"
+
+    workspaces {
+      name = "onlytty"
+    }
   }
 }
