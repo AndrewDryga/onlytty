@@ -81,8 +81,10 @@ function showVerify() {
     "<h1>Verify this session</h1>" +
     "<p>Compare this with the fingerprint shown in your terminal. If they match, the connection is end-to-end encrypted with no one in the middle — confirm once and this browser won't ask again for this session.</p>" +
     `<p><code>${fp}</code></p>` +
-    '<button id="fp-match">They match</button>' +
-    '<button id="fp-nomatch" class="ghost">They don’t</button>';
+    '<div class="verify-actions">' +
+      '<button id="fp-match">They match</button>' +
+      '<button id="fp-nomatch" class="ghost">They don’t match</button>' +
+    "</div>";
   $("fp-match").onclick = () => {
     try { localStorage.setItem(VERIFIED_KEY, fp); } catch {}
     o.hidden = true;
