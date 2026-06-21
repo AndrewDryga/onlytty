@@ -67,6 +67,67 @@ defmodule OnlyttyWeb.OnlyttySocketTest do
     end
   end
 
+  describe "viewer Origin check (defense-in-depth)" do
+    test "a foreign Origin is rejected (403)", %{port: port} do
+      s = new_session()
+      pid = WSClient.open(port)
+
+      assert {:error, 403} =
+               WSClient.upgrade(pid, "/ws/viewer/#{s.id}", [{"origin", "https://evil.example"}])
+
+      WSClient.close(pid)
+    end
+
+    test "the same-origin Origin connects (host matches the request)", %{port: port} do
+      s = new_session()
+      pid = WSClient.open(port)
+      # WSClient connects to 127.0.0.1, so a same-host Origin is allowed by default.
+      assert {:ok, ref} =
+               WSClient.upgrade(pid, "/ws/viewer/#{s.id}", [
+                 {"origin", "http://127.0.0.1:#{port}"}
+               ])
+
+      assert WSClient.recv_json(pid, ref)["t"] == "hello"
+      WSClient.close(pid)
+    end
+
+    test "a missing Origin (non-browser) still connects", %{port: port} do
+      s = new_session()
+      pid = WSClient.open(port)
+      assert {:ok, ref} = WSClient.upgrade(pid, "/ws/viewer/#{s.id}", [])
+      assert WSClient.recv_json(pid, ref)["t"] == "hello"
+      WSClient.close(pid)
+    end
+
+    test "the allowlist is configurable; runner WS is never gated", %{port: port} do
+      Application.put_env(:onlytty, :allowed_origins, ["https://allowed.example"])
+      on_exit(fn -> Application.delete_env(:onlytty, :allowed_origins) end)
+
+      s = new_session()
+
+      # The configured origin is allowed for the viewer…
+      v = WSClient.open(port)
+
+      assert {:ok, vref} =
+               WSClient.upgrade(v, "/ws/viewer/#{s.id}", [{"origin", "https://allowed.example"}])
+
+      assert WSClient.recv_json(v, vref)["t"] == "hello"
+      WSClient.close(v)
+
+      # …but the runner (non-browser) connects regardless of a foreign Origin.
+      r = WSClient.open(port)
+
+      assert {:ok, rref} =
+               WSClient.upgrade(r, "/ws/runner/#{s.id}", [
+                 {"authorization", "Bearer " <> s.runner_token},
+                 {"origin", "https://evil.example"}
+               ])
+
+      assert WSClient.recv_json(r, rref)["t"] == "hello"
+      WSClient.close(r)
+    end
+  end
+
   describe "binary relay (the core)" do
     test "binary frames are delivered byte-identical in both directions", %{port: port} do
       s = new_session()

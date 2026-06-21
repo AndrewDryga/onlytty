@@ -42,8 +42,16 @@ defmodule OnlyttyWeb.SocketController do
   end
 
   def viewer(conn, %{"id" => id}) do
-    case SessionStore.lookup(id) do
-      {:ok, pid} -> upgrade(conn, %{session: pid, id: id, role: :viewer})
+    # Origin is checked on the *browser viewer* path only, as defense-in-depth: a
+    # leaked session id from a drive-by browser can occupy the single viewer slot.
+    # It is NOT the security boundary (E2E + the fragment secret are), so a missing
+    # Origin (non-browser clients) is allowed; only a present, foreign Origin is
+    # rejected. The runner path is never gated — it is a non-browser client.
+    with :ok <- authorize_origin(conn),
+         {:ok, pid} <- SessionStore.lookup(id) do
+      upgrade(conn, %{session: pid, id: id, role: :viewer})
+    else
+      :forbidden -> reject(conn, 403, "forbidden origin")
       :error -> reject(conn, 404, "unknown session")
     end
   end
@@ -55,6 +63,34 @@ defmodule OnlyttyWeb.SocketController do
       timeout: @socket_timeout
     )
     |> halt()
+  end
+
+  # Same-origin check for browser viewers (defense-in-depth). A missing Origin is a
+  # non-browser client and is allowed; a present Origin must pass. By default we
+  # require the Origin's *host* to equal the request's own Host — the viewer page
+  # was served from that same host, so a real browser sends a matching Origin. Host
+  # comparison (not scheme/port) is proxy-safe: a TLS-terminating proxy preserves
+  # Host but mangles scheme/port. Set ONLYTTY_ALLOWED_ORIGINS to a list of exact
+  # origins to override (e.g. a separate viewer host).
+  defp authorize_origin(conn) do
+    case get_req_header(conn, "origin") do
+      [] -> :ok
+      [origin | _] -> if origin_allowed?(conn, origin), do: :ok, else: :forbidden
+    end
+  end
+
+  defp origin_allowed?(conn, origin) do
+    case Application.get_env(:onlytty, :allowed_origins) do
+      list when is_list(list) -> origin in list
+      _ -> origin_host(origin) == conn.host
+    end
+  end
+
+  defp origin_host(origin) do
+    case URI.parse(origin) do
+      %URI{host: host} when is_binary(host) -> host
+      _ -> nil
+    end
   end
 
   defp authorize_runner(conn, session) do

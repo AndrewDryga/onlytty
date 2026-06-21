@@ -30,7 +30,11 @@ read-only viewer cannot type or resize the host. The full contract is [PROTOCOL.
   code (xterm) is Subresource-Integrity-pinned; a native viewer would remove this.
 - **The link is a capability.** Anyone with the link is a viewer. Use a short
   `--ttl`, the single-viewer lock (on by default), and `--passphrase` to require a
-  second secret shared out-of-band.
+  second secret shared out-of-band. As defense-in-depth, browser viewer WebSocket
+  upgrades are same-origin-checked (host must match, or an `ONLYTTY_ALLOWED_ORIGINS`
+  allowlist) so a drive-by page can't occupy the viewer slot with a leaked id — this
+  is *not* the boundary (E2E + the fragment secret are); non-browser clients, which
+  can omit/spoof `Origin`, are unaffected.
 - **TLS is required.** The relay must be served over HTTPS (Web Crypto needs a secure
   context, and the fragment must not travel in cleartext). The prod config enforces
   http→https + HSTS.

@@ -51,6 +51,14 @@ if bytes = System.get_env("ONLYTTY_MAX_FRAME_BYTES") do
   config :onlytty, :max_frame_bytes, String.to_integer(bytes)
 end
 
+# ONLYTTY_ALLOWED_ORIGINS — comma-separated origins allowed to open a *browser
+# viewer* WebSocket (defense-in-depth; the runner WS is never gated). Defaults to
+# the endpoint's own URL (same-origin). Set this when the viewer is served from a
+# different host than the relay, e.g. "https://onlytty.com,https://www.onlytty.com".
+if origins = System.get_env("ONLYTTY_ALLOWED_ORIGINS") do
+  config :onlytty, :allowed_origins, String.split(origins, ",", trim: true)
+end
+
 # Per-IP throttle for POST /api/sessions (defaults: 30 requests / 60s).
 #   ONLYTTY_RATELIMIT_MAX     — max creates per window per IP ("0" disables)
 #   ONLYTTY_RATELIMIT_WINDOW  — window length in seconds

@@ -157,6 +157,7 @@ context. Without HTTPS the viewer refuses to run (and the secret could leak in t
 | `ONLYTTY_IDLE_TIMEOUT` | `600` | close after this many seconds with no runner traffic |
 | `ONLYTTY_MAX_SESSIONS` | `2000` | cap on concurrent sessions (bounds create-spam) |
 | `ONLYTTY_MAX_FRAME_BYTES` | `1048576` | max size of a single WebSocket frame (1 MiB); over-cap frames are closed (1009), never forwarded — bounds memory use and covert-tunnel abuse |
+| `ONLYTTY_ALLOWED_ORIGINS` | _(same host)_ | comma-separated origins allowed to open a **browser viewer** WS (defense-in-depth). Default requires the Origin's host to match the request's; set this only if the viewer is served from a different host. The runner WS is never gated. |
 | `ONLYTTY_RATELIMIT_MAX` | `30` | max `POST /api/sessions` per window per IP (`0` disables) |
 | `ONLYTTY_RATELIMIT_WINDOW` | `60` | rate-limit window in seconds |
 | `SENTRY_DSN` | — | backend error reporting; unset disables it (dev/test/CI never report) |
