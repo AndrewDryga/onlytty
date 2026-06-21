@@ -289,9 +289,15 @@ $("control").onclick = () => {
   else { send(Kind.CtrlReq, new Uint8Array(0)); term.focus(); }
 };
 
+// Tap the (truncated) fingerprint chip to see the full value and compare it with the terminal.
+$("fp").addEventListener("click", () => {
+  const fp = $("fp").textContent;
+  if (fp) fatal(`<h1>Session fingerprint</h1><p>Compare this with the fingerprint shown in your terminal — if they match, both ends derived the same keys from the same secret.</p><p><code>${fp}</code></p><button data-dismiss>OK</button>`);
+});
+
 const KEYS = {
   esc: "\x1b", tab: "\t", up: "\x1b[A", down: "\x1b[B", left: "\x1b[D", right: "\x1b[C",
-  ctrlc: "\x03", ctrld: "\x04",
+  bksp: "\x7f", enter: "\r", ctrlc: "\x03", ctrld: "\x04",
 };
 // Sticky Ctrl composes with the touch keys too, not just the soft keyboard: when
 // armed, the arrows become the standard Ctrl word-navigation sequences; the other

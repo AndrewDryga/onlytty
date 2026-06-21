@@ -15,21 +15,35 @@
   body { display:flex; flex-direction:column; overflow:hidden; }
   #bar { display:flex; align-items:center; gap:.5rem; padding:.45rem .6rem;
     padding-top: calc(.45rem + env(safe-area-inset-top)); background:var(--bar);
-    border-bottom:1px solid #1c2333; font-size:.8rem; white-space:nowrap; }
-  #status { display:inline-flex; align-items:center; gap:.4rem; color:var(--dim); }
+    border-bottom:1px solid #1c2333; font-size:.8rem; }
+  /* Tools scroll horizontally on a narrow screen; #control is pinned OUTSIDE this
+     scroll region so the primary action is never pushed off-screen. */
+  #bar-tools { display:flex; align-items:center; gap:.4rem; flex:1 1 auto; min-width:0;
+    overflow-x:auto; scrollbar-width:none; }
+  #bar-tools::-webkit-scrollbar { display:none; }
+  #status { display:inline-flex; align-items:center; gap:.4rem; color:var(--dim); flex:0 1 auto; min-width:0; }
+  #status-text { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   #dot { width:.5rem; height:.5rem; border-radius:50%; background:var(--dim); flex:0 0 auto; }
   #dot.ok { background:var(--ok); } #dot.warn { background:var(--warn); }
-  .fp { color:var(--dim); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size:.72rem; }
-  .spacer { flex:1 1 auto; }
+  /* Fingerprint is verify-once info, so it's a compact tappable chip (truncated;
+     tap shows the full value to compare with the terminal). */
+  .fp { flex:0 0 auto; max-width:6rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+    color:var(--dim); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size:.72rem;
+    background:#1a2030; border-color:#2a3346; padding:.25rem .45rem; }
+  .fp::before { content:"🔒 "; }
+  #control { flex:0 0 auto; }
   button { background:#262e44; color:var(--fg); border:1px solid #3c465f; border-radius:.45rem;
     padding:.35rem .55rem; font-size:.8rem; cursor:pointer; -webkit-tap-highlight-color:transparent; }
   button:active { background:#323c58; }
   button.on { background:var(--accent); border-color:var(--accent); color:#fff; }
   #control.live { background:var(--ok); border-color:var(--ok); color:#04210f; }
+  /* 44px tap targets on touch (phones), where the bars are the primary input path. */
+  body.touch #bar button, body.touch #keys button { min-height:44px; }
   #terminal { flex:1 1 auto; min-height:0; padding:.25rem; overflow:hidden; }
   #keys { display:none; gap:.3rem; padding:.4rem; padding-bottom: calc(.4rem + env(safe-area-inset-bottom));
-    background:var(--bar); border-top:1px solid #1c2333; overflow-x:auto; }
-  #keys button { flex:0 0 auto; min-width:2.4rem; font-family: ui-monospace, monospace; }
+    background:var(--bar); border-top:1px solid #1c2333; overflow-x:auto; scrollbar-width:none; }
+  #keys::-webkit-scrollbar { display:none; }
+  #keys button { flex:0 0 auto; min-width:2.6rem; font-family: ui-monospace, monospace; }
   #keys button.user-key { background:#2c3650; font-family: inherit; }
   body.touch #keys { display:flex; }
   /* shortcut editor (rendered into #overlay) */
@@ -59,13 +73,14 @@
 </head>
 <body>
   <div id="bar">
-    <span id="status"><span id="dot"></span><span id="status-text">connecting…</span></span>
-    <span id="fp" class="fp"></span>
-    <span class="spacer"></span>
-    <button id="font-dec" title="Smaller">A−</button>
-    <button id="font-inc" title="Larger">A+</button>
-    <button id="keys-toggle" title="Show/hide key bar" aria-label="Show or hide the key bar">⌨</button>
-    <button id="paste" title="Paste from clipboard">Paste</button>
+    <div id="bar-tools">
+      <span id="status"><span id="dot"></span><span id="status-text">connecting…</span></span>
+      <button id="fp" class="fp" title="Tap to verify against your terminal"></button>
+      <button id="font-dec" title="Smaller">A−</button>
+      <button id="font-inc" title="Larger">A+</button>
+      <button id="keys-toggle" title="Show/hide key bar" aria-label="Show or hide the key bar">⌨</button>
+      <button id="paste" title="Paste from clipboard">Paste</button>
+    </div>
     <button id="control">Take control</button>
   </div>
   <div id="terminal"></div>
@@ -77,6 +92,8 @@
     <button data-key="down">↓</button>
     <button data-key="left">←</button>
     <button data-key="right">→</button>
+    <button data-key="bksp" aria-label="Backspace">⌫</button>
+    <button data-key="enter" aria-label="Enter">⏎</button>
     <button data-key="ctrlc">^C</button>
     <button data-key="ctrld">^D</button>
     <button id="keys-edit" title="Edit shortcuts" aria-label="Edit shortcuts">＋</button>

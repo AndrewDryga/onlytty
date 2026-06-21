@@ -269,3 +269,53 @@ test("browser viewer: wrong passphrase shows a recoverable overlay; the right on
     proc.kill("SIGKILL");
   }
 });
+
+test("browser viewer: mobile layout — Take control stays on-screen at 360px; ^C key works", async (t) => {
+  let chromium;
+  try { ({ chromium } = await import("playwright")); } catch { t.skip("playwright not installed"); return; }
+  if (!(await healthy())) { t.skip("relay not reachable at " + base); return; }
+
+  const { proc, link } = await startRunner(["--", "bash", "--norc", "--noprofile", "-i"]);
+  let browser;
+  try {
+    browser = await chromium.launch();
+    // A small phone-width viewport with the key bar forced on. The redesign pins
+    // #control OUTSIDE the scrollable tools, so it must stay fully on-screen.
+    const page = await browser.newPage({ viewport: { width: 360, height: 780 } });
+    await page.addInitScript(() => { try { localStorage.setItem("onlytty.keybar", "show"); } catch {} });
+    await page.goto(link);
+    await page.waitForFunction(
+      () => document.getElementById("status-text").textContent === "connected",
+      null, { timeout: 10000 },
+    );
+
+    // The bug we fixed: Take control used to be pushed off the right edge. Its box
+    // must be fully within the 360px viewport.
+    const box = await page.locator("#control").boundingBox();
+    assert.ok(box, "#control present");
+    assert.ok(box.x >= 0 && box.x + box.width <= 361,
+      `#control must be on-screen at 360px (x=${box.x}, w=${box.width})`);
+
+    // Key bar visible (pref forced) and its keys are ≥44px tap targets.
+    assert.equal(await page.locator("#keys").isVisible(), true, "key bar visible on the phone");
+    const keyBox = await page.locator('#keys button[data-key="ctrlc"]').boundingBox();
+    assert.ok(keyBox && keyBox.height >= 44, `key tap target ≥44px (got ${keyBox && keyBox.height})`);
+
+    // Take control, then the ^C *button* interrupts a running command.
+    await page.click("#control");
+    await page.waitForFunction(
+      () => document.getElementById("control").classList.contains("live"),
+      null, { timeout: 8000 },
+    );
+    await page.keyboard.type("sleep 30\r");
+    await page.click('#keys button[data-key="ctrlc"]');
+    await page.keyboard.type("echo MOB_$((3+4))\r");
+    await page.waitForFunction(
+      () => document.querySelector(".xterm-rows")?.innerText.includes("MOB_7"),
+      null, { timeout: 8000 },
+    );
+  } finally {
+    if (browser) await browser.close();
+    proc.kill("SIGKILL");
+  }
+});
