@@ -199,7 +199,7 @@ can't bypass it.
 | `onlytty_viewer_busy_rejects_total` | viewers refused by the single-viewer lock |
 | `onlytty_upgrade_unauthorized_total` | WS upgrades rejected 401 (bad/missing runner token) |
 | `onlytty_upgrade_not_found_total` | WS upgrades rejected 404 (unknown/expired session) |
-| `onlytty_sessions_ttl_expired_total` | sessions closed by TTL (includes never-connected reaps) |
+| `onlytty_sessions_ttl_expired_total` | sessions closed by TTL (includes never-connected and runner-gone reaps) |
 | `onlytty_sessions_idle_expired_total` | sessions closed by the idle timeout |
 | `onlytty_rate_limit_rejects_total` | create requests refused by the per-IP rate limiter |
 | `onlytty_frame_size_rejects_total` | frames rejected for exceeding `ONLYTTY_MAX_FRAME_BYTES` (closed 1009) |

@@ -30,8 +30,10 @@ defmodule Onlytty.Session do
   # client can distinguish *why* a session ended without us parsing any payload.
   @close_bye 4000
 
-  # Reap a session whose runner never connects, so create-spam can't pin processes
-  # until their (possibly long) TTL. Cancelled the moment a runner joins.
+  # Reap a session with no runner attached — one whose runner never connected, or
+  # whose runner dropped and didn't reconnect — so an empty session can't pin a
+  # process and the single-session/lock budget until its (possibly long) TTL.
+  # Armed at init and re-armed on runner drop; cancelled the moment a runner joins.
   @unconnected_ms 120_000
 
   # --- client API ------------------------------------------------------------
@@ -91,6 +93,7 @@ defmodule Onlytty.Session do
     now = System.system_time(:second)
     ttl = Keyword.fetch!(opts, :ttl_seconds)
     idle_ms = Keyword.fetch!(opts, :idle_ms)
+    unconnected_ms = Keyword.get(opts, :unconnected_ms, @unconnected_ms)
 
     state = %{
       id: Keyword.fetch!(opts, :id),
@@ -104,8 +107,9 @@ defmodule Onlytty.Session do
       locked: Keyword.get(opts, :locked, true),
       idle_ms: idle_ms,
       idle_timer: nil,
+      unconnected_ms: unconnected_ms,
       ttl_timer: Process.send_after(self(), :ttl_expired, ttl * 1000),
-      unconnected_timer: Process.send_after(self(), :reap_unconnected, @unconnected_ms)
+      unconnected_timer: Process.send_after(self(), :reap_unconnected, unconnected_ms)
     }
 
     {:ok, state}
@@ -204,12 +208,16 @@ defmodule Onlytty.Session do
 
   # A monitored socket went away.
   def handle_info({:DOWN, ref, :process, _pid, _reason}, %{runner_ref: ref} = state) do
-    # Runner dropped: tell the viewer its peer left, but keep the session alive
-    # until TTL so the runner can reconnect to the same id.
+    # Runner dropped: tell the viewer its peer left, and keep the session alive for a
+    # short grace so the runner can reconnect to the same id. Re-arm the unconnected
+    # reap (cancelled again on reconnect) so an empty session can't hold the
+    # process/lock budget until idle/TTL.
     if state.viewer, do: send(state.viewer, {:onlytty_control, control(:peer_left)})
     if state.viewer, do: send(state.viewer, :peer_left)
     Logger.info("relay session #{short(state.id)}: runner left")
-    {:noreply, %{state | runner: nil, runner_ref: nil}}
+    if state.unconnected_timer, do: Process.cancel_timer(state.unconnected_timer)
+    timer = Process.send_after(self(), :reap_unconnected, state.unconnected_ms)
+    {:noreply, %{state | runner: nil, runner_ref: nil, unconnected_timer: timer}}
   end
 
   def handle_info({:DOWN, ref, :process, _pid, _reason}, %{viewer_ref: ref} = state) do
