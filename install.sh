@@ -101,6 +101,9 @@ say "Downloading $asset …"
 curl -fsSL "$base/$asset" -o "$tmp/$asset" || err "download failed: $base/$asset"
 curl -fsSL "$base/SHA256SUMS" -o "$tmp/SHA256SUMS" || err "download failed: $base/SHA256SUMS"
 
+# This catches a corrupted/truncated download — not a compromised release: SHA256SUMS
+# comes from the same release as the binary, so it can't attest the release's authenticity.
+# Tamper-resistance needs a signature over the sums (planned; see SECURITY.md).
 expected=$(awk -v f="$asset" '$2 == f {print $1}' "$tmp/SHA256SUMS")
 [ -n "$expected" ] || err "no checksum for $asset in SHA256SUMS"
 actual=$(sha256 "$tmp/$asset")

@@ -44,6 +44,10 @@ read-only viewer cannot type or resize the host. The full contract is [PROTOCOL.
 - **In-terminal notices are metadata.** Trust the fingerprint (derived from the
   secret), not a "viewer connected" line (relay-delivered, spoofable by a hostile
   relay — which still can't read your session).
+- **Release integrity ≠ authenticity.** The installer verifies `SHA256SUMS`, which
+  catches a corrupted or truncated download. It does *not* prove the release is
+  untampered: the sums ship from the same release as the binary, so an attacker who
+  swaps one swaps both. Signing the sums + build provenance (planned) closes this gap.
 
 ## Verifying the served viewer
 
