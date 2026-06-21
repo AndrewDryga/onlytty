@@ -244,7 +244,18 @@ make e2e       # boots the relay, then a Go viewer and a headless-browser viewer
 make audit     # opt-in dependency/security audit (not part of `check`)
 make fuzz      # fuzz the protocol decoders (they parse relay-forwarded bytes)
 make load      # concurrent session-create load against $ONLYTTY_SERVER
+make soak      # N full runner↔viewer pairs + reconnect storms; reports RSS + capacity
 ```
+
+`make soak` (boots a relay if none is up; override `N`, `DURATION`, `CHURN`) drives N
+concurrent **full** sessions — real runner + viewer WebSocket pairs carrying encrypted
+traffic — and periodically bounces a fraction of viewers to simulate reconnect storms.
+It samples the relay's resident memory (local `beam.smp` RSS via `/proc`) and reports
+frames moved, cap rejects (503s when over `ONLYTTY_MAX_SESSIONS`), reconnect drops, and
+RSS min/max/final, exiting non-zero on a crash or a runaway-memory signal. Use it to
+find the max stable concurrent sessions per VM size for deploy sizing (record the
+numbers from a long run against the target). Like any viewer it only ever sees
+ciphertext it decrypts locally — it measures sizes and liveness, never plaintext.
 
 `make audit` runs `govulncheck ./...` (Go), `npm audit` (web), and `mix hex.audit`
 (retired Hex packages). It is **opt-in** — release CI should run it, but it stays out

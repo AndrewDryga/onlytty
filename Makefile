@@ -55,6 +55,9 @@ fuzz: ## Fuzz the protocol decoders (override length: make fuzz FUZZTIME=2m)
 load: ## Load-test session creation against a running relay (ONLYTTY_SERVER, args: N CONC)
 	@bash dev/scripts/load.sh
 
+soak: ## Soak N full runner↔viewer pairs through reconnect storms (ONLYTTY_SERVER; vars: N DURATION)
+	@bash dev/scripts/soak.sh
+
 deploy-check: ## Pre-deploy: build+boot the prod image behind Caddy, smoke + e2e + cross-build (needs Docker)
 	@bash dev/scripts/deploy-check.sh
 
