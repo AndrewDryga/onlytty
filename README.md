@@ -212,7 +212,10 @@ It is **not** zero-trust, and here's the honest residue:
   viewer that exfiltrates the secret from the fragment. So host trust is reduced to
   *code-delivery time*, not *relay time*. The viewer's third-party code (xterm) is
   vendored and Subresource-Integrity-pinned; a native viewer (no browser JS) would
-  remove this caveat entirely.
+  remove this caveat entirely. The first-party viewer code (`viewer.html`, `app.js`,
+  `wire.js`, `crypto.js`, `keys.js`) is served `Cache-Control: no-store`, so the
+  browser always fetches the audited bytes and a tampered bundle can't be cached;
+  the SRI-pinned `vendor/*` assets are served `immutable`.
 - **The link is a capability.** Anyone you forward it to becomes a viewer. Mitigate
   with a short `--ttl`, the single-viewer lock (default), and `--passphrase`.
 - **Trust the fingerprint, not the prose.** The fingerprint shown at both ends is

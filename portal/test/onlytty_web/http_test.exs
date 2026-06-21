@@ -85,6 +85,29 @@ defmodule OnlyttyWeb.HTTPTest do
     assert conn.resp_body =~ "<title>OnlyTTY</title>"
   end
 
+  describe "static asset cache policy" do
+    test "first-party viewer JS is no-store (always re-fetch the audited bytes)", %{conn: conn} do
+      for path <- ~w(/assets/app.js /assets/wire.js /assets/crypto.js /assets/keys.js) do
+        c = get(conn, path)
+        assert c.status == 200
+        assert get_resp_header(c, "cache-control") == ["no-store"]
+      end
+    end
+
+    test "the viewer page itself is no-store", %{conn: conn} do
+      c = get(conn, ~p"/s/abc")
+      assert get_resp_header(c, "cache-control") == ["no-store"]
+    end
+
+    test "vendored (SRI-pinned) assets are immutable", %{conn: conn} do
+      c = get(conn, "/assets/vendor/xterm.js")
+      assert c.status == 200
+      assert [cc] = get_resp_header(c, "cache-control")
+      assert cc =~ "immutable"
+      assert cc =~ "max-age=31536000"
+    end
+  end
+
   describe "security headers" do
     test "on the viewer page (the code-delivery trust boundary)", %{conn: conn} do
       assert_security_headers(get(conn, ~p"/s/abc"))

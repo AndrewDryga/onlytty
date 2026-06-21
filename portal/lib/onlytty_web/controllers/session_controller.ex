@@ -84,6 +84,9 @@ defmodule OnlyttyWeb.SessionController do
     path = Path.join(:code.priv_dir(:onlytty), "static/viewer.html")
 
     conn
+    # The viewer shell is security-sensitive code delivery — never cache it, so the
+    # browser always loads the audited bytes (matches the first-party JS policy).
+    |> put_resp_header("cache-control", "no-store")
     |> put_resp_content_type("text/html")
     |> send_file(200, path)
   end

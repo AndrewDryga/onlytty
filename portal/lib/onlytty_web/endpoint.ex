@@ -18,6 +18,10 @@ defmodule OnlyttyWeb.Endpoint do
   # Security hardening (CSP + friends) on every response, static assets included.
   plug OnlyttyWeb.SecurityHeaders
 
+  # Per-path Cache-Control: first-party viewer JS is no-store, vendored assets are
+  # immutable (registered before Plug.Static so it overrides the static defaults).
+  plug OnlyttyWeb.CacheControl
+
   # Serve at "/" the static files from "priv/static" directory.
   #
   # You should set gzip to true if you are running phx.digest
