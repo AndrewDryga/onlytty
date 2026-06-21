@@ -151,9 +151,10 @@ p { margin: 0 0 1rem; }
 .badge b { color: var(--fg); font-weight: 650; }
 
 /* skip link */
-.skip { position: absolute; left: -999px; top: .5rem; background: var(--accent); color: var(--ink);
-  padding: .5rem .85rem; border-radius: var(--r-sm); z-index: 100; font-weight: 600; }
-.skip:focus { left: .75rem; }
+.skip { position: absolute; left: .75rem; top: .5rem; transform: translateY(-250%);
+  background: var(--accent); color: var(--ink); padding: .5rem .85rem; border-radius: var(--r-sm);
+  z-index: 100; font-weight: 600; }
+.skip:focus { transform: translateY(0); }
 
 /* ── nav ── */
 .nav { position: sticky; top: 0; z-index: 50; background: rgba(7, 8, 12, .72);
@@ -222,7 +223,7 @@ p { margin: 0 0 1rem; }
 }
 
 /* ── hero ── */
-.hero { position: relative; padding: clamp(3rem, 7vw, 5.5rem) 0 clamp(2.5rem, 5vw, 4rem); }
+.hero { position: relative; overflow-x: clip; padding: clamp(3rem, 7vw, 5.5rem) 0 clamp(2.5rem, 5vw, 4rem); }
 .hero-grid { display: grid; grid-template-columns: 1fr 1.08fr; gap: clamp(1.5rem, 4vw, 3.25rem); align-items: center; }
 .hero-copy h1 { margin-bottom: .65rem; }
 .hero-copy .lede { max-width: 42ch; }
@@ -295,8 +296,9 @@ p { margin: 0 0 1rem; }
 .phone-ctl { margin-left: auto; flex: 0 0 auto; font-size: .52rem; font-weight: 700;
   padding: .2rem .45rem; border-radius: 6px; background: var(--accent-soft);
   color: var(--accent-2); border: 1px solid var(--accent-line); }
-.phone-term { flex: 1 1 auto; margin: 0; padding: .65rem .6rem; min-height: 5.75rem;
-  font-size: .58rem; line-height: 1.7; font-family: ui-monospace, monospace;
+.phone-term { flex: 1 1 auto; display: flex; flex-direction: column; justify-content: flex-end;
+  padding: .65rem .6rem .7rem; min-height: 12.5rem; }
+.phone-term pre { margin: 0; font-size: .58rem; line-height: 1.7; font-family: ui-monospace, monospace;
   color: var(--fg-2); white-space: pre-wrap; }
 .phone-keys { display: flex; gap: .25rem; padding: .4rem .45rem .5rem;
   background: #11151f; border-top: 1px solid var(--line); }
@@ -456,8 +458,7 @@ p { margin: 0 0 1rem; }
 
 /* ── responsive ── */
 @media (max-width: 940px) {
-  .hero-grid { grid-template-columns: 1fr; gap: 2.5rem; }
-  .hero-demo { order: -1; }
+  .hero-grid { grid-template-columns: 1fr; gap: 2.25rem; }
   .hero-copy .lede, .hero-copy h1, .hero-snippet { max-width: none; }
   .steps, .features, .uses { grid-template-columns: 1fr; }
   .steps::before { display: none; }

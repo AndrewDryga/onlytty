@@ -719,9 +719,9 @@ defmodule OnlyttyWeb.Site.Page do
   defp phone(name, opts) do
     ~s(<div class="phone" aria-hidden="true"><div class="phone-scr">) <>
       ~s(<div class="phone-bar"><span class="phone-stat"><i></i>connected</span><span class="phone-ctl">control</span></div>) <>
-      ~s(<pre class="phone-term">) <>
+      ~s(<div class="phone-term"><pre>) <>
       phone_body(name, opts) <>
-      ~s(</pre>) <>
+      ~s(</pre></div>) <>
       ~s(<div class="phone-keys"><span>Esc</span><span>Tab</span><span>Ctrl</span><span>^C</span></div>) <>
       ~s(</div></div>)
   end
@@ -734,13 +734,17 @@ defmodule OnlyttyWeb.Site.Page do
       if opts[:agent] do
         [
           ~s(<span class="c-dim">› refactor the auth module</span>),
+          ~s(<span class="c-ok">●</span> Read auth.ex),
           ~s(<span class="c-ok">●</span> Edited auth.ex <span class="c-ok">+18</span> <span class="c-dim">−4</span>),
+          ~s(<span class="c-ok">●</span> 24 tests passed),
           ~s(<span class="c-ok">✻</span> <span class="c-b">#{h(name)}</span>),
           thinking()
         ]
       else
         [
           ~s(<span class="c-ok">✻</span> <span class="c-b">#{h(name)}</span> <span class="c-dim">live</span>),
+          ~s(<span class="c-ok">●</span> <span class="c-dim">shared · read-only</span>),
+          ~s(<span class="c-ok">●</span> <span class="c-dim">end-to-end encrypted</span>),
           prompt_tail(opts)
         ]
       end
