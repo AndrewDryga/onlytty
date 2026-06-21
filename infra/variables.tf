@@ -20,9 +20,14 @@ variable "dns_name" {
 }
 
 variable "container_image" {
-  type        = string
-  description = "Fully-qualified onlytty image. Public GHCR by default; the release workflow publishes it."
-  default     = "ghcr.io/AndrewDryga/onlytty:latest"
+  type = string
+  # Lowercase owner — Docker refs must be lowercase, and release.yml publishes to
+  # ghcr.io/<owner>/onlytty (lowercased). Default is the mutable :latest tag; the
+  # Deploy workflow re-pulls it via a MIG rolling-replace. For a reproducible
+  # `terraform apply` rollout, override with a pinned version tag or digest
+  # (e.g. ghcr.io/andrewdryga/onlytty:0.1.0) in terraform.tfvars.
+  description = "Fully-qualified onlytty image (public GHCR). Pin a version tag/digest for reproducible applies."
+  default     = "ghcr.io/andrewdryga/onlytty:latest"
 }
 
 variable "app_port" {

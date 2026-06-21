@@ -29,7 +29,7 @@ follow-up that adds BEAM clustering + a distributed session registry (libcluster
 
 ## Image: public vs private GHCR
 
-The default pulls `ghcr.io/AndrewDryga/onlytty:latest` **anonymously** — publish the
+The default pulls `ghcr.io/andrewdryga/onlytty:latest` **anonymously** — publish the
 image publicly (the release workflow does) and the instances need no registry
 credentials. For a private repo instead: store a read-only GHCR PAT in Secret Manager
 and add a `docker login ghcr.io` step in `templates/cloud-init.yaml` before the pull.
@@ -70,7 +70,7 @@ the NS delegation propagates). Then `GET https://<domain>/healthz` returns 200.
 | `project_id` | — | GCP project (e.g. `onlytty`) |
 | `domain` | — | public hostname served by the LB |
 | `dns_name` | — | Cloud DNS managed-zone name, trailing dot (e.g. `onlytty.com.`) |
-| `container_image` | `ghcr.io/AndrewDryga/onlytty:latest` | public GHCR image |
+| `container_image` | `ghcr.io/andrewdryga/onlytty:latest` | public GHCR image |
 | `app_port` | `4000` | relay container port (LB backend + health check) |
 | `machine_type` | `e2-small` | instance size |
 | `instance_count` | `1` | **must stay 1** (in-memory sessions); enforced by validation |

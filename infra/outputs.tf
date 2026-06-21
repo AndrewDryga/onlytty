@@ -27,7 +27,7 @@ output "next_steps" {
     2. Add SECRET_KEY_BASE (never in TF state):
          openssl rand -base64 64 | gcloud secrets versions add ${google_secret_manager_secret.secret_key_base.secret_id} --data-file=- --project=${var.project_id}
     3. Publish the image to public GHCR (the release workflow does this) and set
-       var.container_image to it (default ghcr.io/AndrewDryga/onlytty:latest).
+       var.container_image to it (default ghcr.io/andrewdryga/onlytty:latest).
     4. Wait for the managed cert to go ACTIVE (DNS authorization can take minutes),
        then GET https://${var.domain}/healthz should return 200.
   EOT

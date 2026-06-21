@@ -8,7 +8,7 @@ domain     = "onlytty.com"
 dns_name   = "onlytty.com." # trailing dot — the Cloud DNS managed zone
 
 # Public GHCR image, published by the release workflow (.github/workflows/release.yml).
-container_image = "ghcr.io/AndrewDryga/onlytty:latest"
+container_image = "ghcr.io/andrewdryga/onlytty:latest"
 
 machine_type = "e2-small"
 
