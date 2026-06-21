@@ -54,4 +54,24 @@ defmodule OnlyttyWeb.RateLimitTest do
     assert [retry] = get_resp_header(throttled, "retry-after")
     assert String.to_integer(retry) > 0
   end
+
+  test "throttles before Plug.Parsers — an over-limit request with a malformed body is 429, not 400",
+       %{conn: conn} do
+    Application.put_env(:onlytty, :rate_limit_max, 1)
+    Application.put_env(:onlytty, :rate_limit_window_ms, 60_000)
+    ip = {198, 51, 100, 8}
+
+    # Spend the single allowed request.
+    ok = %{conn | remote_ip: ip} |> post(~p"/api/sessions")
+    assert json_response(ok, 201)["id"]
+
+    # A malformed JSON body would make Plug.Parsers raise (→ 400) if it ran first.
+    # Getting a clean 429 proves the throttle halts the conn before any parsing.
+    throttled =
+      %{conn | remote_ip: ip}
+      |> put_req_header("content-type", "application/json")
+      |> post(~p"/api/sessions", "{not valid json")
+
+    assert json_response(throttled, 429)["error"] =~ "rate limited"
+  end
 end

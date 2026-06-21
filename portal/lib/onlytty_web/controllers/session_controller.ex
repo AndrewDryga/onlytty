@@ -17,28 +17,16 @@ defmodule OnlyttyWeb.SessionController do
   the absolute expiry in unix seconds.
   """
   def create(conn, params) do
-    # Throttle the unauthenticated create path by client IP before doing any work,
-    # so a flood can't fill the session pool. conn.remote_ip is the direct peer; see
-    # the README's proxy note for deployments where that is the reverse proxy.
-    case Onlytty.RateLimit.check(conn.remote_ip) do
-      {:error, retry_after} ->
-        Onlytty.Metrics.inc(:rate_limit_rejects)
-
+    # The per-IP throttle runs in the endpoint (OnlyttyWeb.RateLimitGuard) ahead of
+    # Plug.Parsers, so by the time we get here the request is within the limit.
+    case ttl_param(params) do
+      {:error, message} ->
         conn
-        |> put_resp_header("retry-after", Integer.to_string(retry_after))
-        |> put_status(:too_many_requests)
-        |> json(%{error: "rate limited; slow down and retry"})
+        |> put_status(:bad_request)
+        |> json(%{error: message})
 
-      :ok ->
-        case ttl_param(params) do
-          {:error, message} ->
-            conn
-            |> put_status(:bad_request)
-            |> json(%{error: message})
-
-          {:ok, ttl} ->
-            create_session(conn, ttl)
-        end
+      {:ok, ttl} ->
+        create_session(conn, ttl)
     end
   end
 

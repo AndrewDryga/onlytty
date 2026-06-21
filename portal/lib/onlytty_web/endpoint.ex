@@ -41,6 +41,10 @@ defmodule OnlyttyWeb.Endpoint do
   plug Plug.RequestId
   plug Plug.Telemetry, event_prefix: [:phoenix, :endpoint]
 
+  # Throttle POST /api/sessions by client IP BEFORE the body is parsed, so a flood
+  # can't spend parser work ahead of being rejected. Other paths pass through.
+  plug OnlyttyWeb.RateLimitGuard
+
   plug Plug.Parsers,
     parsers: [:urlencoded, :multipart, :json],
     pass: ["*/*"],
