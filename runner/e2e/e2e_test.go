@@ -12,6 +12,7 @@ package e2e
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"os"
 	"strings"
@@ -81,7 +82,10 @@ func TestEndToEnd(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sess, err := client.CreateSession(ctx, 5*time.Minute)
+	// The runner generates its own id + token (claim-based); a faithful stand-in here.
+	id := fmt.Sprintf("e2e-id-%d", time.Now().UnixNano())
+	runnerToken := fmt.Sprintf("e2e-tok-%d", time.Now().UnixNano())
+	sess, err := client.CreateSession(ctx, id, runnerToken, 5*time.Minute)
 	if err != nil {
 		t.Fatal(err)
 	}
