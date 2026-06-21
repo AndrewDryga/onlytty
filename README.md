@@ -48,12 +48,26 @@ between is ciphertext. See [PROTOCOL.md](PROTOCOL.md) for the exact wire format.
 
 ## Install
 
-**Runner** (the `onlytty` CLI) — a single Go binary:
+**Runner** (the `onlytty` CLI) — a single Go binary. Quickest, no Go needed:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/AndrewDryga/onlytty/main/install.sh | sh
+```
+
+It detects your OS/arch, downloads the matching release binary **and its
+`SHA256SUMS`, verifies the SHA-256 before installing** (aborts on mismatch), and
+drops `onlytty` in `~/.local/bin` (override with `PREFIX=…`; pin a release with
+`sh -s -- --version X.Y.Z`). Piping to a shell is itself a trust decision — to
+audit instead, read [`install.sh`](install.sh), or download the
+`onlytty-<ver>-<os>-<arch>.tar.gz` + `SHA256SUMS` from
+[Releases](https://github.com/AndrewDryga/onlytty/releases), run
+`shasum -a 256 -c SHA256SUMS`, then extract and move `onlytty` onto your PATH.
+
+With Go, or from a clone:
 
 ```bash
 go install github.com/AndrewDryga/onlytty/runner@latest     # with Go
-# or, from a clone:
-make install                                       # → ~/.local/bin/onlytty
+make install                                                # from a clone → ~/.local/bin/onlytty
 ```
 
 **Relay server** — see [Deploy the relay](#deploy-the-relay). You point the runner at
