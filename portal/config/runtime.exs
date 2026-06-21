@@ -100,15 +100,28 @@ if config_env() == :prod do
   host = System.get_env("PHX_HOST") || "example.com"
   port = String.to_integer(System.get_env("PORT") || "4000")
 
-  # DNSCluster polls this to form the BEAM cluster across relay instances. Treat an
-  # empty value as unset (→ :ignore in application.ex) so a single instance runs fine.
-  dns_cluster_query =
-    case System.get_env("DNS_CLUSTER_QUERY") do
-      q when is_binary(q) and q != "" -> q
-      _ -> nil
+  # BEAM clustering across relay instances. When ONLYTTY_CLUSTER_PROJECT is set (on a
+  # GCP MIG), libcluster's GCE strategy lists the project's RUNNING relay instances via
+  # the Compute API and connects them as `onlytty@<internal-ip>`. Unset (single node /
+  # dev) → no topology, so the relay runs standalone.
+  cluster_topologies =
+    case System.get_env("ONLYTTY_CLUSTER_PROJECT") do
+      project when is_binary(project) and project != "" ->
+        [
+          onlytty: [
+            strategy: Onlytty.Cluster.GCE,
+            config: [
+              project_id: project,
+              cluster_value: System.get_env("ONLYTTY_CLUSTER_VALUE") || "onlytty"
+            ]
+          ]
+        ]
+
+      _ ->
+        []
     end
 
-  config :onlytty, :dns_cluster_query, dns_cluster_query
+  config :onlytty, :cluster_topologies, cluster_topologies
 
   config :onlytty, OnlyttyWeb.Endpoint,
     url: [host: host, port: 443, scheme: "https"],

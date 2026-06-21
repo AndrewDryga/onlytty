@@ -22,17 +22,14 @@ single connection's lifetime (default 1 day) and the runner reconnects + resumes
 OnlyTTY sessions are held **in memory on the node that created them**, but each session
 is registered **cluster-wide via `:global`**, so a runner and a viewer that land on
 different instances resolve the same session over Erlang distribution. To run more than
-one node:
+one node, just set `instance_count` > 1 — clustering needs **no operator-supplied DNS**.
 
-1. Set `instance_count` > 1.
-2. Set `dns_cluster_query` to a DNS name that resolves to **all** instance IPs —
-   DNSCluster polls it to connect the nodes. This is the one operator-supplied piece on
-   a bare GCP MIG (point it at a Cloud DNS record covering the instances, or a managed
-   internal record the instances register into); on headless-DNS platforms (Fly, k8s)
-   the platform name works directly.
-
-Terraform rejects `instance_count > 1` when `dns_cluster_query` is empty, because a
-multi-node MIG without cluster discovery can split a runner and viewer across nodes.
+The nodes find each other through **libcluster's GCE strategy** (`Onlytty.Cluster.GCE`):
+each instance polls the Compute API for the project's RUNNING instances carrying the
+`cluster_name=onlytty` label (set on the instance template) and connects to them as
+`onlytty@<internal-ip>`. The `aggregatedList` query spans every zone, so it covers the
+**regional** MIG. Terraform grants the VM service account `roles/compute.viewer` for
+this; the instance template already grants the `cloud-platform` scope.
 
 The container runs with `--network host`, and the `onlytty-allow-cluster` firewall opens
 epmd (4369) + the distribution ports (9100–9105) tag→tag between the relay's own
@@ -95,8 +92,7 @@ variables before applying, and set the Terraform input variables there too
 | `container_image` | `ghcr.io/andrewdryga/onlytty:latest` | public GHCR image |
 | `app_port` | `4000` | relay container port (LB backend + health check) |
 | `machine_type` | `e2-small` | instance size |
-| `instance_count` | `1` | MIG size; `>1` requires `dns_cluster_query` |
-| `dns_cluster_query` | `""` | DNS name resolving to all relay instance IPs for BEAM clustering |
+| `instance_count` | `2` | MIG size; `>1` clusters automatically via the Compute API (no extra config) |
 | `backend_timeout_sec` | `86400` | LB backend timeout = max WebSocket lifetime |
 
 `SECRET_KEY_BASE` is **not** a variable — it lives only in Secret Manager, never in TF

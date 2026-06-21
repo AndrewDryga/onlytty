@@ -4,8 +4,8 @@
 # image is pulled from public GHCR. TLS terminates at the LB (no sidecar TLS
 # proxy) and there is no GCP image registry.
 #
-# The default is one small VM for cost. Larger MIGs are supported when the BEAM
-# nodes can discover each other via dns_cluster_query (see lb.tf + README).
+# A single small VM is the cheapest setup; larger MIGs work out of the box — the BEAM
+# nodes discover each other via libcluster's GCE strategy (see lb.tf + README).
 
 terraform {
   required_version = ">= 1.9"

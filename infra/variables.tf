@@ -60,19 +60,13 @@ variable "machine_type" {
 
 variable "instance_count" {
   type        = number
-  description = "MIG size. Sessions are registered cluster-wide via :global, so >1 is supported once the nodes form a BEAM cluster — set dns_cluster_query so DNSCluster can find peers."
+  description = "MIG size. Sessions are registered cluster-wide via :global and the nodes form a BEAM cluster automatically (libcluster's GCE strategy discovers peers via the Compute API), so >1 needs no extra configuration."
   default     = 2
 
   validation {
     condition     = var.instance_count >= 1 && floor(var.instance_count) == var.instance_count
     error_message = "instance_count must be an integer >= 1."
   }
-}
-
-variable "dns_cluster_query" {
-  type        = string
-  description = "DNS name resolving to ALL relay instance IPs, polled by DNSCluster to form the BEAM cluster. Required when instance_count > 1; leave empty for a single instance. On a GCP MIG, point it at a Cloud DNS record covering the instances (see README); on headless-DNS platforms it is automatic."
-  default     = ""
 }
 
 variable "backend_timeout_sec" {

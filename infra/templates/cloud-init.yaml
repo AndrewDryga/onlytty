@@ -37,14 +37,16 @@ write_files:
       # ghcr.io` here with a read-only PAT injected via Secret Manager.
       docker pull ${container_image}
       # --network host so the app binds the host's :${app_port} for the LB and epmd +
-      # the distribution ports (9100-9105) bind the host IP for clustering. DNS_CLUSTER_QUERY
-      # lets DNSCluster discover peers; empty = single node (DNSCluster ignored).
+      # the distribution ports (9100-9105) bind the host IP for clustering. The
+      # ONLYTTY_CLUSTER_* vars switch on libcluster's GCE strategy, which finds the other
+      # relay instances via the Compute API (matched by the cluster_name=onlytty label).
       exec docker run --rm --name onlytty --network host \
         -e SECRET_KEY_BASE="$SECRET_KEY_BASE" \
         -e RELEASE_COOKIE="$RELEASE_COOKIE" \
         -e PHX_SERVER=true -e PHX_HOST=${domain} -e PORT=${app_port} \
         -e NODE_IP="$NODE_IP" \
-        -e DNS_CLUSTER_QUERY="${dns_cluster_query}" \
+        -e ONLYTTY_CLUSTER_PROJECT="${project_id}" \
+        -e ONLYTTY_CLUSTER_VALUE="onlytty" \
         ${container_image}
 
   - path: /etc/systemd/system/onlytty.service

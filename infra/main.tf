@@ -77,6 +77,14 @@ resource "google_project_iam_member" "vm_writes_logs" {
   member  = "serviceAccount:${google_service_account.vm.email}"
 }
 
+# Read-only Compute access so the relay's libcluster GCE strategy can list the MIG's
+# instances (compute.instances.list / compute.zones.list) to discover its cluster peers.
+resource "google_project_iam_member" "vm_reads_compute" {
+  project = var.project_id
+  role    = "roles/compute.viewer"
+  member  = "serviceAccount:${google_service_account.vm.email}"
+}
+
 # ── Health check (drives both the LB backend and MIG auto-healing) ───────────
 resource "google_compute_health_check" "app" {
   name                = "onlytty-healthz"
@@ -101,12 +109,11 @@ data "google_compute_image" "cos" {
 
 locals {
   cloud_init = templatefile("${path.module}/templates/cloud-init.yaml", {
-    container_image   = var.container_image
-    project_id        = var.project_id
-    secret_name       = google_secret_manager_secret.secret_key_base.secret_id
-    domain            = var.domain
-    app_port          = var.app_port
-    dns_cluster_query = var.dns_cluster_query
+    container_image = var.container_image
+    project_id      = var.project_id
+    secret_name     = google_secret_manager_secret.secret_key_base.secret_id
+    domain          = var.domain
+    app_port        = var.app_port
   })
 }
 
@@ -142,6 +149,11 @@ resource "google_compute_instance_template" "onlytty" {
   name_prefix  = "onlytty-"
   machine_type = var.machine_type
   tags         = ["onlytty"]
+
+  # libcluster's GCE strategy (Onlytty.Cluster.GCE) finds cluster peers by this label.
+  labels = {
+    cluster_name = "onlytty"
+  }
 
   disk {
     source_image = data.google_compute_image.cos.self_link
@@ -181,10 +193,11 @@ resource "google_compute_instance_template" "onlytty" {
 #
 # Scaling: OnlyTTY sessions live IN MEMORY on the node that created them, but are now
 # registered CLUSTER-WIDE via :global, so a runner and a viewer that land on different
-# instances resolve the same session over Erlang distribution. Raising target_size is
-# supported once the nodes cluster — set var.dns_cluster_query (DNSCluster) and keep the
-# onlytty-allow-cluster firewall (epmd + dist ports) in place. A node still loses only
-# its own sessions if it dies (the runner reconnects and re-creates), by design.
+# instances resolve the same session over Erlang distribution. Raising target_size just
+# works: libcluster's GCE strategy (Onlytty.Cluster.GCE) discovers the new instances via
+# the Compute API, and the onlytty-allow-cluster firewall (epmd + dist ports) lets them
+# form one BEAM cluster. A node still loses only its own sessions if it dies (the runner
+# reconnects and re-creates), by design.
 resource "google_compute_region_instance_group_manager" "onlytty" {
   name               = "onlytty-mig"
   base_instance_name = "onlytty"
@@ -210,13 +223,6 @@ resource "google_compute_region_instance_group_manager" "onlytty" {
     minimal_action        = "REPLACE"
     max_surge_fixed       = 3
     max_unavailable_fixed = 0
-  }
-
-  lifecycle {
-    precondition {
-      condition     = var.instance_count == 1 || trimspace(var.dns_cluster_query) != ""
-      error_message = "dns_cluster_query must be set when instance_count is greater than 1 so relay nodes form one BEAM cluster."
-    }
   }
 
   depends_on = [google_project_service.apis]

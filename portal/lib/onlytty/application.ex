@@ -22,7 +22,11 @@ defmodule Onlytty.Application do
 
     children = [
       OnlyttyWeb.Telemetry,
-      {DNSCluster, query: Application.get_env(:onlytty, :dns_cluster_query) || :ignore},
+      # Forms the BEAM cluster so sessions registered under `:global` resolve across
+      # instances. On a GCP MIG, `:cluster_topologies` (runtime.exs) wires libcluster's
+      # GCE strategy; empty in dev/test/single-node → the supervisor starts no strategy.
+      {Cluster.Supervisor,
+       [Application.get_env(:onlytty, :cluster_topologies, []), [name: Onlytty.ClusterSupervisor]]},
       {Phoenix.PubSub, name: Onlytty.PubSub},
       # One supervised GenServer per session, registered cluster-wide under `:global`
       # by id (so any node can route to a session created on another). The per-node
