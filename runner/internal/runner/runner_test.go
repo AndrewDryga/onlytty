@@ -3,6 +3,7 @@ package runner
 import (
 	"os"
 	"testing"
+	"time"
 
 	"github.com/AndrewDryga/onlytty/runner/internal/protocol"
 	"github.com/AndrewDryga/onlytty/runner/internal/ptysession"
@@ -109,7 +110,7 @@ func TestControlGrantNotifiesAsAlert(t *testing.T) {
 		alert bool
 	}
 	var got []notice
-	o.notify = func(msg string, alert bool) { got = append(got, notice{msg, alert}) }
+	o.notify = func(msg string, alert, _ bool) { got = append(got, notice{msg, alert}) }
 
 	o.handleBinary(seal(t, v2r, 1, protocol.KindCtrlReq, nil))
 	if len(got) != 1 || !got[0].alert {
@@ -119,6 +120,49 @@ func TestControlGrantNotifiesAsAlert(t *testing.T) {
 	o.handleBinary(seal(t, v2r, 2, protocol.KindCtrlRel, nil))
 	if len(got) != 2 || got[1].alert {
 		t.Fatalf("control release should be a routine notice, got %+v", got)
+	}
+}
+
+// screenBusy must stay false for plain/colored scrolling output (safe to draw a notice
+// after) and flip true while the child draws its own UI — a bare CR line rewrite, cursor
+// or erase moves, or the alternate screen — so notices don't corrupt it.
+func TestScreenBusyDetection(t *testing.T) {
+	o, _, _ := newTestOrch(t, ControlAsk)
+
+	// Plain text + SGR color is not screen-owning.
+	o.markScreenActivity([]byte("hello \x1b[31mred\x1b[0m world\n"))
+	if o.screenBusy() {
+		t.Fatal("plain/colored output should not mark the screen busy")
+	}
+
+	// A bare CR (in-place line rewrite, e.g. a progress bar) is screen-owning.
+	o.markScreenActivity([]byte("downloading 50%\r"))
+	if !o.screenBusy() {
+		t.Fatal("bare CR should mark the screen busy")
+	}
+
+	// Once the drawing stops for longer than the window, it is safe again.
+	o.lastCtl.Store(time.Now().Add(-2 * screenBusyWindow).UnixNano())
+	if o.screenBusy() {
+		t.Fatal("after the busy window with no drawing, should be safe")
+	}
+
+	// Cursor movement / erase is screen-owning.
+	o.markScreenActivity([]byte("\x1b[3A\x1b[2Kredraw"))
+	if !o.screenBusy() {
+		t.Fatal("cursor/erase output should mark the screen busy")
+	}
+
+	// The alternate screen stays busy regardless of the timer, until it is left.
+	o.markScreenActivity([]byte("\x1b[?1049h"))
+	o.lastCtl.Store(time.Now().Add(-2 * screenBusyWindow).UnixNano())
+	if !o.screenBusy() {
+		t.Fatal("alternate screen should stay busy regardless of the timer")
+	}
+	o.markScreenActivity([]byte("\x1b[?1049l"))
+	o.lastCtl.Store(time.Now().Add(-2 * screenBusyWindow).UnixNano())
+	if o.screenBusy() {
+		t.Fatal("after leaving the alternate screen and idling, should be safe")
 	}
 }
 

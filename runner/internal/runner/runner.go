@@ -28,9 +28,10 @@ const (
 )
 
 // Config wires an Orchestrator. LocalIn/LocalOut are the user's terminal; Notify
-// receives short human notices (viewer connect/disconnect/control), where the bool
-// marks a security-relevant alert (a viewer took control) the terminal layer may
-// signal with a bell; both LocalOut and Notify may be nil.
+// receives short human notices (viewer connect/disconnect/control): alert marks a
+// security-relevant one (a viewer took control), and screenBusy is true when the child
+// is drawing its own UI, so the terminal layer can stay quiet (or just bell) instead of
+// corrupting it; both LocalOut and Notify may be nil.
 // ControlMode is the host's policy for viewer control requests.
 type ControlMode int
 
@@ -54,7 +55,7 @@ type Config struct {
 	Control     ControlMode
 	LocalIn     io.Reader
 	LocalOut    io.Writer
-	Notify      func(msg string, alert bool)
+	Notify      func(msg string, alert, screenBusy bool)
 	Fingerprint string
 }
 
@@ -68,7 +69,7 @@ type Orchestrator struct {
 	ring     *ptysession.Ring
 	localIn  io.Reader
 	localOut io.Writer
-	notify   func(string, bool)
+	notify   func(string, bool, bool)
 	fp       string
 
 	sendMu sync.Mutex // serializes outSeq + seal
@@ -78,6 +79,9 @@ type Orchestrator struct {
 	granted  atomic.Bool
 	onceUsed atomic.Bool // ControlOnce: the one-time grant has been consumed
 	viewers  atomic.Int32
+
+	altScreen atomic.Bool  // child is in the alternate screen buffer (vim/htop/less/…)
+	lastCtl   atomic.Int64 // unixnano of the child's last cursor/line-control output
 
 	connMu sync.Mutex
 	conn   *connState
@@ -166,6 +170,7 @@ func (o *Orchestrator) pumpOutput() {
 		n, err := o.sess.Read(buf)
 		if n > 0 {
 			chunk := buf[:n]
+			o.markScreenActivity(chunk)
 			if o.localOut != nil {
 				_, _ = o.localOut.Write(chunk)
 			}
@@ -447,15 +452,88 @@ func (o *Orchestrator) handleBinary(frame []byte) {
 }
 
 // note delivers a routine notice; alert marks a security-relevant one (a viewer took
-// control) so the terminal layer can signal it (a bell) without corrupting the shared
-// screen. Both are no-ops when no notifier is wired.
+// control). screenBusy tells the terminal layer whether the child is currently drawing
+// its own UI, so it can stay quiet (or just bell) instead of corrupting it. All are
+// no-ops when no notifier is wired.
 func (o *Orchestrator) note(s string)  { o.emitNote(s, false) }
 func (o *Orchestrator) alert(s string) { o.emitNote(s, true) }
 
 func (o *Orchestrator) emitNote(s string, alert bool) {
 	if o.notify != nil {
-		o.notify(s, alert)
+		o.notify(s, alert, o.screenBusy())
 	}
+}
+
+// screenBusyWindow is how long after the child's last cursor/line-drawing output we
+// keep treating the screen as "busy" — unsafe to inject host notices into.
+const screenBusyWindow = 1500 * time.Millisecond
+
+// markScreenActivity scans a chunk of the child's output for terminal control meaning
+// the program is drawing its own UI: alternate-screen toggles and cursor/erase moves
+// (NOT color/SGR or plain text). It tracks the alt-screen state and the time of the
+// last such control, so notices can avoid corrupting an app that owns the screen —
+// including normal-buffer apps like Claude Code that repaint with cursor moves.
+func (o *Orchestrator) markScreenActivity(p []byte) {
+	ctl := false
+	for i := 0; i < len(p); i++ {
+		b := p[i]
+		if b == '\r' { // a bare CR rewrites the line in place; CRLF is just a newline
+			if i+1 >= len(p) || p[i+1] != '\n' {
+				ctl = true
+			}
+			continue
+		}
+		if b != 0x1b || i+1 >= len(p) || p[i+1] != '[' { // only CSI (ESC [ …) interests us
+			continue
+		}
+		j := i + 2
+		priv := j < len(p) && (p[j] == '?' || p[j] == '>' || p[j] == '!')
+		if priv {
+			j++
+		}
+		start := j
+		for j < len(p) && (p[j] >= '0' && p[j] <= '9' || p[j] == ';') {
+			j++
+		}
+		if j >= len(p) {
+			break // sequence crosses the chunk boundary — ignore (re-asserted next chunk)
+		}
+		switch final := p[j]; {
+		case priv && (final == 'h' || final == 'l'):
+			switch string(p[start:j]) { // alternate-screen enter/leave
+			case "1049", "47", "1047":
+				o.altScreen.Store(final == 'h')
+			}
+			ctl = true // any private-mode toggle (incl. cursor hide/show) means active UI
+		case !priv && isCursorControl(final):
+			ctl = true
+		}
+		i = j
+	}
+	if ctl {
+		o.lastCtl.Store(time.Now().UnixNano())
+	}
+}
+
+// isCursorControl reports whether a CSI final byte moves the cursor or erases — the
+// screen-owning operations. SGR/color ('m') and the rest are deliberately excluded.
+func isCursorControl(final byte) bool {
+	switch final {
+	case 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'f', 'd', 'J', 'K', 'S', 'T', 's', 'u':
+		return true
+	}
+	return false
+}
+
+// screenBusy reports whether the child likely owns the screen right now: it is in the
+// alternate buffer, or it drew with the cursor within screenBusyWindow. When busy, host
+// notices stay quiet (a bell still flags a control grant) rather than corrupt the UI.
+func (o *Orchestrator) screenBusy() bool {
+	if o.altScreen.Load() {
+		return true
+	}
+	last := o.lastCtl.Load()
+	return last != 0 && time.Since(time.Unix(0, last)) < screenBusyWindow
 }
 
 // Revoke takes control back from the viewer: it clears the grant, tells the viewer

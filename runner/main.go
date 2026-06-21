@@ -53,7 +53,7 @@ func run() int {
 	genPass := flag.Bool("passphrase-generate", false, "generate a strong passphrase host-side and display it (implies --passphrase)")
 	noQR := flag.Bool("no-qr", false, "print the link without a QR code")
 	allowInsecure := flag.Bool("allow-insecure", false, "allow a plain http:// relay to a non-local host (local testing only)")
-	verbose := flag.Bool("verbose", false, "print viewer connect/disconnect/control notices inline; default is quiet on a terminal (only a bell when a viewer takes control) so notices don't corrupt full-screen apps like editors")
+	verbose := flag.Bool("verbose", false, "always print viewer connect/disconnect/control notices inline; by default they show only when no full-screen or line-drawing app (editor, Claude Code, …) is active, with a bell still flagging a control grant")
 	showVer := flag.Bool("version", false, "print version and exit")
 	flag.Usage = usage
 	flag.Parse()
@@ -261,25 +261,23 @@ func promptPassphrase() (string, error) {
 	return string(b), nil
 }
 
-// notifier returns the host-notice callback. Writing into the shared terminal
-// corrupts an interactive/full-screen child (Claude Code, vim, htop, a shell line
-// edit), so on a TTY we stay quiet by default and only ring a bell for a security
-// alert (a viewer took control) — a bell never moves the cursor or scrolls. With
-// --verbose the inline notices are restored. Piped output (non-TTY) always gets
-// plain notices, which are harmless and useful in logs.
-func notifier(verbose bool) func(string, bool) {
+// notifier returns the host-notice callback. Writing into the shared terminal corrupts
+// a program drawing its own UI — full-screen apps, normal-buffer ones like Claude Code
+// that repaint with cursor moves, even a shell's line edit. So on a TTY we print inline
+// notices only when the child is NOT currently owning the screen (screenBusy=false);
+// while it is, we stay quiet and only ring a bell for the security-relevant control
+// grant. --verbose forces inline always; piped output (non-TTY) is always plain, which
+// is harmless and useful in logs.
+func notifier(verbose bool) func(string, bool, bool) {
 	tty := term.IsTerminal(int(os.Stderr.Fd()))
-	return func(s string, alert bool) {
-		if alert && tty {
-			fmt.Fprint(os.Stderr, "\a") // bell: safe even inside a full-screen app
-		}
+	return func(s string, alert, screenBusy bool) {
 		switch {
 		case !tty:
 			fmt.Fprintln(os.Stderr, s)
-		case verbose:
+		case verbose || !screenBusy:
 			fmt.Fprintf(os.Stderr, "\r\x1b[2K\x1b[2m%s\x1b[0m\r\n", s)
-		default:
-			// quiet: don't inject text into the child's screen
+		case alert:
+			fmt.Fprint(os.Stderr, "\a") // screen busy: bell only, for the control grant
 		}
 	}
 }
