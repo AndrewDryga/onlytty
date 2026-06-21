@@ -99,7 +99,7 @@ defmodule OnlyttyWeb.OnlyttySocketTest do
       WSClient.close(pid)
     end
 
-    test "the allowlist is configurable; runner WS is never gated", %{port: port} do
+    test "the allowlist is additive to same-host; runner WS is never gated", %{port: port} do
       Application.put_env(:onlytty, :allowed_origins, ["https://allowed.example"])
       on_exit(fn -> Application.delete_env(:onlytty, :allowed_origins) end)
 
@@ -113,6 +113,26 @@ defmodule OnlyttyWeb.OnlyttySocketTest do
 
       assert WSClient.recv_json(v, vref)["t"] == "hello"
       WSClient.close(v)
+
+      # …and the same-host viewer STILL connects (the allowlist is a union, not a
+      # replacement) — setting ONLYTTY_ALLOWED_ORIGINS must not lock out same-host.
+      same = WSClient.open(port)
+
+      assert {:ok, sref} =
+               WSClient.upgrade(same, "/ws/viewer/#{s.id}", [
+                 {"origin", "http://127.0.0.1:#{port}"}
+               ])
+
+      assert WSClient.recv_json(same, sref)["t"] == "hello"
+      WSClient.close(same)
+
+      # …while a foreign, unlisted Origin is still rejected.
+      bad = WSClient.open(port)
+
+      assert {:error, 403} =
+               WSClient.upgrade(bad, "/ws/viewer/#{s.id}", [{"origin", "https://evil.example"}])
+
+      WSClient.close(bad)
 
       # …but the runner (non-browser) connects regardless of a foreign Origin.
       r = WSClient.open(port)

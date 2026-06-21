@@ -66,12 +66,13 @@ defmodule OnlyttyWeb.SocketController do
   end
 
   # Same-origin check for browser viewers (defense-in-depth). A missing Origin is a
-  # non-browser client and is allowed; a present Origin must pass. By default we
-  # require the Origin's *host* to equal the request's own Host — the viewer page
-  # was served from that same host, so a real browser sends a matching Origin. Host
+  # non-browser client and is allowed; a present Origin must pass. We always allow
+  # the Origin whose *host* equals the request's own Host — the viewer page was
+  # served from that same host, so a real browser sends a matching Origin. Host
   # comparison (not scheme/port) is proxy-safe: a TLS-terminating proxy preserves
-  # Host but mangles scheme/port. Set ONLYTTY_ALLOWED_ORIGINS to a list of exact
-  # origins to override (e.g. a separate viewer host).
+  # Host but mangles scheme/port. ONLYTTY_ALLOWED_ORIGINS *adds* exact extra origins
+  # (e.g. a separate viewer host) to that same-host default — it does not replace it,
+  # so configuring an allowlist never locks out same-host browser viewers.
   defp authorize_origin(conn) do
     case get_req_header(conn, "origin") do
       [] -> :ok
@@ -80,9 +81,13 @@ defmodule OnlyttyWeb.SocketController do
   end
 
   defp origin_allowed?(conn, origin) do
+    origin_host(origin) == conn.host or origin in extra_allowed_origins()
+  end
+
+  defp extra_allowed_origins do
     case Application.get_env(:onlytty, :allowed_origins) do
-      list when is_list(list) -> origin in list
-      _ -> origin_host(origin) == conn.host
+      list when is_list(list) -> list
+      _ -> []
     end
   end
 

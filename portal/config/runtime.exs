@@ -51,10 +51,10 @@ if bytes = System.get_env("ONLYTTY_MAX_FRAME_BYTES") do
   config :onlytty, :max_frame_bytes, String.to_integer(bytes)
 end
 
-# ONLYTTY_ALLOWED_ORIGINS — comma-separated origins allowed to open a *browser
-# viewer* WebSocket (defense-in-depth; the runner WS is never gated). Defaults to
-# the endpoint's own URL (same-origin). Set this when the viewer is served from a
-# different host than the relay, e.g. "https://onlytty.com,https://www.onlytty.com".
+# ONLYTTY_ALLOWED_ORIGINS — comma-separated *extra* origins allowed to open a
+# *browser viewer* WebSocket (defense-in-depth; the runner WS is never gated). The
+# same-host Origin is ALWAYS allowed; this list is additive, so set it only to add
+# other hosts, e.g. "https://onlytty.com,https://www.onlytty.com".
 if origins = System.get_env("ONLYTTY_ALLOWED_ORIGINS") do
   config :onlytty, :allowed_origins, String.split(origins, ",", trim: true)
 end
