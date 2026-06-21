@@ -10,6 +10,11 @@ name: Deploy
 # plans" access to the workspace. An ORGANIZATION token can read/write variables but
 # CANNOT create runs (the queue-run call 404s). No-ops if the token is unset.
 #
+# Token handling: the secret is masked by GitHub in logs, and we additionally keep it
+# OUT of argv — it goes into a 0600 curl config file, never on a command line — so it
+# can't leak via xtrace or a process listing. The script never echoes it, and never
+# runs curl with -v/-x.
+#
 # Note: a release published by the default GITHUB_TOKEN does NOT trigger this workflow
 # (GitHub's recursion guard), so the `release` trigger only fires for releases created
 # with a PAT; otherwise deploy via workflow_dispatch.
@@ -51,15 +56,27 @@ jobs:
           org="OnlyTTY"
           workspace="onlytty"
           api="https://app.terraform.io/api/v2"
-          auth=(-H "Authorization: Bearer $TF_API_TOKEN" -H "Content-Type: application/vnd.api+json")
+
+          # Keep the token out of argv (so it can't leak via xtrace or a process listing):
+          # the auth headers live in a 0600 curl config file, never on a command line.
+          # GitHub also masks the secret in logs — this is defense in depth. Removed on exit.
+          umask 077
+          curlcfg="$(mktemp)"
+          trap 'rm -f "$curlcfg"' EXIT
+          # Write the auth headers without ever tracing the token: we don't enable xtrace,
+          # but { set +x; } guarantees the secret line is never echoed even if a future
+          # change does. (The token is also masked by GitHub and kept out of argv below.)
+          { set +x; } 2>/dev/null
+          printf 'silent\nshow-error\nheader = "Authorization: Bearer %s"\nheader = "Content-Type: application/vnd.api+json"\n' "$TF_API_TOKEN" > "$curlcfg"
 
           # curl wrapper that surfaces the TFC error body instead of a bare exit code.
+          # --config passes the auth headers, so the token never appears in the command.
           tf() {  # METHOD URL [DATA]
             local method="$1" url="$2" data="${3:-}" out code body
             if [ -n "$data" ]; then
-              out=$(curl -sS -w $'\n%{http_code}' -X "$method" "${auth[@]}" "$url" -d "$data")
+              out=$(curl --config "$curlcfg" -w $'\n%{http_code}' -X "$method" "$url" -d "$data")
             else
-              out=$(curl -sS -w $'\n%{http_code}' -X "$method" "${auth[@]}" "$url")
+              out=$(curl --config "$curlcfg" -w $'\n%{http_code}' -X "$method" "$url")
             fi
             code=${out##*$'\n'}
             body=${out%$'\n'*}
