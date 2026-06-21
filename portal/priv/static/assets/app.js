@@ -48,6 +48,9 @@ function setStatus(text, cls) {
 function fatal(html) {
   const o = $("overlay");
   $("overlay-card").innerHTML = html;
+  // Wire any [data-dismiss] button by hand — a strict CSP (script-src 'self')
+  // forbids the inline onclick= we'd otherwise inject via innerHTML.
+  o.querySelectorAll("[data-dismiss]").forEach((b) => b.addEventListener("click", () => { o.hidden = true; }));
   o.hidden = false;
 }
 function updateControlUI() {
@@ -234,7 +237,7 @@ $("paste").onclick = async () => {
     if (text) await sendInput(text);
     term.focus();
   } catch {
-    fatal("<h1>Paste blocked</h1><p>The browser denied clipboard access. Long-press the terminal to paste instead.</p><button onclick=\"document.getElementById('overlay').hidden=true\">OK</button>");
+    fatal("<h1>Paste blocked</h1><p>The browser denied clipboard access. Long-press the terminal to paste instead.</p><button data-dismiss>OK</button>");
   }
 };
 

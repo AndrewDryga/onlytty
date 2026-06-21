@@ -2,6 +2,23 @@ defmodule OnlyttyWeb.HTTPTest do
   @moduledoc "Plain HTTP endpoints: session creation, health, viewer page."
   use OnlyttyWeb.ConnCase, async: true
 
+  # The directives that prove the strict policy is present (matched loosely so
+  # adding directives later doesn't break the test).
+  @csp_required ["default-src 'none'", "script-src 'self'", "frame-ancestors 'none'"]
+
+  defp assert_security_headers(conn) do
+    assert [csp] = get_resp_header(conn, "content-security-policy")
+    for part <- @csp_required, do: assert(csp =~ part)
+    # The load-bearing property: scripts are same-origin only, never inline/eval.
+    refute csp =~ "unsafe-eval"
+    refute csp =~ "script-src 'self' 'unsafe-inline'"
+    assert get_resp_header(conn, "x-content-type-options") == ["nosniff"]
+    assert get_resp_header(conn, "referrer-policy") == ["no-referrer"]
+    assert get_resp_header(conn, "x-frame-options") == ["DENY"]
+    assert [_ | _] = get_resp_header(conn, "permissions-policy")
+    conn
+  end
+
   describe "POST /api/sessions" do
     test "returns id, runner_token and a future expires_at", %{conn: conn} do
       conn = post(conn, ~p"/api/sessions")
@@ -66,5 +83,21 @@ defmodule OnlyttyWeb.HTTPTest do
     assert conn.status == 200
     assert get_resp_header(conn, "content-type") |> hd() =~ "text/html"
     assert conn.resp_body =~ "<title>OnlyTTY</title>"
+  end
+
+  describe "security headers" do
+    test "on the viewer page (the code-delivery trust boundary)", %{conn: conn} do
+      assert_security_headers(get(conn, ~p"/s/abc"))
+    end
+
+    test "on the health check", %{conn: conn} do
+      assert_security_headers(get(conn, ~p"/healthz"))
+    end
+
+    test "on static assets (so a swapped script can't dodge the policy)", %{conn: conn} do
+      conn = get(conn, "/assets/app.js")
+      assert conn.status == 200
+      assert_security_headers(conn)
+    end
   end
 end

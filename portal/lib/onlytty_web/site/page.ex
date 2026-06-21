@@ -17,18 +17,23 @@ defmodule OnlyttyWeb.Site.Page do
   @github "https://github.com/AndrewDryga/onlytty"
   @og_image "/assets/og.png"
 
-  # Cache-bust the stylesheet whenever its contents change, so returning visitors
-  # never get a stale site.css. The version is the file's content hash, computed at
-  # compile time; @external_resource makes a CSS edit trigger a recompile.
+  # Cache-bust the served assets whenever their contents change, so returning
+  # visitors never get a stale site.css/site.js. The version is a content hash of
+  # both, computed at compile time; @external_resource makes an edit trigger a recompile.
   @css_path Path.join(__DIR__, "../../../priv/static/assets/site.css")
+  @js_path Path.join(__DIR__, "../../../priv/static/assets/site.js")
   @external_resource @css_path
-  @assets_vsn (case File.read(@css_path) do
-                 {:ok, css} ->
-                   :crypto.hash(:sha, css) |> Base.encode16(case: :lower) |> binary_part(0, 8)
-
-                 _ ->
-                   "0"
-               end)
+  @external_resource @js_path
+  @assets_vsn [@css_path, @js_path]
+              |> Enum.map(fn p ->
+                case File.read(p) do
+                  {:ok, c} -> c
+                  _ -> ""
+                end
+              end)
+              |> then(&:crypto.hash(:sha, &1))
+              |> Base.encode16(case: :lower)
+              |> binary_part(0, 8)
 
   # ── Public page builders ──────────────────────────────────────────────────
 
@@ -813,42 +818,7 @@ defmodule OnlyttyWeb.Site.Page do
   end
 
   defp script do
-    """
-    <script>
-    (function () {
-      var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
-      var el = document.querySelector('[data-rotate]');
-      if (el && !reduce) {
-        try {
-          var words = JSON.parse(el.getAttribute('data-rotate')), i = 0;
-          setInterval(function () { i = (i + 1) % words.length; el.textContent = words[i]; }, 2200);
-        } catch (e) {}
-      }
-      // One loop drives the "thinking" spinner + verb in every demo (terminal AND
-      // phone) at once, so they animate in lockstep.
-      var spins = document.querySelectorAll('[data-think-spin]');
-      var verbs2 = document.querySelectorAll('[data-think-word]');
-      if (spins.length && !reduce) {
-        var frames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
-        var verbs = ['Thinking', 'Pondering', 'Hatching', 'Conjuring', 'Noodling', 'Cogitating', 'Scheming', 'Brewing'];
-        var f = 0, v = 0;
-        setInterval(function () { f = (f + 1) % frames.length; spins.forEach(function (s) { s.textContent = frames[f]; }); }, 90);
-        setInterval(function () { v = (v + 1) % verbs.length; verbs2.forEach(function (w) { w.textContent = verbs[v]; }); }, 1900);
-      }
-      document.querySelectorAll('[data-copy]').forEach(function (b) {
-        b.addEventListener('click', function () {
-          var text = b.getAttribute('data-copy');
-          if (!navigator.clipboard) return;
-          navigator.clipboard.writeText(text).then(function () {
-            var prev = b.textContent;
-            b.textContent = 'Copied';
-            setTimeout(function () { b.textContent = prev; }, 1200);
-          });
-        });
-      });
-    })();
-    </script>
-    """
+    ~s(<script src="/assets/site.js?v=#{@assets_vsn}" defer></script>)
   end
 
   # ── Content data ──────────────────────────────────────────────────────────

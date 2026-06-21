@@ -15,6 +15,9 @@ defmodule OnlyttyWeb.Endpoint do
   #   websocket: [connect_info: [session: @session_options]],
   #   longpoll: [connect_info: [session: @session_options]]
 
+  # Security hardening (CSP + friends) on every response, static assets included.
+  plug OnlyttyWeb.SecurityHeaders
+
   # Serve at "/" the static files from "priv/static" directory.
   #
   # You should set gzip to true if you are running phx.digest
