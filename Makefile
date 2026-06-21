@@ -30,7 +30,7 @@ audit: audit-go audit-web audit-server ## Security audit (opt-in; not in `check`
 
 audit-go: ## Audit: Go vulnerabilities (needs govulncheck)
 	@command -v govulncheck >/dev/null 2>&1 || { echo "install: go install golang.org/x/vuln/cmd/govulncheck@latest"; exit 1; }
-	@govulncheck ./...
+	@cd runner && govulncheck ./...
 
 audit-web: ## Audit: npm advisories (high+)
 	@npm audit --audit-level=high

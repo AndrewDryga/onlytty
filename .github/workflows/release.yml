@@ -21,8 +21,37 @@ permissions:
   contents: read
 
 jobs:
+  gate:
+    name: gate (check + e2e + audit)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: runner/go.mod
+          cache-dependency-path: runner/go.sum
+      - uses: erlef/setup-beam@v1
+        with:
+          otp-version: "29"
+          elixir-version: "1.20"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "26"
+      - run: mix deps.get
+        working-directory: portal
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: go install golang.org/x/vuln/cmd/govulncheck@latest
+      - run: echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+      - run: make check
+      - run: make e2e
+      - run: make audit
+
   runner-binaries:
     name: runner binaries → release
+    needs: gate
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -67,6 +96,7 @@ jobs:
 
   portal-image:
     name: portal image → GHCR
+    needs: gate
     runs-on: ubuntu-latest
     permissions:
       contents: read

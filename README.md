@@ -283,9 +283,9 @@ numbers from a long run against the target). Like any viewer it only ever sees
 ciphertext it decrypts locally — it measures sizes and liveness, never plaintext.
 
 `make audit` runs `govulncheck ./...` (Go), `npm audit` (web), and `mix hex.audit`
-(retired Hex packages). It is **opt-in** — release CI should run it, but it stays out
-of the local `check` gate. Install the Go scanner once with
-`go install golang.org/x/vuln/cmd/govulncheck@latest`.
+(retired Hex packages). It is **opt-in** locally (kept out of the `check` gate), but the
+release workflow gates publishing on `make check` + `make e2e` + `make audit`. Install
+the Go scanner once with `go install golang.org/x/vuln/cmd/govulncheck@latest`.
 
 ### CI / required checks
 
