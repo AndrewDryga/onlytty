@@ -1,0 +1,7 @@
+## Erlang VM args for the release. The node name, distribution mode, and cookie are set
+## from the environment (RELEASE_NODE / RELEASE_DISTRIBUTION / RELEASE_COOKIE; see
+## rel/env.sh.eex), so they are intentionally NOT hard-coded here.
+
+## Pin the Erlang distribution listen ports to a small fixed range so the VPC firewall
+## can allow exactly these (plus epmd on 4369) between relay instances and nothing else.
+-kernel inet_dist_listen_min 9100 inet_dist_listen_max 9105
