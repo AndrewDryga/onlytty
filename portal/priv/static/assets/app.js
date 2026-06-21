@@ -34,6 +34,7 @@ let ws = null;
 let outSeq = 0; // viewer→runner sequence (starts at HELLO baseline)
 let lastSeq = 0; // runner→viewer replay floor (monotonic, runner is one process)
 let hasControl = false;
+let controlPending = false, controlTimer = null; // a "Take control" tap awaiting the host's answer
 let ptyCols = 80, ptyRows = 24;
 let ended = false, noReconnect = false, exitSeen = false;
 let backoff = 500;
@@ -57,8 +58,15 @@ function fatal(html) {
 function updateControlUI() {
   const b = $("control");
   if (ended) { b.textContent = "ended"; b.disabled = true; b.className = ""; return; }
+  if (controlPending && !hasControl) { b.textContent = "Requesting…"; b.className = "on"; return; }
   b.textContent = hasControl ? "You have control" : "Take control";
   b.className = hasControl ? "live" : "";
+}
+
+// Clear the pending "Take control" state (timer + flag) without changing hasControl.
+function clearControlPending() {
+  controlPending = false;
+  if (controlTimer) { clearTimeout(controlTimer); controlTimer = null; }
 }
 
 // --- session-fingerprint verification ----------------------------------------
@@ -200,7 +208,7 @@ async function retryWithPassphrase(passphrase) {
   // the fresh connect.
   if (ws) { try { ws.onclose = null; ws.close(); } catch {} ws = null; }
   if (mismatchTimer) { clearTimeout(mismatchTimer); mismatchTimer = null; }
-  everDecoded = false; lastSeq = 0; outSeq = 0; hasControl = false; updateControlUI();
+  everDecoded = false; lastSeq = 0; outSeq = 0; hasControl = false; clearControlPending(); updateControlUI();
   setStatus("reconnecting…", "warn");
   await start(passphrase);
 }
@@ -240,15 +248,27 @@ function dispatch({ kind, payload }) {
     case Kind.Output:
       term.write(payload);
       break;
-    case Kind.Control:
-      hasControl = decodeControl(payload) === Control.Granted;
-      if (hasControl) { applySize(); term.focus(); } // we now drive geometry; keep the keyboard up
+    case Kind.Control: {
+      const granted = decodeControl(payload) === Control.Granted;
+      const wasPending = controlPending;
+      clearControlPending();
+      hasControl = granted;
+      if (granted) {
+        applySize(); term.focus(); // we now drive geometry; keep the keyboard up
+        setStatus("connected", "ok");
+      } else if (wasPending) {
+        // The host answered our request with read-only: it's view-only (or a
+        // one-shot already used). Tell the user instead of silently doing nothing.
+        setStatus("control not granted — host is view-only", "warn");
+      }
       updateControlUI();
       break;
+    }
     case Kind.Exit: {
       const code = decodeExit(payload);
       term.write(`\r\n\x1b[2m── command exited (${code}) ──\x1b[0m\r\n`);
       ended = true; noReconnect = true; exitSeen = true; hasControl = false;
+      clearControlPending();
       setStatus(`ended (exit ${code})`, "warn");
       updateControlUI();
       break;
@@ -268,6 +288,7 @@ function onControlText(data) {
       break;
     case "bye":
       ended = true; noReconnect = true; hasControl = false;
+      clearControlPending();
       if (!exitSeen) {
         const reason = m.reason || "closed";
         if (reason === "ended") {
@@ -326,10 +347,30 @@ term.onData((d) => {
 // --- controls ----------------------------------------------------------------
 $("control").onclick = () => {
   if (ended) return;
-  if (hasControl) { send(Kind.CtrlRel, new Uint8Array(0)); hasControl = false; updateControlUI(); applySize(); }
-  // Focus now, inside the click (a user gesture), so the mobile soft keyboard opens
-  // without a second tap; the grant handler refocuses to keep it up.
-  else { send(Kind.CtrlReq, new Uint8Array(0)); term.focus(); }
+  if (hasControl) {
+    send(Kind.CtrlRel, new Uint8Array(0));
+    hasControl = false;
+    clearControlPending();
+    updateControlUI();
+    applySize();
+    return;
+  }
+  // Request control: show a pending state and arm a fallback timeout, so a host that
+  // never answers (view-only with no reply, or no runner attached) still gets surfaced
+  // instead of leaving the button stuck. A Control frame clears this first when it
+  // arrives. Focus now, inside the click gesture, so the mobile soft keyboard opens.
+  send(Kind.CtrlReq, new Uint8Array(0));
+  controlPending = true;
+  updateControlUI();
+  term.focus();
+  if (controlTimer) clearTimeout(controlTimer);
+  controlTimer = setTimeout(() => {
+    if (controlPending && !hasControl) {
+      clearControlPending();
+      setStatus("control not granted — host is view-only", "warn");
+      updateControlUI();
+    }
+  }, 3000);
 };
 
 // Overflow menu (⋯): the secondary controls live here so the top bar stays uncluttered.
