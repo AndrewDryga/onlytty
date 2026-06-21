@@ -1,7 +1,8 @@
 #cloud-config
-# Runs on Container-Optimized OS. One container: the onlytty relay, listening on
-# 0.0.0.0:${app_port} so the Google HTTPS load balancer can reach it (the LB
-# terminates TLS — not a sidecar proxy). The image is pulled anonymously from
+# Runs on Container-Optimized OS. One container (--network host): the onlytty relay,
+# binding the host's :${app_port} so the Google HTTPS load balancer can reach it (the
+# LB terminates TLS — not a sidecar proxy), plus epmd + the Erlang distribution ports
+# so sibling instances form one BEAM cluster. The image is pulled anonymously from
 # public GHCR. SECRET_KEY_BASE is fetched from Secret Manager at boot.
 #
 # Note: dollar-brace placeholders are Terraform interpolation; $NAME (no braces) is shell.
@@ -21,14 +22,23 @@ write_files:
       [ -n "$DATA" ] || { echo "failed to read secret ${secret_name} from Secret Manager" >&2; exit 1; }
       SECRET_KEY_BASE=$(printf '%s' "$DATA" | base64 -d)
       [ -n "$SECRET_KEY_BASE" ] || { echo "decoded SECRET_KEY_BASE is empty" >&2; exit 1; }
+      # This instance's internal IP becomes the BEAM node name (onlytty@<ip>) so peers
+      # can reach it; --network host puts epmd + the distribution ports on this IP.
+      NODE_IP=$(curl -s -H "Metadata-Flavor: Google" http://metadata.google.internal/computeMetadata/v1/instance/network-interfaces/0/ip)
+      [ -n "$NODE_IP" ] || { echo "failed to read this instance's internal IP" >&2; exit 1; }
       docker rm -f onlytty 2>/dev/null || true
       # Public GHCR pull — no credentials. For a private repo, `docker login
       # ghcr.io` here with a read-only PAT injected via Secret Manager.
       docker pull ${container_image}
-      exec docker run --rm --name onlytty \
+      # --network host so the app binds the host's :${app_port} for the LB and epmd +
+      # the distribution ports (9100-9105) bind the host IP for clustering. DNS_CLUSTER_QUERY
+      # lets DNSCluster discover peers; empty = single node (DNSCluster ignored).
+      exec docker run --rm --name onlytty --network host \
         -e SECRET_KEY_BASE="$SECRET_KEY_BASE" \
         -e PHX_SERVER=true -e PHX_HOST=${domain} -e PORT=${app_port} \
-        -p 0.0.0.0:${app_port}:${app_port} ${container_image}
+        -e NODE_IP="$NODE_IP" \
+        -e DNS_CLUSTER_QUERY="${dns_cluster_query}" \
+        ${container_image}
 
   - path: /etc/systemd/system/onlytty.service
     permissions: "0644"

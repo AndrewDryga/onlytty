@@ -69,11 +69,12 @@ data "google_compute_image" "cos" {
 
 locals {
   cloud_init = templatefile("${path.module}/templates/cloud-init.yaml", {
-    container_image = var.container_image
-    project_id      = var.project_id
-    secret_name     = google_secret_manager_secret.secret_key_base.secret_id
-    domain          = var.domain
-    app_port        = var.app_port
+    container_image   = var.container_image
+    project_id        = var.project_id
+    secret_name       = google_secret_manager_secret.secret_key_base.secret_id
+    domain            = var.domain
+    app_port          = var.app_port
+    dns_cluster_query = var.dns_cluster_query
   })
 }
 
@@ -141,12 +142,12 @@ resource "google_compute_instance_template" "default" {
 
 # ── Regional Managed Instance Group with auto-healing + rolling updates ──────
 #
-# CRITICAL — size stays 1. OnlyTTY sessions live IN MEMORY on the single
-# instance that created them (Onlytty.SessionStore is not shared). With >1
-# instance a runner and a viewer for the same session can land on different
-# instances and never connect, and LB session affinity can't fix it (they are
-# different clients). Do NOT raise target_size until a follow-up adds BEAM
-# clustering + a distributed session registry (libcluster + pg/Horde).
+# Scaling: OnlyTTY sessions live IN MEMORY on the node that created them, but are now
+# registered CLUSTER-WIDE via :global, so a runner and a viewer that land on different
+# instances resolve the same session over Erlang distribution. Raising target_size is
+# supported once the nodes cluster — set var.dns_cluster_query (DNSCluster) and keep the
+# onlytty-allow-cluster firewall (epmd + dist ports) in place. A node still loses only
+# its own sessions if it dies (the runner reconnects and re-creates), by design.
 resource "google_compute_region_instance_group_manager" "default" {
   name               = "onlytty-mig"
   base_instance_name = "onlytty"

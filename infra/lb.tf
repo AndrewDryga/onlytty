@@ -189,3 +189,19 @@ resource "google_compute_firewall" "iap_ssh" {
   source_ranges = ["35.235.240.0/20"]
   target_tags   = ["onlytty"]
 }
+
+# Erlang distribution between relay instances: epmd (4369) + the pinned distribution
+# port range (rel/vm.args.eex) so the nodes form one BEAM cluster and share the :global
+# session registry. Scoped to the relay's own instances (tag → tag); nothing else can
+# reach these ports.
+resource "google_compute_firewall" "cluster_dist" {
+  name      = "onlytty-allow-cluster"
+  network   = "default"
+  direction = "INGRESS"
+  allow {
+    protocol = "tcp"
+    ports    = ["4369", "9100-9105"]
+  }
+  source_tags = ["onlytty"]
+  target_tags = ["onlytty"]
+}
