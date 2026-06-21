@@ -102,12 +102,13 @@ if config_env() == :prod do
 
   # DNSCluster polls this to form the BEAM cluster across relay instances. Treat an
   # empty value as unset (→ :ignore in application.ex) so a single instance runs fine.
-  config :onlytty,
-         :dns_cluster_query,
-         case(System.get_env("DNS_CLUSTER_QUERY")) do
-    q when is_binary(q) and q != "" -> q
-    _ -> nil
-  end
+  dns_cluster_query =
+    case System.get_env("DNS_CLUSTER_QUERY") do
+      q when is_binary(q) and q != "" -> q
+      _ -> nil
+    end
+
+  config :onlytty, :dns_cluster_query, dns_cluster_query
 
   config :onlytty, OnlyttyWeb.Endpoint,
     url: [host: host, port: 443, scheme: "https"],
