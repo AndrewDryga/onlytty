@@ -1,3 +1,15 @@
+terraform {
+  # State lives in Terraform Cloud:
+  # https://app.terraform.io/app/OnlyTTY/workspaces/onlytty
+  cloud {
+    organization = "OnlyTTY"
+
+    workspaces {
+      name = "onlytty"
+    }
+  }
+}
+
 provider "google" {
   project = var.project_id
   region  = var.region
@@ -13,6 +25,26 @@ resource "google_project_service" "apis" {
   ])
   service            = each.value
   disable_on_destroy = false
+}
+
+# ── Network: a small dedicated VPC instead of the project default network ────
+#
+# The default VPC often carries broad "allow internal" rules and unrelated subnets.
+# A dedicated network keeps OnlyTTY's firewall and NAT blast radius obvious without
+# adding runtime cost.
+resource "google_compute_network" "onlytty" {
+  name                    = "onlytty-vpc"
+  auto_create_subnetworks = false
+
+  depends_on = [google_project_service.apis]
+}
+
+resource "google_compute_subnetwork" "onlytty" {
+  name                     = "onlytty-${var.region}"
+  region                   = var.region
+  ip_cidr_range            = var.subnet_cidr
+  network                  = google_compute_network.onlytty.id
+  private_ip_google_access = true
 }
 
 # ── SECRET_KEY_BASE — created here, value added out-of-band (never in state) ─
@@ -45,8 +77,16 @@ resource "google_project_iam_member" "vm_writes_logs" {
   member  = "serviceAccount:${google_service_account.vm.email}"
 }
 
+# Read-only Compute access so the relay's libcluster GCE strategy can list the MIG's
+# instances (compute.instances.list / compute.zones.list) to discover its cluster peers.
+resource "google_project_iam_member" "vm_reads_compute" {
+  project = var.project_id
+  role    = "roles/compute.viewer"
+  member  = "serviceAccount:${google_service_account.vm.email}"
+}
+
 # ── Health check (drives both the LB backend and MIG auto-healing) ───────────
-resource "google_compute_health_check" "default" {
+resource "google_compute_health_check" "app" {
   name                = "onlytty-healthz"
   check_interval_sec  = 10
   timeout_sec         = 5
@@ -77,23 +117,27 @@ locals {
   })
 }
 
-# Cloud Router + Cloud NAT give the instances egress (GHCR image pull, Secret
-# Manager, Cloud Logging) without any external IP. Auto-allocated NAT addresses
-# cover all subnets in the region.
-resource "google_compute_router" "default" {
+# Cloud Router + Cloud NAT give private instances outbound internet (GHCR image
+# pull) without per-VM external IPs. NAT is scoped to the dedicated OnlyTTY subnet.
+resource "google_compute_router" "onlytty" {
   name    = "onlytty-router"
   region  = var.region
-  network = "default"
+  network = google_compute_network.onlytty.id
 
   depends_on = [google_project_service.apis]
 }
 
-resource "google_compute_router_nat" "default" {
+resource "google_compute_router_nat" "onlytty" {
   name                               = "onlytty-nat"
-  router                             = google_compute_router.default.name
+  router                             = google_compute_router.onlytty.name
   region                             = var.region
   nat_ip_allocate_option             = "AUTO_ONLY"
-  source_subnetwork_ip_ranges_to_nat = "ALL_SUBNETWORKS_ALL_IP_RANGES"
+  source_subnetwork_ip_ranges_to_nat = "LIST_OF_SUBNETWORKS"
+
+  subnetwork {
+    name                    = google_compute_subnetwork.onlytty.id
+    source_ip_ranges_to_nat = ["ALL_IP_RANGES"]
+  }
 
   log_config {
     enable = false
@@ -101,10 +145,15 @@ resource "google_compute_router_nat" "default" {
   }
 }
 
-resource "google_compute_instance_template" "default" {
+resource "google_compute_instance_template" "onlytty" {
   name_prefix  = "onlytty-"
   machine_type = var.machine_type
   tags         = ["onlytty"]
+
+  # libcluster's GCE strategy (Onlytty.Cluster.GCE) finds cluster peers by this label.
+  labels = {
+    cluster_name = "onlytty"
+  }
 
   disk {
     source_image = data.google_compute_image.cos.self_link
@@ -118,7 +167,8 @@ resource "google_compute_instance_template" "default" {
   # Cloud Logging) goes through Cloud NAT below; ingress arrives from the LB over
   # the internal network. IAP SSH tunnels through Google, so it needs no public IP.
   network_interface {
-    network = "default"
+    network    = google_compute_network.onlytty.id
+    subnetwork = google_compute_subnetwork.onlytty.id
   }
 
   metadata = {
@@ -141,20 +191,21 @@ resource "google_compute_instance_template" "default" {
 
 # ── Regional Managed Instance Group with auto-healing + rolling updates ──────
 #
-# CRITICAL — size stays 1. OnlyTTY sessions live IN MEMORY on the single
-# instance that created them (Onlytty.SessionStore is not shared). With >1
-# instance a runner and a viewer for the same session can land on different
-# instances and never connect, and LB session affinity can't fix it (they are
-# different clients). Do NOT raise target_size until a follow-up adds BEAM
-# clustering + a distributed session registry (libcluster + pg/Horde).
-resource "google_compute_region_instance_group_manager" "default" {
+# Scaling: OnlyTTY sessions live IN MEMORY on the node that created them, but are now
+# registered CLUSTER-WIDE via :global, so a runner and a viewer that land on different
+# instances resolve the same session over Erlang distribution. Raising target_size just
+# works: libcluster's GCE strategy (Onlytty.Cluster.GCE) discovers the new instances via
+# the Compute API, and the onlytty-allow-cluster firewall (epmd + dist ports) lets them
+# form one BEAM cluster. A node still loses only its own sessions if it dies (the runner
+# reconnects and re-creates), by design.
+resource "google_compute_region_instance_group_manager" "onlytty" {
   name               = "onlytty-mig"
   base_instance_name = "onlytty"
   region             = var.region
   target_size        = var.instance_count
 
   version {
-    instance_template = google_compute_instance_template.default.id
+    instance_template = google_compute_instance_template.onlytty.id
   }
 
   named_port {
@@ -163,13 +214,15 @@ resource "google_compute_region_instance_group_manager" "default" {
   }
 
   auto_healing_policies {
-    health_check      = google_compute_health_check.default.id
+    health_check      = google_compute_health_check.app.id
     initial_delay_sec = 120
   }
 
   update_policy {
-    type                  = "PROACTIVE"
-    minimal_action        = "REPLACE"
+    type           = "PROACTIVE"
+    minimal_action = "REPLACE"
+    # Keep full capacity during a deploy — surge new instances up first, never drop a
+    # healthy one — so sessions migrate as old instances drain (see Onlytty.Drain).
     max_surge_fixed       = 3
     max_unavailable_fixed = 0
   }

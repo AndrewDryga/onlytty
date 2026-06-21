@@ -17,4 +17,4 @@ PATH="${GIT_ROOT}/scripts:${PATH}"
 export CLOUDSDK_CORE_PROJECT="onlytty"
 
 # Add the terraform command alias that works from any folder within the project
-alias gcp="terraform -chdir=${GIT_ROOT}/terraform/gcp"
+alias gcp="terraform -chdir=${GIT_ROOT}/infra"

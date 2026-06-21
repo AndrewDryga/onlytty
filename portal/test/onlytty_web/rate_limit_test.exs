@@ -45,7 +45,7 @@ defmodule OnlyttyWeb.RateLimitTest do
     Application.put_env(:onlytty, :rate_limit_window_ms, 60_000)
     ip = {198, 51, 100, 7}
 
-    ok = %{conn | remote_ip: ip} |> post(~p"/api/sessions")
+    ok = %{conn | remote_ip: ip} |> post(~p"/api/sessions", %{id: tok(), runner_token: tok()})
     assert json_response(ok, 201)["id"]
 
     throttled = %{conn | remote_ip: ip} |> post(~p"/api/sessions")
@@ -62,7 +62,7 @@ defmodule OnlyttyWeb.RateLimitTest do
     ip = {198, 51, 100, 8}
 
     # Spend the single allowed request.
-    ok = %{conn | remote_ip: ip} |> post(~p"/api/sessions")
+    ok = %{conn | remote_ip: ip} |> post(~p"/api/sessions", %{id: tok(), runner_token: tok()})
     assert json_response(ok, 201)["id"]
 
     # A malformed JSON body would make Plug.Parsers raise (→ 400) if it ran first.
@@ -74,4 +74,6 @@ defmodule OnlyttyWeb.RateLimitTest do
 
     assert json_response(throttled, 429)["error"] =~ "rate limited"
   end
+
+  defp tok, do: 16 |> :crypto.strong_rand_bytes() |> Base.url_encode64(padding: false)
 end

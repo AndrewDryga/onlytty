@@ -48,7 +48,7 @@ func run() int {
 	server := flag.String("server", os.Getenv("ONLYTTY_SERVER"), "relay server origin, e.g. https://relay.example.com (or set ONLYTTY_SERVER)")
 	control := flag.String("control", "ask", "viewer control policy: ask (auto-grant control to any viewer that requests it — no host prompt; revoke with SIGUSR1), view-only (never), once (auto-grant the first request only)")
 	readOnly := flag.Bool("read-only", false, "deprecated alias for --control view-only")
-	ttl := flag.Duration("ttl", 12*time.Hour, "session lifetime before the link expires")
+	ttl := flag.Duration("ttl", 0, "session lifetime before the link expires; 0 (default) = no expiry — the session lives as long as onlytty runs and ends when the command exits (the relay may impose a maximum)")
 	withPass := flag.Bool("passphrase", false, "prompt for a passphrase to mix into the keys (shared out-of-band; the link alone won't decrypt)")
 	genPass := flag.Bool("passphrase-generate", false, "generate a strong passphrase host-side and display it (implies --passphrase)")
 	noQR := flag.Bool("no-qr", false, "print the link without a QR code")
@@ -66,8 +66,8 @@ func run() int {
 		fmt.Fprintln(os.Stderr, "onlytty: set --server or ONLYTTY_SERVER (e.g. https://relay.example.com)")
 		return 2
 	}
-	if *ttl <= 0 {
-		fmt.Fprintln(os.Stderr, "onlytty: --ttl must be positive")
+	if *ttl < 0 {
+		fmt.Fprintln(os.Stderr, "onlytty: --ttl cannot be negative (0 = no expiry)")
 		return 2
 	}
 	controlSet := false
@@ -110,8 +110,22 @@ func run() int {
 		}
 	}
 
-	// 1) Create the session (the relay never sees the secret below).
-	sess, err := client.CreateSession(ctx, *ttl)
+	// Generate the session id + runner token locally (claim-based resume: the relay
+	// just records them, so the SAME session can be re-established on any relay node
+	// after a node loss/deploy). The relay never sees the secret derived below.
+	id, err := randToken()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "onlytty:", err)
+		return 1
+	}
+	tok, err := randToken()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "onlytty:", err)
+		return 1
+	}
+
+	// 1) Register the session with the relay (returns the assigned expiry).
+	sess, err := client.CreateSession(ctx, id, tok, *ttl)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "onlytty:", err)
 		return 1
@@ -123,16 +137,16 @@ func run() int {
 		fmt.Fprintln(os.Stderr, "onlytty:", err)
 		return 1
 	}
-	keys, err := protocol.DeriveKeys(secret, sess.ID, passphrase)
+	keys, err := protocol.DeriveKeys(secret, id, passphrase)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "onlytty:", err)
 		return 1
 	}
 	secretB64 := base64.RawURLEncoding.EncodeToString(secret)
-	link := client.ViewerURL(sess.ID, secretB64, passphrase != "")
+	link := client.ViewerURL(id, secretB64, passphrase != "")
 
 	// Show the expiry the relay actually assigned (it clamps the TTL), not the raw flag.
-	printBanner(link, formatFingerprint(keys.Fingerprint), remaining(sess.ExpiresAt, time.Now()), controlMode, passphrase, *genPass, *noQR)
+	printBanner(link, formatFingerprint(keys.Fingerprint), expiryLine(sess.ExpiresAt), controlMode, passphrase, *genPass, *noQR)
 
 	// 3) Start the command in a PTY and mirror it locally.
 	psess, err := ptysession.Start(argv, os.Environ())
@@ -156,7 +170,7 @@ func run() int {
 	}
 
 	orch, err := runner.New(runner.Config{
-		Client: client, Session: psess, Keys: keys, SessionID: sess.ID, Token: sess.RunnerToken,
+		Client: client, Session: psess, Keys: keys, SessionID: id, Token: tok, TTL: *ttl,
 		Control: controlMode, LocalIn: os.Stdin, LocalOut: os.Stdout,
 		Notify: notifier(*verbose), Fingerprint: formatFingerprint(keys.Fingerprint),
 	})
@@ -286,7 +300,16 @@ func remaining(expiresAt int64, now time.Time) time.Duration {
 	return time.Unix(expiresAt, 0).Sub(now).Round(time.Second)
 }
 
-func printBanner(link, fingerprint string, expiresIn time.Duration, control runner.ControlMode, passphrase string, generated, noQR bool) {
+// expiryLine renders the banner's "Expires" value. 0 = no server-side expiry: the
+// session lasts as long as onlytty runs (it ends when the command exits).
+func expiryLine(expiresAt int64) string {
+	if expiresAt <= 0 {
+		return "never — ends when the command exits"
+	}
+	return "in " + remaining(expiresAt, time.Now()).String()
+}
+
+func printBanner(link, fingerprint string, expiry string, control runner.ControlMode, passphrase string, generated, noQR bool) {
 	w := os.Stderr
 	fmt.Fprintf(w, "\n  %s\n\n", bold("onlytty — this session is shared, end-to-end encrypted"))
 	if !noQR {
@@ -295,7 +318,7 @@ func printBanner(link, fingerprint string, expiresIn time.Duration, control runn
 	}
 	fmt.Fprintf(w, "  Link         %s\n", link)
 	fmt.Fprintf(w, "  Fingerprint  %s  %s\n", fingerprint, dim("(must match in the browser)"))
-	fmt.Fprintf(w, "  Expires      in %s\n", expiresIn)
+	fmt.Fprintf(w, "  Expires      %s\n", expiry)
 	controlDesc := "any viewer may take control on request (auto-granted; SIGUSR1 to revoke)"
 	switch control {
 	case runner.ControlViewOnly:
@@ -328,6 +351,17 @@ func generatePassphrase() (string, error) {
 	}
 	enc := base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(b)
 	return formatFingerprint(enc), nil
+}
+
+// randToken returns 128 bits of CSPRNG entropy as URL-safe base64 (no padding) — the
+// format the relay expects for a session id / runner token. The runner generates both
+// so the same session can be re-claimed on any relay node after a node loss.
+func randToken() (string, error) {
+	b := make([]byte, 16)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	return base64.RawURLEncoding.EncodeToString(b), nil
 }
 
 // formatFingerprint groups the base32 fingerprint into 4-char blocks for eyeballing.

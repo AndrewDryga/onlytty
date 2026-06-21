@@ -15,11 +15,15 @@ CONC="${2:-50}"
 
 echo "load: $N session creates at concurrency $CONC against $SERVER"
 echo "count  HTTP status"
-seq "$N" | xargs -P "$CONC" -I{} \
-  curl -s -o /dev/null -w '%{http_code}\n' \
+# Each request claims a fresh random id + token (the runner generates these now), so
+# every POST creates a NEW session — that is what exercises the create path + the cap.
+export SERVER
+seq "$N" | xargs -P "$CONC" -I{} sh -c '
+  id=$(openssl rand -hex 16); tok=$(openssl rand -hex 16)
+  curl -s -o /dev/null -w "%{http_code}\n" \
     -X POST "$SERVER/api/sessions" \
-    -H 'content-type: application/json' \
-    -d '{"ttl_seconds":60}' \
-  | sort | uniq -c
+    -H "content-type: application/json" \
+    -d "{\"id\":\"$id\",\"runner_token\":\"$tok\",\"ttl_seconds\":60}"
+' | sort | uniq -c
 
 echo "(201 = created, 503 = at ONLYTTY_MAX_SESSIONS cap, 000 = connection error)"

@@ -1,16 +1,27 @@
 # Copy to terraform.tfvars (gitignored) and fill in. Then:
-#   terraform init -backend-config="bucket=<your-tf-state-bucket>"
+#   terraform login
+#   terraform init
 #   terraform apply
+#
+# If the Terraform Cloud workspace uses remote execution, set these values as
+# workspace variables instead; .terraformignore excludes local *.tfvars files.
 
 project_id = "onlytty"
 region     = "us-central1"
 domain     = "onlytty.com"
 dns_name   = "onlytty.com." # trailing dot — the Cloud DNS managed zone
 
+# Dedicated OnlyTTY subnet. Change only if it overlaps another VPC you peer with.
+subnet_cidr = "10.80.0.0/24"
+
 # Public GHCR image, published by the release workflow (.github/workflows/release.yml).
 container_image = "ghcr.io/andrewdryga/onlytty:latest"
 
-machine_type = "e2-small"
+# machine_type — required (no default); set it in the Terraform Cloud workspace.
 
-# instance_count MUST stay 1 (in-memory sessions); the variable enforces it.
+# Number of relay VMs (default 2 for HA). >1 forms a BEAM cluster automatically —
+# libcluster's GCE strategy discovers peers via the Compute API, no extra config.
+# Drop to 1 for the lowest-cost single-node setup.
+instance_count = 2
+
 # SSH is via IAP only — no ssh_source_ranges to set.

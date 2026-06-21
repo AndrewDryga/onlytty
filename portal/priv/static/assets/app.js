@@ -311,6 +311,7 @@ function onControlText(data) {
       break;
     case "peer_join": if (!ended) setStatus("connected", "ok"); break;
     case "peer_left": if (!ended) setStatus("runner disconnected — waiting…", "warn"); break;
+    case "going_away": if (!ended) setStatus("relay redeploying — reconnecting…", "warn"); break;
     case "busy":
       noReconnect = true;
       fatal("<h1>Session busy</h1><p>Another viewer is already connected. This session allows one viewer at a time.</p>");
@@ -385,7 +386,14 @@ term.onData((d) => {
 // fall to a terminal state ourselves so a missed EXIT can never leave the viewer
 // hanging at "waiting…" indefinitely.
 function startTtl() {
-  if (ttlTimer) clearInterval(ttlTimer);
+  if (ttlTimer) { clearInterval(ttlTimer); ttlTimer = null; }
+  if (expiresAt === 0) { // 0 = no server-side expiry (lives as long as the runner runs)
+    const el = $("ttl");
+    el.hidden = false;
+    el.textContent = "no expiry";
+    el.classList.remove("soon");
+    return;
+  }
   tickTtl();
   ttlTimer = setInterval(tickTtl, 1000);
 }

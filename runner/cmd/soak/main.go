@@ -16,6 +16,8 @@ package main
 
 import (
 	"context"
+	crand "crypto/rand"
+	"encoding/base64"
 	"flag"
 	"fmt"
 	"math/rand"
@@ -116,13 +118,21 @@ func (p *pair) bounceNow() {
 	}
 }
 
+// randToken returns 128 bits as URL-safe base64 (no padding) — the relay's session
+// id / runner-token format. Each soak pair claims its own session.
+func randToken() string {
+	b := make([]byte, 16)
+	_, _ = crand.Read(b)
+	return base64.RawURLEncoding.EncodeToString(b)
+}
+
 func (p *pair) run(ctx context.Context) {
 	client, err := relayclient.New(p.base, false)
 	if err != nil {
 		p.stats.fatal.Add(1)
 		return
 	}
-	sess, err := client.CreateSession(ctx, 10*time.Minute)
+	sess, err := client.CreateSession(ctx, randToken(), randToken(), 10*time.Minute)
 	if err != nil {
 		// At/over the configured RELAY_MAX_SESSIONS cap, create is refused — that is
 		// the cap working, not a crash. Count it and stop this pair cleanly.
