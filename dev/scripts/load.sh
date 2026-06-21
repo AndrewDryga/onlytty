@@ -3,7 +3,7 @@
 # unauthenticated POST /api/sessions path (the DoS surface) and the
 # ONLYTTY_MAX_SESSIONS cap, reporting a count per HTTP status.
 #
-#   ONLYTTY_SERVER=https://relay.example.com bash scripts/load.sh [N] [CONCURRENCY]
+#   ONLYTTY_SERVER=https://relay.example.com bash dev/scripts/load.sh [N] [CONCURRENCY]
 #
 # Deeper soak (WebSocket reconnect storms, memory-bounded long runs, and per-VM
 # capacity numbers for deploy sizing) is a follow-up — see .agent/BACKLOG.md.

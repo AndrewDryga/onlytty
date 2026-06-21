@@ -13,8 +13,8 @@ on:
       - "portal/**"
       - "runner/**"
       - "infra/**"
-      - "test/deploy/**"
-      - "scripts/deploy-check.sh"
+      - "dev/test/deploy/**"
+      - "dev/scripts/deploy-check.sh"
       - ".github/workflows/deploy-check.yml"
 
 concurrency:

@@ -281,7 +281,7 @@ gh api -X PUT repos/AndrewDryga/onlytty/branches/main/protection \
 | `runner/internal/protocol/` | crypto + wire format (Go); golden vectors pin it to the JS |
 | `portal/` | the relay control plane (Elixir/Phoenix, no database) |
 | `portal/priv/static/` | the browser viewer (vanilla JS + vendored xterm) |
-| `test/` | Node interop, Go transport e2e, headless-browser e2e |
+| `dev/` | dev/CI tooling: `dev/scripts/` (e2e, load, deploy-check), `dev/test/` (Node interop, transport + browser e2e, deploy compose), `dev/brand/` (design sources) |
 | `PROTOCOL.md` | the wire + crypto contract every component obeys |
 
 ## License

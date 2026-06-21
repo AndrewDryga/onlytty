@@ -8,7 +8,7 @@
 # Needs Docker. Run: make deploy-check
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
 BASE="http://localhost:4000"
 
@@ -25,13 +25,13 @@ command -v docker >/dev/null || fail "docker is required"
 export SECRET_KEY_BASE="$(openssl rand -base64 64 | tr -d '\n')"
 
 cleanup() {
-  ( cd test/deploy && docker compose down -v --remove-orphans >/dev/null 2>&1 || true )
+  ( cd dev/test/deploy && docker compose down -v --remove-orphans >/dev/null 2>&1 || true )
   rm -f onlytty /tmp/dc.body /tmp/onlytty-start.sh
 }
 trap cleanup EXIT
 
 step "Build the production release image + bring up the deployed topology (onlytty + Caddy)"
-( cd test/deploy && docker compose up -d --build )
+( cd dev/test/deploy && docker compose up -d --build )
 
 step "Wait for the release to become healthy (through the proxy)"
 ok=""
@@ -39,7 +39,7 @@ for i in $(seq 1 90); do
   if curl -fsS "$BASE/healthz" >/dev/null 2>&1; then ok=1; break; fi
   sleep 2
 done
-[ -n "$ok" ] || { ( cd test/deploy && docker compose logs --tail=60 onlytty ); fail "release never became healthy"; }
+[ -n "$ok" ] || { ( cd dev/test/deploy && docker compose logs --tail=60 onlytty ); fail "release never became healthy"; }
 pass "GET /healthz → 200 behind the proxy"
 
 step "Smoke the production HTTP surface"
@@ -57,7 +57,7 @@ code="$(curl -s -o /dev/null -w '%{http_code}' -H 'Host: onlytty.example.com' "h
 [ "$code" = "301" ] && pass "http→https 301 for a real host (force_ssl active; localhost exempt)" || fail "expected 301, got $code"
 
 step "Full encrypted e2e against the production release (runner ↔ release ↔ viewer)"
-ONLYTTY_SERVER="$BASE" bash scripts/e2e.sh
+ONLYTTY_SERVER="$BASE" bash dev/scripts/e2e.sh
 pass "e2e green against the deployed artifact"
 
 step "Cross-compile the release binaries (the release.yml matrix)"

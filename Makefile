@@ -16,7 +16,7 @@ runner-check: ## Runner: gofmt + vet + tests
 	@cd runner && go vet ./... && go test ./...
 
 web-check: ## Web viewer: Node interop + unit tests
-	@node --test test/web/*.test.js
+	@node --test dev/test/web/*.test.js
 
 server-check: ## Relay server: format check + warnings-as-errors + tests
 	@cd portal && mix format --check-formatted && mix compile --warnings-as-errors && mix test
@@ -24,7 +24,7 @@ server-check: ## Relay server: format check + warnings-as-errors + tests
 check: runner-check web-check server-check ## Full gate: runner + web + server
 
 e2e: ## Boot the relay and run the end-to-end test (runner ↔ relay ↔ viewer)
-	@bash scripts/e2e.sh
+	@bash dev/scripts/e2e.sh
 
 audit: audit-go audit-web audit-server ## Security audit (opt-in; not in `check`): Go vulns + npm + Hex
 
@@ -53,10 +53,10 @@ fuzz: ## Fuzz the protocol decoders (override length: make fuzz FUZZTIME=2m)
 	done
 
 load: ## Load-test session creation against a running relay (ONLYTTY_SERVER, args: N CONC)
-	@bash scripts/load.sh
+	@bash dev/scripts/load.sh
 
 deploy-check: ## Pre-deploy: build+boot the prod image behind Caddy, smoke + e2e + cross-build (needs Docker)
-	@bash scripts/deploy-check.sh
+	@bash dev/scripts/deploy-check.sh
 
 doctor: ## Check required toolchains; print install hints for anything missing
 	@missing=0; \

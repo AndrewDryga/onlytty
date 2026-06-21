@@ -1,7 +1,7 @@
 // Unit tests for the viewer shortcut payload parser (`^X` control-char notation).
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parsePayload } from "../../portal/priv/static/assets/keys.js";
+import { parsePayload } from "../../../portal/priv/static/assets/keys.js";
 
 test("^L expands to byte 0x0c (Ctrl-L, clear)", () => {
   assert.equal(parsePayload("^L"), "\x0c");

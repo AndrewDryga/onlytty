@@ -5,7 +5,7 @@
   "type": "module",
   "description": "Browser viewer + Node interop tests for OnlyTTY. No build step, no runtime deps.",
   "scripts": {
-    "test": "node --test test/web/"
+    "test": "node --test dev/test/web/*.test.js"
   },
   "devDependencies": {
     "playwright": "^1.61.0"

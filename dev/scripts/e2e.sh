@@ -3,7 +3,7 @@
 # tear the relay down. Used by `make e2e`.
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 BASE="${ONLYTTY_SERVER:-http://127.0.0.1:4000}"
 HEALTH="$BASE/healthz"
 
@@ -41,4 +41,4 @@ go build -o onlytty ./runner
 echo "e2e: transport (Go viewer ↔ relay ↔ runner)…"
 ONLYTTY_SERVER="$BASE" go test -tags e2e -count=1 ./runner/e2e/
 echo "e2e: browser (headless Chromium drives the real viewer)…"
-ONLYTTY_SERVER="$BASE" node --test test/browser/*.test.js
+ONLYTTY_SERVER="$BASE" node --test dev/test/browser/*.test.js

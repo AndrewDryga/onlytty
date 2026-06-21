@@ -8,11 +8,11 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
-import { deriveKeys, newCipher, bytesToHex, hexToBytes } from "../../portal/priv/static/assets/crypto.js";
+import { deriveKeys, newCipher, bytesToHex, hexToBytes } from "../../../portal/priv/static/assets/crypto.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const vectors = JSON.parse(
-  readFileSync(join(here, "../../runner/internal/protocol/testdata/vectors.json"), "utf8"),
+  readFileSync(join(here, "../../../runner/internal/protocol/testdata/vectors.json"), "utf8"),
 );
 const enc = new TextEncoder();
 
