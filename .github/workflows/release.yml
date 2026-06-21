@@ -83,7 +83,7 @@ jobs:
       - name: Attest build provenance for the binaries
         # SLSA provenance for every tarball listed in SHA256SUMS. Keyless (Sigstore,
         # via the OIDC token) — no secrets. Verify: gh attestation verify <tarball> --repo <repo>
-        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2
+        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
         with:
           subject-checksums: dist/SHA256SUMS
       - name: Publish release
@@ -132,7 +132,7 @@ jobs:
       - name: Attest build provenance for the image
         # Keyless SLSA provenance, pushed alongside the image in GHCR. Verify:
         # gh attestation verify oci://<image>:<tag> --repo <repo>
-        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2
+        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
         with:
           subject-name: ${{ steps.img.outputs.name }}
           subject-digest: ${{ steps.build.outputs.digest }}
