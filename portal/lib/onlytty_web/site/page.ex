@@ -750,11 +750,13 @@ defmodule OnlyttyWeb.Site.Page do
           ~s(<span class="c-ok">●</span> Read auth.ex),
           ~s(<span class="c-ok">●</span> Read auth_test.ex),
           ~s(<span class="c-ok">●</span> Edited auth.ex <span class="c-ok">+18</span> <span class="c-dim">−4</span>),
+          ~s(<span class="c-ok">●</span> Edited auth_test.ex),
           ~s(<span class="c-ok">●</span> Ran mix test),
-          ~s(<span class="c-dim">  ✓ 24 passed</span>),
+          ~s(<span class="c-dim">  ✓ 24 passed, 0 failed</span>),
           ~s(<span class="c-ok">●</span> Edited router.ex <span class="c-ok">+3</span>),
-          ~s(<span class="c-ok">✻</span> done — next?),
-          ~s(<span class="c-dim">› add rate limiting</span>),
+          ~s(<span class="c-ok">●</span> Ran mix format),
+          ~s(<span class="c-ok">✻</span> <span class="c-dim">Done · 4 files</span>),
+          ~s(<span class="c-dim">› now add rate limiting</span>),
           ~s(<span class="c-ok">✻</span> <span class="c-b">#{h(name)}</span>),
           thinking()
         ]
