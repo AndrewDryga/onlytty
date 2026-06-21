@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
-# End-to-end: boot the relay (unless one is already up), run the tagged Go e2e test,
+# End-to-end: start a fresh relay, run the tagged Go e2e test + the browser tests,
 # tear the relay down. Used by `make e2e`.
+#
+# By default we ALWAYS start our own relay so a stale server left running on the port
+# can't make a changed tree look green. Set ONLYTTY_REUSE_SERVER=1 to instead reuse a
+# relay that's already up (e.g. an ngrok-exposed dev server for a manual phone pass).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -16,9 +20,17 @@ cleanup() {
 }
 trap cleanup EXIT
 
-if curl -fsS "$HEALTH" >/dev/null 2>&1; then
-  echo "e2e: reusing relay already running at $BASE"
+if [ "${ONLYTTY_REUSE_SERVER:-}" = "1" ]; then
+  if curl -fsS "$HEALTH" >/dev/null 2>&1; then
+    echo "e2e: reusing relay at $BASE (ONLYTTY_REUSE_SERVER=1)"
+  else
+    echo "e2e: ONLYTTY_REUSE_SERVER=1 but no relay is answering at $BASE"; exit 1
+  fi
 else
+  # Refuse to silently reuse a server we didn't start — that's the stale-green trap.
+  if curl -fsS "$HEALTH" >/dev/null 2>&1; then
+    echo "e2e: a server is already running at $BASE — stop it, or set ONLYTTY_REUSE_SERVER=1 to use it"; exit 1
+  fi
   echo "e2e: starting relay…"
   ( cd "$ROOT/portal" && mix deps.get >/dev/null 2>&1 && exec mix phx.server ) >/tmp/relay-e2e-server.log 2>&1 &
   started=$!

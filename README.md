@@ -264,8 +264,9 @@ Run **`make doctor`** to see what's installed and get install hints for anything
 
 ```bash
 make check     # the gate: runner (go) + web (node) + server (elixir)
-make e2e       # boots the relay, then a Go viewer and a headless-browser viewer
-               # drive a real session end-to-end through it
+make e2e       # boots its own relay, then a Go viewer and a headless-browser viewer
+               # drive a real session end-to-end through it (it fails if a server is
+               # already on the port; set ONLYTTY_REUSE_SERVER=1 to reuse one instead)
 make audit     # opt-in dependency/security audit (not part of `check`)
 make fuzz      # fuzz the protocol decoders (they parse relay-forwarded bytes)
 make load      # concurrent session-create load against $ONLYTTY_SERVER
