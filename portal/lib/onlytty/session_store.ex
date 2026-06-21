@@ -32,18 +32,24 @@ defmodule Onlytty.SessionStore do
   defp gname(id), do: {:onlytty_session, id}
 
   @doc """
-  Create a new session. Generates a URL-safe id and a separate runner token
-  (each >= 120 bits of entropy) and starts its GenServer.
+  Create the session under the client-supplied `id`, or attach to an existing one
+  with the same id when `runner_token` matches (constant-time).
 
-  Returns `{:ok, %{id, runner_token, expires_at}}`.
+  The runner generates `id` and `runner_token` locally (each >= 120 bits), so a
+  session can be re-established on ANY node after a node loss — the resume
+  guarantee. `:global` makes this safe across the cluster: a duplicate `id` is
+  caught as `{:already_started, pid}` and we attach iff the token matches, so only
+  the owning runner can re-claim it.
+
+  Returns `{:ok, %{id, runner_token, expires_at}}`, `{:error, :unauthorized}` on a
+  token mismatch for an existing id, or `{:error, :at_capacity}`.
   """
-  @spec create(keyword()) ::
+  @spec create_or_attach(String.t(), String.t(), keyword()) ::
           {:ok, %{id: String.t(), runner_token: String.t(), expires_at: integer()}}
-          | {:error, :at_capacity}
-  def create(opts \\ []) do
+          | {:error, :unauthorized | :at_capacity}
+  def create_or_attach(id, runner_token, opts \\ [])
+      when is_binary(id) and is_binary(runner_token) do
     ttl = opts |> Keyword.get(:ttl_seconds) |> clamp_ttl()
-    id = random_token()
-    runner_token = random_token()
 
     child =
       {Session,
@@ -56,8 +62,16 @@ defmodule Onlytty.SessionStore do
     case DynamicSupervisor.start_child(@supervisor, child) do
       {:ok, _pid} ->
         Onlytty.Metrics.inc(:sessions_created)
-
         {:ok, %{id: id, runner_token: runner_token, expires_at: expiry_at(ttl)}}
+
+      {:error, {:already_started, pid}} ->
+        # Same id already live (here or on a peer via :global): re-claim iff the
+        # presented token matches — the original session keeps its expiry.
+        if Session.valid_runner_token?(pid, runner_token) do
+          {:ok, %{id: id, runner_token: runner_token, expires_at: Session.expires_at(pid)}}
+        else
+          {:error, :unauthorized}
+        end
 
       {:error, :max_children} ->
         # The cap is hit: refuse rather than grow unbounded.
@@ -82,9 +96,6 @@ defmodule Onlytty.SessionStore do
 
   @doc false
   def max_ttl, do: Application.get_env(:onlytty, :max_ttl, @max_ttl)
-
-  # 16 random bytes = 128 bits, URL-safe, no padding.
-  defp random_token, do: 16 |> :crypto.strong_rand_bytes() |> Base.url_encode64(padding: false)
 
   # Returns the TTL in seconds, where 0 means "no expiry". An omitted request uses the
   # configured default; <= 0 means no expiry; a positive value is floored at @min_ttl.

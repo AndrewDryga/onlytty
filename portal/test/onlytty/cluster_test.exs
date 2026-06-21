@@ -51,6 +51,51 @@ defmodule Onlytty.ClusterTest do
     end
   end
 
+  test "a runner re-claims its id on this node after the peer holding it dies (deploy resume)" do
+    if ensure_distribution() do
+      {:ok, peer, _peer_node} = start_peer()
+      on_exit(fn -> safe_stop(peer) end)
+
+      id = "resume-" <> Integer.to_string(System.unique_integer([:positive]))
+      token = "tok-" <> Integer.to_string(System.unique_integer([:positive]))
+      opts = [id: id, runner_token: token, ttl_seconds: 0, idle_ms: 60_000]
+
+      # The session lives on the PEER node (as if the runner first landed there).
+      assert {:ok, _pid} =
+               :peer.call(peer, GenServer, :start, [
+                 Onlytty.Session,
+                 opts,
+                 [name: SessionStore.name(id)]
+               ])
+
+      assert is_pid(
+               wait_for(fn ->
+                 case SessionStore.lookup(id) do
+                   {:ok, p} -> p
+                   :error -> nil
+                 end
+               end)
+             )
+
+      # The node holding the session dies — a deploy drains/replaces it.
+      safe_stop(peer)
+
+      # :global drops the dead node's registration, so the id is free to re-claim.
+      assert wait_for(fn -> if SessionStore.lookup(id) == :error, do: true, else: nil end)
+
+      # The runner re-claims the SAME id+token; it now lands on THIS node and continues.
+      assert {:ok, %{id: ^id}} = SessionStore.create_or_attach(id, token, ttl_seconds: 0)
+      assert {:ok, pid} = SessionStore.lookup(id)
+      assert node(pid) == node(), "the re-claimed session must now live on this node"
+
+      # The token still gates re-claims: a different runner cannot steal the id.
+      assert {:error, :unauthorized} =
+               SessionStore.create_or_attach(id, "wrong-token-aaaaaaaa", [])
+    else
+      IO.puts("[cluster_test] distribution unavailable (no epmd) — skipping the resume check")
+    end
+  end
+
   # --- helpers ---------------------------------------------------------------
 
   @cookie :onlytty_cluster_test

@@ -9,25 +9,28 @@ defmodule OnlyttyWeb.SessionController do
   alias Onlytty.SessionStore
 
   @doc """
-  `POST /api/sessions` — create a session.
+  `POST /api/sessions` — create a session, or re-claim an existing one.
 
-  Optional JSON body `{"ttl_seconds": int}` (default `0` = no expiry; a positive
-  value is floored at 60s and capped by the optional `ONLYTTY_MAX_TTL` ceiling). A
-  present-but-non-integer `ttl_seconds` is a 400 rather than a silent default.
-  Responds 201 with the id, the runner token, and the absolute expiry in unix
-  seconds — `0` when the session has no expiry.
+  The runner generates its own `id` and `runner_token` (each URL-safe, >= 120 bits)
+  and sends them in the JSON body, so it can re-establish the SAME session on any
+  node after a node loss/deploy. Both are required. Optional `ttl_seconds` (default
+  `0` = no expiry; a positive value is floored at 60s and capped by the optional
+  `ONLYTTY_MAX_TTL`). Idempotent: re-posting the same id with the matching token
+  attaches to the live session (keeping its expiry); a wrong token for an existing
+  id is a 401. Responds 201 with `{id, runner_token, expires_at}`.
   """
   def create(conn, params) do
     # The per-IP throttle runs in the endpoint (OnlyttyWeb.RateLimitGuard) ahead of
     # Plug.Parsers, so by the time we get here the request is within the limit.
-    case ttl_param(params) do
+    with {:ok, id} <- id_param(params),
+         {:ok, token} <- token_param(params),
+         {:ok, ttl} <- ttl_param(params) do
+      create_session(conn, id, token, ttl)
+    else
       {:error, message} ->
         conn
         |> put_status(:bad_request)
         |> json(%{error: message})
-
-      {:ok, ttl} ->
-        create_session(conn, ttl)
     end
   end
 
@@ -39,8 +42,8 @@ defmodule OnlyttyWeb.SessionController do
     |> json(%{error: "method not allowed; use POST"})
   end
 
-  defp create_session(conn, ttl) do
-    case SessionStore.create(ttl_seconds: ttl) do
+  defp create_session(conn, id, token, ttl) do
+    case SessionStore.create_or_attach(id, token, ttl_seconds: ttl) do
       {:ok, session} ->
         conn
         |> put_status(:created)
@@ -49,6 +52,11 @@ defmodule OnlyttyWeb.SessionController do
           runner_token: session.runner_token,
           expires_at: session.expires_at
         })
+
+      {:error, :unauthorized} ->
+        conn
+        |> put_status(:unauthorized)
+        |> json(%{error: "session id is held by another runner"})
 
       {:error, :at_capacity} ->
         conn
@@ -78,6 +86,24 @@ defmodule OnlyttyWeb.SessionController do
     |> put_resp_header("cache-control", "no-store")
     |> put_resp_content_type("text/html")
     |> send_file(200, path)
+  end
+
+  # The runner supplies a URL-safe id + runner token (it generates both, >= 120 bits,
+  # so it can re-claim the same session after a node loss). Bound the length so a
+  # client can't push absurd payloads; reject anything non-URL-safe.
+  defp id_param(params), do: token_str(params, "id")
+  defp token_param(params), do: token_str(params, "runner_token")
+
+  defp token_str(params, key) do
+    case params do
+      %{^key => s} when is_binary(s) ->
+        if byte_size(s) in 16..128 and s =~ ~r/\A[A-Za-z0-9_-]+\z/,
+          do: {:ok, s},
+          else: {:error, "#{key} is invalid"}
+
+      _ ->
+        {:error, "#{key} is required"}
+    end
   end
 
   # `ttl_seconds`, when present, must be a JSON integer. Anything else is a 400

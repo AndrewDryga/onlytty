@@ -93,6 +93,18 @@ defmodule Onlytty.Session do
     GenServer.call(session, :runner_token)
   end
 
+  @doc "Constant-time check that `presented` matches this session's runner token."
+  @spec valid_runner_token?(pid(), String.t()) :: boolean()
+  def valid_runner_token?(session, presented) when is_binary(presented) do
+    GenServer.call(session, {:valid_runner_token?, presented})
+  end
+
+  @doc "The session's absolute expiry (unix seconds; 0 = no expiry)."
+  @spec expires_at(pid()) :: integer()
+  def expires_at(session) do
+    GenServer.call(session, :expires_at)
+  end
+
   # --- server ----------------------------------------------------------------
 
   @impl true
@@ -125,6 +137,14 @@ defmodule Onlytty.Session do
   @impl true
   def handle_call(:runner_token, _from, state) do
     {:reply, state.runner_token, state}
+  end
+
+  def handle_call({:valid_runner_token?, presented}, _from, state) do
+    {:reply, secure_equal?(presented, state.runner_token), state}
+  end
+
+  def handle_call(:expires_at, _from, state) do
+    {:reply, state.expires_at, state}
   end
 
   def handle_call({:join_runner, pid}, _from, state) do
@@ -277,4 +297,12 @@ defmodule Onlytty.Session do
   # The session id is the viewer connect capability; log only a short prefix so a
   # leaked log can't be used to connect to live sessions.
   defp short(id), do: String.slice(id, 0, 8)
+
+  # Constant-time compare so a wrong token can't be guessed by timing.
+  defp secure_equal?(a, b) when is_binary(a) and is_binary(b) do
+    :crypto.hash_equals(a, b)
+  rescue
+    # hash_equals raises on length mismatch on some OTPs; treat as not-equal.
+    ArgumentError -> false
+  end
 end

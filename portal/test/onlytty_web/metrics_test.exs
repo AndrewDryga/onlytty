@@ -30,7 +30,8 @@ defmodule OnlyttyWeb.MetricsTest do
 
   test "creating a session increments onlytty_sessions_created_total", %{conn: conn} do
     assert delta(:sessions_created, fn ->
-             assert post(conn, ~p"/api/sessions").status == 201
+             assert post(conn, ~p"/api/sessions", %{id: tok(), runner_token: tok()}).status ==
+                      201
            end) == 1
   end
 
@@ -46,7 +47,7 @@ defmodule OnlyttyWeb.MetricsTest do
 
   test "a second viewer under the single-viewer lock increments the busy counter" do
     port = Application.get_env(:onlytty, OnlyttyWeb.Endpoint)[:http][:port]
-    {:ok, s} = SessionStore.create([])
+    {:ok, s} = SessionStore.create_or_attach(tok(), tok(), [])
 
     assert delta(:viewer_busy_rejects, fn ->
              v1 = WSClient.open(port)
@@ -90,8 +91,10 @@ defmodule OnlyttyWeb.MetricsTest do
 
   test "the exposition contains no session id", %{conn: conn} do
     # Create a session, then prove its id never appears in the aggregate output.
-    {:ok, s} = SessionStore.create([])
+    {:ok, s} = SessionStore.create_or_attach(tok(), tok(), [])
     body = get(conn, ~p"/metrics").resp_body
     refute body =~ s.id
   end
+
+  defp tok, do: 16 |> :crypto.strong_rand_bytes() |> Base.url_encode64(padding: false)
 end

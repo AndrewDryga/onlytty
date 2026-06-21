@@ -14,9 +14,11 @@ defmodule OnlyttyWeb.OnlyttySocketTest do
   end
 
   defp new_session(opts \\ []) do
-    {:ok, s} = SessionStore.create(opts)
+    {:ok, s} = SessionStore.create_or_attach(token(), token(), opts)
     s
   end
+
+  defp token, do: 16 |> :crypto.strong_rand_bytes() |> Base.url_encode64(padding: false)
 
   defp runner_headers(token), do: [{"authorization", "Bearer " <> token}]
 

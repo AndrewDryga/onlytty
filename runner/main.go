@@ -110,8 +110,22 @@ func run() int {
 		}
 	}
 
-	// 1) Create the session (the relay never sees the secret below).
-	sess, err := client.CreateSession(ctx, *ttl)
+	// Generate the session id + runner token locally (claim-based resume: the relay
+	// just records them, so the SAME session can be re-established on any relay node
+	// after a node loss/deploy). The relay never sees the secret derived below.
+	id, err := randToken()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "onlytty:", err)
+		return 1
+	}
+	tok, err := randToken()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "onlytty:", err)
+		return 1
+	}
+
+	// 1) Register the session with the relay (returns the assigned expiry).
+	sess, err := client.CreateSession(ctx, id, tok, *ttl)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "onlytty:", err)
 		return 1
@@ -123,13 +137,13 @@ func run() int {
 		fmt.Fprintln(os.Stderr, "onlytty:", err)
 		return 1
 	}
-	keys, err := protocol.DeriveKeys(secret, sess.ID, passphrase)
+	keys, err := protocol.DeriveKeys(secret, id, passphrase)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "onlytty:", err)
 		return 1
 	}
 	secretB64 := base64.RawURLEncoding.EncodeToString(secret)
-	link := client.ViewerURL(sess.ID, secretB64, passphrase != "")
+	link := client.ViewerURL(id, secretB64, passphrase != "")
 
 	// Show the expiry the relay actually assigned (it clamps the TTL), not the raw flag.
 	printBanner(link, formatFingerprint(keys.Fingerprint), expiryLine(sess.ExpiresAt), controlMode, passphrase, *genPass, *noQR)
@@ -156,7 +170,7 @@ func run() int {
 	}
 
 	orch, err := runner.New(runner.Config{
-		Client: client, Session: psess, Keys: keys, SessionID: sess.ID, Token: sess.RunnerToken,
+		Client: client, Session: psess, Keys: keys, SessionID: id, Token: tok, TTL: *ttl,
 		Control: controlMode, LocalIn: os.Stdin, LocalOut: os.Stdout,
 		Notify: notifier(*verbose), Fingerprint: formatFingerprint(keys.Fingerprint),
 	})
@@ -337,6 +351,17 @@ func generatePassphrase() (string, error) {
 	}
 	enc := base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(b)
 	return formatFingerprint(enc), nil
+}
+
+// randToken returns 128 bits of CSPRNG entropy as URL-safe base64 (no padding) — the
+// format the relay expects for a session id / runner token. The runner generates both
+// so the same session can be re-claimed on any relay node after a node loss.
+func randToken() (string, error) {
+	b := make([]byte, 16)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	return base64.RawURLEncoding.EncodeToString(b), nil
 }
 
 // formatFingerprint groups the base32 fingerprint into 4-char blocks for eyeballing.

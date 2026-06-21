@@ -31,7 +31,7 @@ defmodule Onlytty.Application do
       # One supervised GenServer per session, registered cluster-wide under `:global`
       # by id (so any node can route to a session created on another). The per-node
       # supervisor is capped so unauthenticated session creation cannot exhaust a node
-      # (see Onlytty.SessionStore.create/1); tune with ONLYTTY_MAX_SESSIONS (per node).
+      # (see Onlytty.SessionStore.create_or_attach/3); tune with ONLYTTY_MAX_SESSIONS (per node).
       {DynamicSupervisor,
        name: Onlytty.SessionSupervisor,
        strategy: :one_for_one,

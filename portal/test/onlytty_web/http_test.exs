@@ -20,23 +20,26 @@ defmodule OnlyttyWeb.HTTPTest do
     conn
   end
 
+  # The runner generates its own id + runner token (URL-safe, >= 120 bits).
+  defp tok, do: 16 |> :crypto.strong_rand_bytes() |> Base.url_encode64(padding: false)
+
   describe "POST /api/sessions" do
-    test "returns id, runner_token and a no-expiry sentinel by default", %{conn: conn} do
-      conn = post(conn, ~p"/api/sessions")
+    test "registers the runner-supplied id+token; no expiry by default", %{conn: conn} do
+      id = tok()
+      token = tok()
+      conn = post(conn, ~p"/api/sessions", %{id: id, runner_token: token})
       assert conn.status == 201
       body = json_response(conn, 201)
 
-      assert is_binary(body["id"]) and byte_size(body["id"]) >= 16
-      assert is_binary(body["runner_token"]) and byte_size(body["runner_token"]) >= 16
-      assert body["id"] != body["runner_token"]
-
+      assert body["id"] == id
+      assert body["runner_token"] == token
       # No --ttl → no expiry → expires_at is the 0 sentinel.
       assert body["expires_at"] == 0
     end
 
     test "honors a custom ttl_seconds", %{conn: conn} do
       now = System.system_time(:second)
-      conn = post(conn, ~p"/api/sessions", %{ttl_seconds: 120})
+      conn = post(conn, ~p"/api/sessions", %{id: tok(), runner_token: tok(), ttl_seconds: 120})
       body = json_response(conn, 201)
       assert body["expires_at"] > now + 110
       assert body["expires_at"] <= now + 120 + 5
@@ -44,7 +47,10 @@ defmodule OnlyttyWeb.HTTPTest do
 
     test "honors a large ttl_seconds when no ceiling is configured", %{conn: conn} do
       now = System.system_time(:second)
-      conn = post(conn, ~p"/api/sessions", %{ttl_seconds: 999_999_999})
+
+      conn =
+        post(conn, ~p"/api/sessions", %{id: tok(), runner_token: tok(), ttl_seconds: 999_999_999})
+
       body = json_response(conn, 201)
       # ONLYTTY_MAX_TTL is unset in test, so there is no ceiling — the TTL is honored.
       assert body["expires_at"] > now + 999_999_999 - 5
@@ -52,16 +58,49 @@ defmodule OnlyttyWeb.HTTPTest do
 
     test "clamps a too-small ttl_seconds up to the 60s min", %{conn: conn} do
       now = System.system_time(:second)
-      conn = post(conn, ~p"/api/sessions", %{ttl_seconds: 1})
+      conn = post(conn, ~p"/api/sessions", %{id: tok(), runner_token: tok(), ttl_seconds: 1})
       body = json_response(conn, 201)
       assert body["expires_at"] >= now + 60 - 1
     end
 
     test "rejects a non-integer ttl_seconds with 400 and creates no session", %{conn: conn} do
-      conn = post(conn, ~p"/api/sessions", %{ttl_seconds: "abc"})
+      conn = post(conn, ~p"/api/sessions", %{id: tok(), runner_token: tok(), ttl_seconds: "abc"})
       body = json_response(conn, 400)
       assert body["error"] =~ "ttl_seconds"
       refute Map.has_key?(body, "id")
+    end
+
+    test "requires both id and runner_token", %{conn: conn} do
+      assert json_response(post(conn, ~p"/api/sessions", %{}), 400)["error"] =~ "id"
+
+      assert json_response(post(conn, ~p"/api/sessions", %{id: tok()}), 400)["error"] =~
+               "runner_token"
+
+      # A too-short / non-URL-safe id is rejected as invalid.
+      bad = post(conn, ~p"/api/sessions", %{id: "short", runner_token: tok()})
+      assert json_response(bad, 400)["error"] =~ "id"
+    end
+
+    test "re-posting the same id+token attaches (idempotent), keeping the expiry", %{conn: conn} do
+      id = tok()
+      token = tok()
+      first = post(conn, ~p"/api/sessions", %{id: id, runner_token: token, ttl_seconds: 120})
+      first_body = json_response(first, 201)
+      assert first_body["id"] == id
+
+      again = post(conn, ~p"/api/sessions", %{id: id, runner_token: token})
+      body = json_response(again, 201)
+      assert body["id"] == id
+      # Attaching keeps the original session's expiry; it does not reset the TTL.
+      assert body["expires_at"] == first_body["expires_at"]
+    end
+
+    test "the same id with a wrong token is rejected 401", %{conn: conn} do
+      id = tok()
+      assert post(conn, ~p"/api/sessions", %{id: id, runner_token: tok()}).status == 201
+
+      conn = post(conn, ~p"/api/sessions", %{id: id, runner_token: tok()})
+      assert json_response(conn, 401)["error"] =~ "another runner"
     end
   end
 

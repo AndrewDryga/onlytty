@@ -51,6 +51,7 @@ type Config struct {
 	Keys        protocol.Keys
 	SessionID   string
 	Token       string
+	TTL         time.Duration
 	Control     ControlMode
 	LocalIn     io.Reader
 	LocalOut    io.Writer
@@ -63,6 +64,7 @@ type Orchestrator struct {
 	client   *relayclient.Client
 	sess     *ptysession.Session
 	id, tok  string
+	ttl      time.Duration
 	control  ControlMode
 	r2v, v2r *protocol.Cipher
 	ring     *ptysession.Ring
@@ -121,7 +123,7 @@ func New(cfg Config) (*Orchestrator, error) {
 		return nil, err
 	}
 	return &Orchestrator{
-		client: cfg.Client, sess: cfg.Session, id: cfg.SessionID, tok: cfg.Token,
+		client: cfg.Client, sess: cfg.Session, id: cfg.SessionID, tok: cfg.Token, ttl: cfg.TTL,
 		control: cfg.Control, r2v: r2v, v2r: v2r,
 		ring:     ptysession.NewRing(ringBytes),
 		localIn:  cfg.LocalIn,
@@ -290,6 +292,28 @@ func (o *Orchestrator) connectLoop(ctx context.Context) {
 		if err != nil {
 			var fatal *relayclient.FatalDialError
 			if errors.As(err, &fatal) {
+				if fatal.NotFound() {
+					// The relay lost our session — its node was drained/replaced in a
+					// deploy, or it restarted. Re-claim the SAME id+token on whatever
+					// node we now reach, then re-dial; the viewer reconnects and we
+					// repaint from the ring. (A 401 below is a real auth failure.)
+					if _, rerr := o.client.CreateSession(ctx, o.id, o.tok, o.ttl); rerr != nil {
+						if ctx.Err() != nil {
+							return
+						}
+						select {
+						case <-ctx.Done():
+							return
+						case <-time.After(backoff):
+						}
+						backoff = min(backoff*2, maxBackoff)
+						continue
+					}
+					o.note("onlytty: relay session was replaced (deploy?) — re-establishing")
+					backoff = 500 * time.Millisecond
+					continue
+				}
+
 				o.note("onlytty: " + fatal.Error() + " — sharing stopped (command still running locally)")
 				return
 			}
