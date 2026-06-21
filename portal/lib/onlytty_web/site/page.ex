@@ -360,7 +360,7 @@ defmodule OnlyttyWeb.Site.Page do
             <div class="b-cipher" aria-hidden="true">#{cipher_lines()}</div>
           </div>
           #{bento_tile("md", "shield", "No inbound ports", "The CLI dials out over TLS. Nothing listens on your machine, so your firewall stays exactly as shut as it is now.")}
-          #{bento_tile("md", "trash", "Stores nothing", "The relay pairs two encrypted sockets and forgets you exist. No accounts, no history, no logs of your bytes.")}
+          #{bento_tile("md", "trash", "Nothing persisted", "Live sessions live in memory and vanish on expiry. No accounts, no history, nothing written to disk, no logs of your bytes.")}
           #{bento_tile("sm", "wifi", "Survives bad Wi-Fi", "Sessions ride out dropouts, sleep, and dead zones — lose signal on the subway, resurface, and your terminal's right where you left it.")}
           #{bento_tile("sm", "key", "The link is the key", "Anyone with the full link can watch and take control. Start it read-only, or add a passphrase the link alone can't decrypt.")}
           #{bento_tile("sm", "terminal", "Works with any CLI", "If it runs in a terminal, OnlyTTY shares it — agents, editors, REPLs, TUIs, or your whole shell.")}
