@@ -22,7 +22,6 @@ const term = new Terminal({
   fontFamily: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
   fontSize,
   scrollback: 5000,
-  allowProposedApi: true,
   theme: { background: "#0b0e14", foreground: "#c8d3e0" },
 });
 const fit = new FitAddon.FitAddon();
