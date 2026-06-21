@@ -30,7 +30,10 @@ node_modules/
 !.agent/rules/
 !.agent/skills/
 
-# .gemini may be globally ignored (local Gemini state); keep just the skills symlink
-!.gemini/
-.gemini/*
-!.gemini/skills
+# Per-agent tool dirs are local only — not published. The shared, public agent
+# layer lives in AGENTS.md, the CLAUDE.md/GEMINI.md symlinks to it, and
+# .agent/skills + .agent/rules (kept above). Each agent's skills symlink
+# regenerates on disk pointing at the committed .agent/skills.
+.claude/
+.codex/
+.gemini/

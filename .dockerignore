@@ -1,0 +1,14 @@
+# Belt-and-suspenders. The image build context is ./portal (see portal/Dockerfile
+# + CI), so these repo-root dirs are already outside it and can't be sent to the
+# daemon. This file only takes effect if the build context is ever the repo root —
+# in that case, keep local per-agent tooling, dev/CI material, design sources, and
+# VCS metadata out of the image.
+.git
+.claude/
+.codex/
+.gemini/
+.agent/
+dev/
+infra/
+onlytty
+*.tar

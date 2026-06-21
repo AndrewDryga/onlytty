@@ -1,0 +1,19 @@
+# Exclude local state, secrets, and non-infra material from any Terraform package
+# or module upload (e.g. a registry publish or remote run). Patterns are relative
+# to this module dir (infra/). The repo-root agent/dev entries are belt-and-
+# suspenders for tooling that packages from a wider root.
+.git
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+# real var files may hold values; the committed *.example template is fine to keep
+terraform.tfvars
+*.auto.tfvars
+# repo-root local/dev material that must never ride along in an infra package
+.agent/
+.claude/
+.codex/
+.gemini/
+dev/
