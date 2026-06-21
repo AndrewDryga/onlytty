@@ -351,6 +351,52 @@ test("browser viewer: mobile layout — Take control stays on-screen at 360px; ^
   }
 });
 
+test("browser viewer: shows an expiry countdown and Disconnect frees the viewer slot", async (t) => {
+  let chromium;
+  try { ({ chromium } = await import("playwright")); } catch { t.skip("playwright not installed"); return; }
+  if (!(await healthy())) { t.skip("relay not reachable at " + base); return; }
+
+  const { proc, link } = await startRunner(["--", "bash", "--norc", "--noprofile", "-i"]);
+  let browser;
+  try {
+    browser = await chromium.launch();
+    const page = await browser.newPage();
+    await page.goto(link);
+    await dismissVerify(page);
+    await page.waitForFunction(
+      () => document.getElementById("status-text").textContent === "connected",
+      null, { timeout: 10000 },
+    );
+
+    // The countdown is visible and shows time remaining.
+    await page.waitForFunction(() => {
+      const el = document.getElementById("ttl");
+      return el && !el.hidden && /expires in/.test(el.textContent);
+    }, null, { timeout: 5000 });
+
+    // Disconnect (via the ⋯ menu) → terminal state.
+    await page.click("#menu-btn");
+    await page.click("#disconnect");
+    await page.waitForFunction(
+      () => document.getElementById("status-text").textContent === "disconnected",
+      null, { timeout: 5000 },
+    );
+
+    // The single-viewer slot is freed: a fresh viewer can now connect (it would get
+    // "busy" if the disconnected one still held the lock).
+    const page2 = await browser.newPage();
+    await page2.goto(link);
+    await dismissVerify(page2);
+    await page2.waitForFunction(
+      () => document.getElementById("status-text").textContent === "connected",
+      null, { timeout: 10000 },
+    );
+  } finally {
+    if (browser) await browser.close();
+    proc.kill("SIGKILL");
+  }
+});
+
 test("browser viewer: a large single-line paste is confirmed and only sent on accept", async (t) => {
   let chromium;
   try { ({ chromium } = await import("playwright")); } catch { t.skip("playwright not installed"); return; }

@@ -52,7 +52,8 @@ defmodule Onlytty.Session do
   end
 
   @doc "Register the calling process as the runner. Returns the hello snapshot."
-  @spec join_runner(pid()) :: {:ok, %{viewers: non_neg_integer(), locked: boolean()}}
+  @spec join_runner(pid()) ::
+          {:ok, %{viewers: non_neg_integer(), locked: boolean(), expires_at: integer()}}
   def join_runner(session) do
     GenServer.call(session, {:join_runner, self()})
   end
@@ -62,7 +63,13 @@ defmodule Onlytty.Session do
   `:busy` when the single-viewer lock is already held.
   """
   @spec join_viewer(pid()) ::
-          {:ok, %{viewers: non_neg_integer(), locked: boolean(), runner_present: boolean()}}
+          {:ok,
+           %{
+             viewers: non_neg_integer(),
+             locked: boolean(),
+             expires_at: integer(),
+             runner_present: boolean()
+           }}
           | :busy
   def join_viewer(session) do
     GenServer.call(session, {:join_viewer, self()})
@@ -233,7 +240,11 @@ defmodule Onlytty.Session do
   # --- helpers ---------------------------------------------------------------
 
   defp hello_snapshot(state) do
-    %{viewers: if(state.viewer, do: 1, else: 0), locked: state.locked}
+    %{
+      viewers: if(state.viewer, do: 1, else: 0),
+      locked: state.locked,
+      expires_at: state.expires_at
+    }
   end
 
   defp maybe_demonitor(state, :runner) do

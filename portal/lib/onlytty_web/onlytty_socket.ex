@@ -136,7 +136,8 @@ defmodule OnlyttyWeb.OnlyttySocket do
       t: "hello",
       role: Atom.to_string(role),
       viewers: snap.viewers,
-      locked: snap.locked
+      locked: snap.locked,
+      expires_at: snap.expires_at
     })
   end
 

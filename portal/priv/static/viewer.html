@@ -23,6 +23,9 @@
   #status-text { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   #dot { width:.5rem; height:.5rem; border-radius:50%; background:var(--dim); flex:0 0 auto; }
   #dot.ok { background:var(--ok); } #dot.warn { background:var(--warn); }
+  #ttl { color:var(--dim); font-size:.72rem; flex:0 0 auto; white-space:nowrap; font-variant-numeric:tabular-nums; }
+  #ttl.soon { color:var(--warn); }
+  #disconnect { color:var(--warn); }
   .spacer { flex:1 1 auto; }
   #control, #menu-btn { flex:0 0 auto; }
   #menu-btn { font-size:1.05rem; line-height:1; padding:.3rem .55rem; }
@@ -82,6 +85,7 @@
   <div id="bar">
     <span id="status"><span id="dot"></span><span id="status-text">connecting…</span></span>
     <span id="fp" hidden></span>
+    <span id="ttl" hidden title="Time until this session expires"></span>
     <span class="spacer"></span>
     <button id="control">Take control</button>
     <button id="menu-btn" title="More controls" aria-label="More controls" aria-haspopup="true">⋯</button>
@@ -91,6 +95,7 @@
       <button id="keys-toggle" class="item" role="menuitem">Show / hide keys</button>
       <button id="menu-verify" class="item" role="menuitem">Verify fingerprint</button>
       <div class="item">Text size<span class="seg"><button id="font-dec" title="Smaller">A−</button><button id="font-inc" title="Larger">A+</button></span></div>
+      <button id="disconnect" class="item" role="menuitem">Disconnect</button>
     </div>
   </div>
   <div id="terminal"></div>

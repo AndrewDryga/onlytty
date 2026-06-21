@@ -52,6 +52,7 @@ let outSeq = 0; // viewer→runner sequence (starts at HELLO baseline)
 let lastSeq = 0; // runner→viewer replay floor (monotonic, runner is one process)
 let hasControl = false;
 let controlPending = false, controlTimer = null; // a "Take control" tap awaiting the host's answer
+let expiresAt = null, ttlTimer = null; // session expiry (unix s) from the hello, for the countdown
 let ptyCols = 80, ptyRows = 24;
 let ended = false, noReconnect = false, exitSeen = false;
 let backoff = 500;
@@ -297,6 +298,9 @@ function onControlText(data) {
   let m;
   try { m = JSON.parse(data); } catch { return; }
   switch (m.t) {
+    case "hello":
+      if (typeof m.expires_at === "number") { expiresAt = m.expires_at; startTtl(); }
+      break;
     case "peer_join": if (!ended) setStatus("connected", "ok"); break;
     case "peer_left": if (!ended) setStatus("runner disconnected — waiting…", "warn"); break;
     case "busy":
@@ -368,7 +372,52 @@ term.onData((d) => {
   sendInput(d);
 });
 
+// --- expiry countdown --------------------------------------------------------
+// The session has a server-side TTL; show the time remaining and, if we reach it,
+// fall to a terminal state ourselves so a missed EXIT can never leave the viewer
+// hanging at "waiting…" indefinitely.
+function startTtl() {
+  if (ttlTimer) clearInterval(ttlTimer);
+  tickTtl();
+  ttlTimer = setInterval(tickTtl, 1000);
+}
+function stopTtl() {
+  if (ttlTimer) { clearInterval(ttlTimer); ttlTimer = null; }
+  $("ttl").hidden = true;
+}
+function tickTtl() {
+  if (ended || expiresAt == null) { stopTtl(); return; }
+  const rem = expiresAt - Math.floor(Date.now() / 1000);
+  if (rem <= 0) { stopTtl(); leave("session expired", "expired"); return; }
+  const el = $("ttl");
+  el.hidden = false;
+  el.textContent = "expires in " + fmtDur(rem);
+  el.classList.toggle("soon", rem <= 300);
+}
+function fmtDur(s) {
+  const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600);
+  const m = Math.floor((s % 3600) / 60), sec = s % 60;
+  if (d) return `${d}d ${h}h`;
+  if (h) return `${h}h ${m}m`;
+  if (m) return `${m}m ${String(sec).padStart(2, "0")}s`;
+  return `${sec}s`;
+}
+
+// Terminal-state transition shared by Disconnect and expiry: stop reconnecting,
+// close the socket (which frees the single-viewer slot), and show why.
+function leave(line, status) {
+  if (ended) return;
+  ended = true; noReconnect = true; hasControl = false;
+  clearControlPending();
+  stopTtl();
+  try { if (ws) { ws.onclose = null; ws.close(); ws = null; } } catch {}
+  term.write(`\r\n\x1b[2m── ${line} ──\x1b[0m\r\n`);
+  setStatus(status, "warn");
+  updateControlUI();
+}
+
 // --- controls ----------------------------------------------------------------
+$("disconnect").onclick = () => leave("disconnected", "disconnected");
 $("control").onclick = () => {
   if (ended) return;
   if (hasControl) {
