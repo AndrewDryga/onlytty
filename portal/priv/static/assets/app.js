@@ -62,8 +62,24 @@ function updateControlUI() {
 }
 
 // Touch key bar is for phones (coarse pointer, no hover) — not touchscreen
-// laptops/2-in-1s, which have a precise pointer available and a real keyboard.
-if (matchMedia("(pointer: coarse) and (hover: none)").matches) document.body.classList.add("touch");
+// laptops/2-in-1s, which have a precise pointer and a real keyboard. The phone
+// default can be overridden per-device (e.g. an iPad + keyboard opting out, or a
+// desktop opting in) by a persisted toggle. Detection is reactive: it re-evaluates
+// when the pointer/hover capability changes (docking a keyboard, rotating, etc.).
+const KEYBAR_PREF = "onlytty.keybar"; // "show" | "hide" | absent (= auto)
+const touchMedia = matchMedia("(pointer: coarse) and (hover: none)");
+function keybarVisible() {
+  let pref = null;
+  try { pref = localStorage.getItem(KEYBAR_PREF); } catch {}
+  if (pref === "show") return true;
+  if (pref === "hide") return false;
+  return touchMedia.matches; // auto: phones get it, desktops don't
+}
+function applyKeybar() {
+  document.body.classList.toggle("touch", keybarVisible());
+}
+touchMedia.addEventListener?.("change", applyKeybar);
+applyKeybar();
 
 // --- crypto setup & connect --------------------------------------------------
 async function start(passphrase) {
@@ -391,6 +407,15 @@ $("paste").onclick = async () => {
   } catch {
     fatal("<h1>Paste blocked</h1><p>The browser denied clipboard access. Long-press the terminal to paste instead.</p><button data-dismiss>OK</button>");
   }
+};
+
+// Persisted show/hide toggle for the key bar (device-level; never stores anything
+// from the URL). Flips relative to what's currently shown, so one tap always works.
+$("keys-toggle").onclick = () => {
+  const next = document.body.classList.contains("touch") ? "hide" : "show";
+  try { localStorage.setItem(KEYBAR_PREF, next); } catch {}
+  applyKeybar();
+  term.focus();
 };
 
 $("font-inc").onclick = () => setFont(fontSize + 1);

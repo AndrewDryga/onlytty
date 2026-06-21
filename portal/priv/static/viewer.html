@@ -21,16 +21,16 @@
   #dot.ok { background:var(--ok); } #dot.warn { background:var(--warn); }
   .fp { color:var(--dim); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size:.72rem; }
   .spacer { flex:1 1 auto; }
-  button { background:#1b2030; color:var(--fg); border:1px solid #2a3346; border-radius:.45rem;
+  button { background:#262e44; color:var(--fg); border:1px solid #3c465f; border-radius:.45rem;
     padding:.35rem .55rem; font-size:.8rem; cursor:pointer; -webkit-tap-highlight-color:transparent; }
-  button:active { background:#252c40; }
+  button:active { background:#323c58; }
   button.on { background:var(--accent); border-color:var(--accent); color:#fff; }
   #control.live { background:var(--ok); border-color:var(--ok); color:#04210f; }
   #terminal { flex:1 1 auto; min-height:0; padding:.25rem; overflow:hidden; }
   #keys { display:none; gap:.3rem; padding:.4rem; padding-bottom: calc(.4rem + env(safe-area-inset-bottom));
     background:var(--bar); border-top:1px solid #1c2333; overflow-x:auto; }
   #keys button { flex:0 0 auto; min-width:2.4rem; font-family: ui-monospace, monospace; }
-  #keys button.user-key { background:#222a3d; font-family: inherit; }
+  #keys button.user-key { background:#2c3650; font-family: inherit; }
   body.touch #keys { display:flex; }
   /* shortcut editor (rendered into #overlay) */
   #sc-list { text-align:left; margin:.6rem 0; max-height:40vh; overflow-y:auto; }
@@ -64,6 +64,7 @@
     <span class="spacer"></span>
     <button id="font-dec" title="Smaller">A−</button>
     <button id="font-inc" title="Larger">A+</button>
+    <button id="keys-toggle" title="Show/hide key bar" aria-label="Show or hide the key bar">⌨</button>
     <button id="paste" title="Paste from clipboard">Paste</button>
     <button id="control">Take control</button>
   </div>

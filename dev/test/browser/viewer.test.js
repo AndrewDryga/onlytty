@@ -192,6 +192,38 @@ test("browser viewer: pin a custom shortcut — it sends, persists across reload
   }
 });
 
+test("browser viewer: key-bar show/hide toggle persists across reload", async (t) => {
+  let chromium;
+  try { ({ chromium } = await import("playwright")); } catch { t.skip("playwright not installed"); return; }
+  if (!(await healthy())) { t.skip("relay not reachable at " + base); return; }
+
+  const { proc, link } = await startRunner(["--", "bash", "--norc", "--noprofile", "-i"]);
+  let browser;
+  try {
+    browser = await chromium.launch();
+    const page = await browser.newPage();
+    await page.goto(link);
+    await page.waitForSelector("#keys-toggle");
+
+    // Desktop default (precise pointer + hover): the key bar is hidden.
+    assert.equal(await page.locator("#keys").isVisible(), false, "bar hidden by default on desktop");
+
+    // Toggle it on; it shows and the preference persists across a reload.
+    await page.click("#keys-toggle");
+    assert.equal(await page.locator("#keys").isVisible(), true, "bar shown after toggle");
+    await page.reload();
+    await page.waitForSelector("#keys-toggle");
+    assert.equal(await page.locator("#keys").isVisible(), true, "bar still shown after reload");
+
+    // Toggle it back off.
+    await page.click("#keys-toggle");
+    assert.equal(await page.locator("#keys").isVisible(), false, "bar hidden after second toggle");
+  } finally {
+    if (browser) await browser.close();
+    proc.kill("SIGKILL");
+  }
+});
+
 test("browser viewer: wrong passphrase shows a recoverable overlay; the right one connects", async (t) => {
   let chromium;
   try { ({ chromium } = await import("playwright")); } catch { t.skip("playwright not installed"); return; }
