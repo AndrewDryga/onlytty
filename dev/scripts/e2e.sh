@@ -31,8 +31,15 @@ else
   if curl -fsS "$HEALTH" >/dev/null 2>&1; then
     echo "e2e: a server is already running at $BASE — stop it, or set ONLYTTY_REUSE_SERVER=1 to use it"; exit 1
   fi
+  # Compile up front, OUTSIDE the readiness window below. A cold CI build (no _build
+  # cache) takes longer than the health-wait, which would otherwise look like the relay
+  # "never came up"; doing it here also surfaces a real compile error as a compile error.
+  echo "e2e: compiling relay…"
+  if ! ( cd "$ROOT/portal" && mix deps.get && mix compile ) >/tmp/relay-e2e-server.log 2>&1; then
+    echo "e2e: relay failed to compile — log:"; tail -30 /tmp/relay-e2e-server.log; exit 1
+  fi
   echo "e2e: starting relay…"
-  ( cd "$ROOT/portal" && mix deps.get >/dev/null 2>&1 && exec mix phx.server ) >/tmp/relay-e2e-server.log 2>&1 &
+  ( cd "$ROOT/portal" && exec mix phx.server ) >>/tmp/relay-e2e-server.log 2>&1 &
   started=$!
   for i in $(seq 1 60); do
     if curl -fsS "$HEALTH" >/dev/null 2>&1; then break; fi
