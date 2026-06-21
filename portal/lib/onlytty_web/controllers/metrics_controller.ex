@@ -2,11 +2,13 @@ defmodule OnlyttyWeb.MetricsController do
   @moduledoc """
   `GET /metrics` — Prometheus text exposition of the low-cardinality operator
   counters in `Onlytty.Metrics`. Aggregate-only: it reveals nothing about any
-  individual session. It must still be firewalled or kept behind the proxy, not
-  exposed publicly (see README's deploy/ops section).
+  individual session. Access is gated by `OnlyttyWeb.MetricsAccess` (loopback by
+  default, or a bearer token), so it is not reachable by the public internet.
   """
 
   use OnlyttyWeb, :controller
+
+  plug OnlyttyWeb.MetricsAccess
 
   def index(conn, _params) do
     conn

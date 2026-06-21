@@ -32,7 +32,8 @@ defmodule OnlyttyWeb.Router do
     get "/sitemap.xml", PageController, :sitemap
 
     get "/healthz", SessionController, :healthz
-    # Aggregate operator metrics (Prometheus text). Firewall it — never public.
+    # Aggregate operator metrics (Prometheus text). Access-gated by
+    # OnlyttyWeb.MetricsAccess: loopback-only unless ONLYTTY_METRICS_TOKEN is set.
     get "/metrics", MetricsController, :index
     get "/s/:id", SessionController, :viewer
 

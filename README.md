@@ -164,6 +164,7 @@ context. Without HTTPS the viewer refuses to run (and the secret could leak in t
 | `ONLYTTY_ALLOWED_ORIGINS` | _(same host)_ | comma-separated origins allowed to open a **browser viewer** WS (defense-in-depth). Default requires the Origin's host to match the request's; set this only if the viewer is served from a different host. The runner WS is never gated. |
 | `ONLYTTY_RATELIMIT_MAX` | `30` | max `POST /api/sessions` per window per IP (`0` disables) |
 | `ONLYTTY_RATELIMIT_WINDOW` | `60` | rate-limit window in seconds |
+| `ONLYTTY_METRICS_TOKEN` | — | bearer token for `GET /metrics`; unset = loopback-only, set = also allow `Authorization: Bearer <token>` from any IP |
 | `SENTRY_DSN` | — | backend error reporting; unset disables it (dev/test/CI never report) |
 | `SENTRY_RELEASE` | — | optional release tag for Sentry events |
 
@@ -182,8 +183,12 @@ either rate-limit at the proxy too, or add a trusted-`X-Forwarded-For` plug (e.g
 `GET /metrics` exposes low-cardinality operator counters in Prometheus text format.
 They are **aggregate-only** — there are no per-session labels (no session id, no IP),
 so the endpoint reveals lifecycle totals and nothing about any individual session.
-**Do not expose it publicly**: keep it on an internal interface, firewall it, or scrape
-it behind the proxy (it has no auth of its own).
+Access is enforced, not just advised: by default `/metrics` answers only a **loopback**
+client (an on-box scrape); every other request gets `404`. To let a remote scraper
+(e.g. Prometheus reaching it through the load balancer) read it, set
+`ONLYTTY_METRICS_TOKEN` and send `Authorization: Bearer <token>`. The check is against
+the real TCP peer — `X-Forwarded-For` is not trusted — so a spoofed loopback address
+can't bypass it.
 
 | Counter | Meaning |
 |---------|---------|

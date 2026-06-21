@@ -70,6 +70,14 @@ if win = System.get_env("ONLYTTY_RATELIMIT_WINDOW") do
   config :onlytty, :rate_limit_window_ms, String.to_integer(win) * 1000
 end
 
+# ONLYTTY_METRICS_TOKEN — bearer token that lets a remote scraper (e.g. Prometheus
+# behind the LB) read GET /metrics. Without it, /metrics is loopback-only; with it,
+# a request carrying `Authorization: Bearer <token>` is allowed from any IP. See
+# OnlyttyWeb.MetricsAccess. Aggregate counters only — still never expose it broadly.
+if token = System.get_env("ONLYTTY_METRICS_TOKEN") do
+  config :onlytty, :metrics_token, token
+end
+
 if config_env() == :prod do
   # The secret key base is used to sign/encrypt cookies and other secrets.
   # A default value is used in config/dev.exs and config/test.exs but you
