@@ -714,24 +714,38 @@ defmodule OnlyttyWeb.Site.Page do
     ~s(<span class="c-p" data-think-spin>⠋</span> <span class="c-dim" data-think-word>Thinking</span><span class="c-dim">…</span>)
   end
 
-  # The phone overlay: the same session, live on a phone, ready to drive.
+  # The phone overlay, modelled on the real mobile viewer (priv/static/viewer.html):
+  # a status bar (connected + a control button), the terminal, and a key toolbar.
   defp phone(name, opts) do
-    body =
-      Enum.join(
-        [
-          ~s(<span class="c-ok">✻</span> <span class="c-b">#{h(name)}</span>),
-          prompt_tail(opts)
-        ],
-        "\n"
-      )
-
     ~s(<div class="phone" aria-hidden="true"><div class="phone-scr">) <>
-      ~s(<div class="phone-top"><span class="phone-host">🔒 onlytty.com/s/k7p2qx</span><span class="phone-live"><i></i>live</span></div>) <>
-      ~s(<pre class="phone-body">) <>
-      body <>
+      ~s(<div class="phone-bar"><span class="phone-stat"><i></i>connected</span><span class="phone-ctl">control</span></div>) <>
+      ~s(<pre class="phone-term">) <>
+      phone_body(name, opts) <>
       ~s(</pre>) <>
-      ~s(<div class="phone-keys"><span>esc</span><span>tab</span><span>^C</span><span class="phone-take">control</span></div>) <>
+      ~s(<div class="phone-keys"><span>Esc</span><span>Tab</span><span>Ctrl</span><span>^C</span></div>) <>
       ~s(</div></div>)
+  end
+
+  # The phone's terminal — the same session as the desktop, mirrored on the phone.
+  # For an agent it shows it working with the synced "thinking" line (thinking/0);
+  # otherwise the tool running with a blinking prompt.
+  defp phone_body(name, opts) do
+    lines =
+      if opts[:agent] do
+        [
+          ~s(<span class="c-dim">› refactor the auth module</span>),
+          ~s(<span class="c-ok">●</span> Edited auth.ex <span class="c-ok">+18</span> <span class="c-dim">−4</span>),
+          ~s(<span class="c-ok">✻</span> <span class="c-b">#{h(name)}</span>),
+          thinking()
+        ]
+      else
+        [
+          ~s(<span class="c-ok">✻</span> <span class="c-b">#{h(name)}</span> <span class="c-dim">live</span>),
+          prompt_tail(opts)
+        ]
+      end
+
+    Enum.join(lines, "\n")
   end
 
   # A real, scannable QR drawn with terminal half-block characters — like the

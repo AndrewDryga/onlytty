@@ -284,21 +284,25 @@ p { margin: 0 0 1rem; }
   padding: 7px; border-radius: 30px; background: linear-gradient(160deg, #262b38, #0b0d13);
   border: 1px solid var(--line-2); box-shadow: 0 30px 60px rgba(0, 0, 0, .62), var(--ring);
   animation: phone-in .6s var(--ease) .55s backwards; }
-.phone-scr { border-radius: 23px; overflow: hidden; background: #0a0d15; border: 1px solid var(--line); }
-.phone-top { display: flex; align-items: center; justify-content: space-between; gap: .4rem;
-  padding: .5rem .6rem; background: #0e1119; border-bottom: 1px solid var(--line); }
-.phone-host { font-size: .56rem; color: var(--dim); font-family: ui-monospace, monospace;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.phone-live { display: inline-flex; align-items: center; gap: .25rem; font-size: .54rem; font-weight: 700;
-  text-transform: uppercase; color: var(--ok); flex: 0 0 auto; }
-.phone-live i { width: .4rem; height: .4rem; border-radius: 50%; background: var(--ok); animation: pulse 2s var(--ease-out) infinite; }
-.phone-body { margin: 0; padding: .75rem .65rem; font-size: .58rem; line-height: 1.75;
-  font-family: ui-monospace, monospace; color: var(--fg-2); white-space: pre-wrap; }
-.phone-keys { display: flex; gap: .25rem; padding: .45rem .5rem .6rem; border-top: 1px solid var(--line); }
-.phone-keys span { flex: 1 1 0; text-align: center; font-size: .52rem; padding: .34rem 0; border-radius: 6px;
-  background: rgba(255, 255, 255, .05); color: var(--fg-2); font-family: ui-monospace, monospace; }
-.phone-take { flex: 1.7 1 0 !important; background: var(--accent-soft) !important;
-  color: var(--accent-2) !important; border: 1px solid var(--accent-line); font-weight: 700; }
+.phone-scr { display: flex; flex-direction: column; border-radius: 23px; overflow: hidden;
+  background: #0a0d15; border: 1px solid var(--line); }
+.phone-bar { display: flex; align-items: center; gap: .4rem; padding: .45rem .55rem;
+  background: #11151f; border-bottom: 1px solid var(--line); }
+.phone-stat { display: inline-flex; align-items: center; gap: .3rem; font-size: .54rem;
+  font-weight: 600; color: var(--dim); }
+.phone-stat i { width: .38rem; height: .38rem; border-radius: 50%; background: var(--ok);
+  animation: pulse 2s var(--ease-out) infinite; flex: 0 0 auto; }
+.phone-ctl { margin-left: auto; flex: 0 0 auto; font-size: .52rem; font-weight: 700;
+  padding: .2rem .45rem; border-radius: 6px; background: var(--accent-soft);
+  color: var(--accent-2); border: 1px solid var(--accent-line); }
+.phone-term { flex: 1 1 auto; margin: 0; padding: .65rem .6rem; min-height: 5.75rem;
+  font-size: .58rem; line-height: 1.7; font-family: ui-monospace, monospace;
+  color: var(--fg-2); white-space: pre-wrap; }
+.phone-keys { display: flex; gap: .25rem; padding: .4rem .45rem .5rem;
+  background: #11151f; border-top: 1px solid var(--line); }
+.phone-keys span { flex: 1 1 0; text-align: center; font-size: .5rem; padding: .3rem 0;
+  border-radius: 5px; background: rgba(255, 255, 255, .05); color: var(--fg-2);
+  font-family: ui-monospace, monospace; border: 1px solid var(--line); }
 
 /* ── trust strip ── */
 .trust { border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); background: rgba(255, 255, 255, .012); }
