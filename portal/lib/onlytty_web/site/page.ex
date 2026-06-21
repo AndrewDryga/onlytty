@@ -61,7 +61,7 @@ defmodule OnlyttyWeb.Site.Page do
     layout(
       title: "Control #{tool.name} from your phone · OnlyTTY",
       description:
-        "Run #{tool.name} on your machine and drive it from your phone with OnlyTTY. #{tool.why} End-to-end encrypted, read-only by default, nothing stored.",
+        "Run #{tool.name} on your machine and drive it from your phone with OnlyTTY. #{tool.why} End-to-end encrypted, opens view-only but anyone with the link can take control, nothing stored.",
       path: "/control/#{tool.slug}",
       json_ld: [tool_software_ld(tool), breadcrumb_ld(tool)],
       body: tool_body(tool)
@@ -489,7 +489,7 @@ defmodule OnlyttyWeb.Site.Page do
         <p class="lede">#{h(t.name)} is #{h(lead_phrase(t.what))} OnlyTTY runs it on your own machine and hands you a private link to drive it from your phone — the terminal stays live where you launched it; your phone is just a second screen and keyboard.</p>
         <ul class="tool-points">
           #{point.("End-to-end encrypted — the relay only ever forwards ciphertext, never your keystrokes.")}
-          #{point.("Read-only by default — share a link that can only watch, or take control with a tap.")}
+          #{point.(~s(View-only by default — but the link is the key: anyone with it can take control with a tap. Lock it to watching with <code>--control view-only</code>.))}
           #{point.("Nothing stored — sessions are in-memory and expire; no account, no inbound ports.")}
         </ul>
         <p class="muted">New to OnlyTTY? <a href="/#how">See how it works</a> · <a href="/#faq">read the FAQ</a>.</p>

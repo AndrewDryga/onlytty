@@ -21,7 +21,7 @@ bytes, never your terminal.
 - **No inbound ports.** The runner dials out over WebSocket/TLS; nothing listens on your machine.
 - **E2E by default.** AES-256-GCM under keys derived from a secret the relay never sees ([PROTOCOL.md](PROTOCOL.md)).
 - **Mobile-first viewer.** xterm.js with a touch key bar, paste guard, reconnect, and wake lock.
-- **Command-only or whole-shell.** Share just `claude`, or your `$SHELL`. Read-only by default; take control with a tap.
+- **Command-only or whole-shell.** Share just `claude`, or your `$SHELL`. The link opens view-only, but anyone who has it can take control with a tap — pass `--control view-only` to lock it to watching.
 - **Minimal & boring.** A Go runner (stdlib crypto), an Elixir relay that stores nothing, a dependency-light vanilla-JS viewer.
 
 ---
