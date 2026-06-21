@@ -213,6 +213,56 @@ defmodule OnlyttyWeb.OnlyttySocketTest do
     end
   end
 
+  describe "frame-size cap" do
+    # Bandit logs the oversize close at :error level; capture it so the suite stays quiet.
+    @describetag :capture_log
+
+    test "an oversize frame is rejected (1009) and never reaches the peer", %{port: port} do
+      s = new_session()
+
+      runner = WSClient.open(port)
+      r_ref = WSClient.connect!(runner, "/ws/runner/#{s.id}", runner_headers(s.runner_token))
+      assert WSClient.recv_json(runner, r_ref)["t"] == "hello"
+
+      viewer = WSClient.open(port)
+      v_ref = WSClient.connect!(viewer, "/ws/viewer/#{s.id}", [])
+      assert WSClient.recv_json(viewer, v_ref)["t"] == "hello"
+      assert WSClient.recv_json(viewer, v_ref)["t"] == "peer_join"
+      assert WSClient.recv_json(runner, r_ref)["t"] == "peer_join"
+
+      # A normal-size frame relays through fine.
+      WSClient.send_binary(runner, r_ref, <<1, 2, 3>>)
+      assert WSClient.recv_binary(viewer, v_ref) == <<1, 2, 3>>
+
+      before = Onlytty.Metrics.value(:frame_size_rejects)
+
+      # Just over the 1 MiB default cap: Bandit closes the sender with 1009 before the
+      # payload is ever forwarded, so the viewer only learns the runner dropped.
+      WSClient.send_binary(runner, r_ref, :binary.copy(<<0>>, 1024 * 1024 + 1))
+      assert {1009, _} = WSClient.recv_close(runner, r_ref)
+      assert WSClient.recv_json(viewer, v_ref)["t"] == "peer_left"
+      WSClient.refute_frame(viewer, v_ref)
+      assert Onlytty.Metrics.value(:frame_size_rejects) == before + 1
+
+      WSClient.close(viewer)
+    end
+
+    test "the cap is runtime-configurable", %{port: port} do
+      # Lower the cap; the upgrade reads it, so connect AFTER setting it.
+      Application.put_env(:onlytty, :max_frame_bytes, 1024)
+      on_exit(fn -> Application.delete_env(:onlytty, :max_frame_bytes) end)
+
+      s = new_session()
+      runner = WSClient.open(port)
+      r_ref = WSClient.connect!(runner, "/ws/runner/#{s.id}", runner_headers(s.runner_token))
+      assert WSClient.recv_json(runner, r_ref)["t"] == "hello"
+
+      # 2 KiB > the 1 KiB cap → rejected; a small frame would have passed.
+      WSClient.send_binary(runner, r_ref, :binary.copy(<<0>>, 2048))
+      assert {1009, _} = WSClient.recv_close(runner, r_ref)
+    end
+  end
+
   describe "ttl" do
     test "a session past its ttl closes the sockets with reason expired", %{port: port} do
       # Min ttl is clamped to 60s, so drive expiry directly via the session pid

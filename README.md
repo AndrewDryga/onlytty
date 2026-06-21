@@ -142,6 +142,7 @@ context. Without HTTPS the viewer refuses to run (and the secret could leak in t
 | `ONLYTTY_MAX_TTL` | `604800` | hard ceiling on session TTL in seconds (7 days); requested TTLs are clamped to it |
 | `ONLYTTY_IDLE_TIMEOUT` | `600` | close after this many seconds with no runner traffic |
 | `ONLYTTY_MAX_SESSIONS` | `2000` | cap on concurrent sessions (bounds create-spam) |
+| `ONLYTTY_MAX_FRAME_BYTES` | `1048576` | max size of a single WebSocket frame (1 MiB); over-cap frames are closed (1009), never forwarded — bounds memory use and covert-tunnel abuse |
 | `ONLYTTY_RATELIMIT_MAX` | `30` | max `POST /api/sessions` per window per IP (`0` disables) |
 | `ONLYTTY_RATELIMIT_WINDOW` | `60` | rate-limit window in seconds |
 | `SENTRY_DSN` | — | backend error reporting; unset disables it (dev/test/CI never report) |
@@ -177,7 +178,7 @@ it behind the proxy (it has no auth of its own).
 | `onlytty_sessions_ttl_expired_total` | sessions closed by TTL (includes never-connected reaps) |
 | `onlytty_sessions_idle_expired_total` | sessions closed by the idle timeout |
 | `onlytty_rate_limit_rejects_total` | create requests refused by the per-IP rate limiter |
-| `onlytty_frame_size_rejects_total` | frames rejected for exceeding the max frame size (stub; wired when that hook lands) |
+| `onlytty_frame_size_rejects_total` | frames rejected for exceeding `ONLYTTY_MAX_FRAME_BYTES` (closed 1009) |
 
 For richer Phoenix/VM telemetry, the idiomatic alternative is the
 `telemetry_metrics_prometheus_core` reporter wired into `OnlyttyWeb.Telemetry`; this

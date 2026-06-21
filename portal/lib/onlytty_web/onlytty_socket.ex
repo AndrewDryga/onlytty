@@ -110,6 +110,19 @@ defmodule OnlyttyWeb.OnlyttySocket do
   def handle_info(_msg, state), do: {:ok, state}
 
   @impl true
+  # Bandit rejects an oversize frame at the parser (before handle_in, so it is never
+  # forwarded to the peer) and terminates us with this reason. Count it so operators
+  # can see frame-cap hits; the close code on the wire is 1009 (message too big).
+  def terminate({:error, :max_frame_size_exceeded}, state) do
+    Onlytty.Metrics.inc(:frame_size_rejects)
+
+    Logger.info(
+      "relay session #{String.slice(state.id, 0, 8)}: #{state.role} frame over cap — closed"
+    )
+
+    :ok
+  end
+
   def terminate(_reason, state) do
     # Log only a short id prefix — the full id is the viewer connect capability.
     Logger.info("relay session #{String.slice(state.id, 0, 8)}: #{state.role} socket closed")

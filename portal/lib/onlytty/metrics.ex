@@ -33,8 +33,8 @@ defmodule Onlytty.Metrics do
      "Sessions closed by TTL expiry (includes reaping a session whose runner never connected)."},
     {:sessions_idle_expired, "Sessions closed by the idle timeout."},
     {:rate_limit_rejects, "Session-create requests refused by the per-IP rate limiter."},
-    # Stub: stays 0 until a WebSock close hook surfaces frame-size violations
-    # (the cap is enforced today by Bandit's max_frame_size, which has no app hook).
+    # Counted in OnlyttySocket.terminate/2 when Bandit closes a socket (1009) for an
+    # over-cap frame (ONLYTTY_MAX_FRAME_BYTES).
     {:frame_size_rejects, "Frames rejected for exceeding the maximum frame size."}
   ]
 

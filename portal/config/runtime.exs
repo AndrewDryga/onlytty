@@ -43,6 +43,14 @@ if max = System.get_env("ONLYTTY_MAX_SESSIONS") do
   config :onlytty, :max_sessions, String.to_integer(max)
 end
 
+# ONLYTTY_MAX_FRAME_BYTES — max size of a single WebSocket frame (default 1048576 = 1
+# MiB). Bandit closes the socket with 1009 on violation, before the payload is buffered
+# or forwarded — bounds memory use and covert-tunnel abuse. Keep it generous enough for
+# a large paste / full-screen redraw (~256KB–1MB).
+if bytes = System.get_env("ONLYTTY_MAX_FRAME_BYTES") do
+  config :onlytty, :max_frame_bytes, String.to_integer(bytes)
+end
+
 # Per-IP throttle for POST /api/sessions (defaults: 30 requests / 60s).
 #   ONLYTTY_RATELIMIT_MAX     — max creates per window per IP ("0" disables)
 #   ONLYTTY_RATELIMIT_WINDOW  — window length in seconds

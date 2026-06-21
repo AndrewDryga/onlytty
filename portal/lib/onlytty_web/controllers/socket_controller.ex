@@ -17,12 +17,19 @@ defmodule OnlyttyWeb.SocketController do
 
   alias Onlytty.{Session, SessionStore}
 
-  # Cap a single frame so a client can't OOM the relay. Terminal frames are tiny;
-  # 1 MiB is generous headroom for a large paste / screen repaint.
-  @max_frame_size 1024 * 1024
+  # Cap a single frame so a client can't OOM the relay (Bandit enforces this at the
+  # frame parser, before any payload is buffered, and closes with 1009 on violation —
+  # see OnlyttySocket.terminate/2, which counts the reject). Terminal frames are tiny;
+  # 1 MiB is generous headroom for a large paste / screen repaint. Tunable at runtime
+  # via ONLYTTY_MAX_FRAME_BYTES for operators who want a tighter covert-tunnel bound.
+  @default_max_frame_size 1024 * 1024
   # Socket read idle timeout (ms). The Session enforces the real idle/TTL policy;
   # this just reaps dead TCP connections.
   @socket_timeout 120_000
+
+  defp max_frame_size do
+    Application.get_env(:onlytty, :max_frame_bytes, @default_max_frame_size)
+  end
 
   def runner(conn, %{"id" => id}) do
     with {:ok, pid} <- SessionStore.lookup(id),
@@ -44,7 +51,7 @@ defmodule OnlyttyWeb.SocketController do
   defp upgrade(conn, state) do
     conn
     |> WebSockAdapter.upgrade(OnlyttyWeb.OnlyttySocket, state,
-      max_frame_size: @max_frame_size,
+      max_frame_size: max_frame_size(),
       timeout: @socket_timeout
     )
     |> halt()
