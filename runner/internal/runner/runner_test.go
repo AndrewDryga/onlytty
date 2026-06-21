@@ -187,6 +187,34 @@ func assertControl(t *testing.T, c *connState, want byte) {
 	}
 }
 
+// On command exit the runner emits the encrypted EXIT frame AND a plaintext `bye`
+// text frame, so a viewer that missed EXIT still transitions to a terminal state
+// instead of hanging on "runner disconnected".
+func TestExitSignalsByeTextFrame(t *testing.T) {
+	o, _, _ := newTestOrch(t, ControlAsk)
+	c := withConn(o)
+
+	o.signalExit()
+
+	select {
+	case m := <-c.send:
+		if m.text || m.kind != protocol.KindExit {
+			t.Fatalf("first frame: got text=%v kind=%d, want a sealed EXIT", m.text, m.kind)
+		}
+	default:
+		t.Fatal("no EXIT frame emitted on exit")
+	}
+
+	select {
+	case m := <-c.send:
+		if !m.text || string(m.payload) != `{"t":"bye","reason":"ended"}` {
+			t.Fatalf("second frame: got text=%v payload=%q, want the bye text frame", m.text, m.payload)
+		}
+	default:
+		t.Fatal("no plaintext bye frame emitted on exit")
+	}
+}
+
 // ControlOnce grants the first request, then denies every later one — even after the
 // viewer releases (or, by the same onceUsed latch, reconnects).
 func TestControlOnceGrantsThenDenies(t *testing.T) {

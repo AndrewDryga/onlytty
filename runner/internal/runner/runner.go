@@ -89,7 +89,13 @@ type Orchestrator struct {
 type outMsg struct {
 	kind    byte
 	payload []byte
+	text    bool // write payload as a plaintext relay-control text frame, not a sealed binary one
 }
+
+// byeEnded is the plaintext relay-control frame the runner sends when its command
+// exits, so a viewer that missed the encrypted EXIT still sees a terminal state
+// (the relay closes the session on it — see PROTOCOL.md). It leaks nothing.
+var byeEnded = []byte(`{"t":"bye","reason":"ended"}`)
 
 type connState struct {
 	ws      *websocket.Conn
@@ -135,7 +141,7 @@ func (o *Orchestrator) Run(parent context.Context) int {
 	// flush window before teardown — best-effort, since the relay/TTL ends it anyway.
 	go func() {
 		_ = o.sess.Wait()
-		o.emit(protocol.KindExit, protocol.EncodeExit(int32(o.sess.ExitCode())))
+		o.signalExit()
 		time.Sleep(exitFlush)
 		cancel()
 		_ = o.sess.Close() // unblocks pumpOutput
@@ -218,19 +224,37 @@ func (o *Orchestrator) keepalive(ctx context.Context) {
 	}
 }
 
-// emit queues a message for the current viewer connection. It never blocks the
-// caller: if the queue is full the frame is dropped and a repaint is scheduled, so
+// signalExit tells the viewer the command ended: the encrypted EXIT frame (the exact
+// code) plus a plaintext bye so a viewer that missed EXIT still transitions to a
+// terminal state instead of hanging on "runner disconnected". Both are best-effort —
+// the relay/TTL ends the session regardless.
+func (o *Orchestrator) signalExit() {
+	o.emit(protocol.KindExit, protocol.EncodeExit(int32(o.sess.ExitCode())))
+	o.emitText(byeEnded)
+}
+
+// emit queues a sealed binary message for the current viewer connection. It never blocks
+// the caller: if the queue is full the frame is dropped and a repaint is scheduled, so
 // local mirroring is never held up by a slow viewer.
 func (o *Orchestrator) emit(kind byte, payload []byte) {
+	o.enqueue(outMsg{kind: kind, payload: append([]byte(nil), payload...)})
+}
+
+// emitText queues a plaintext relay-control text frame (e.g. bye). Like emit it is
+// best-effort and never blocks the caller.
+func (o *Orchestrator) emitText(payload []byte) {
+	o.enqueue(outMsg{text: true, payload: append([]byte(nil), payload...)})
+}
+
+func (o *Orchestrator) enqueue(m outMsg) {
 	o.connMu.Lock()
 	c := o.conn
 	o.connMu.Unlock()
 	if c == nil {
 		return
 	}
-	cp := append([]byte(nil), payload...)
 	select {
-	case c.send <- outMsg{kind, cp}:
+	case c.send <- m:
 	case <-c.done:
 	default:
 		c.dropped.Store(true)
@@ -327,6 +351,13 @@ func (o *Orchestrator) sender(ctx context.Context, c *connState) {
 				return
 			}
 		case m := <-c.send:
+			if m.text { // plaintext relay-control frame (bye) — no seal, no repaint
+				if o.writeText(ctx, c, m.payload) != nil {
+					c.fail()
+					return
+				}
+				continue
+			}
 			if c.dropped.Swap(false) {
 				if o.sendRepaint(ctx, c) != nil {
 					c.fail()
@@ -373,6 +404,15 @@ func (o *Orchestrator) writeMsg(ctx context.Context, c *connState, kind byte, pa
 	wctx, cancel := context.WithTimeout(ctx, writeTimeout)
 	defer cancel()
 	return c.ws.Write(wctx, websocket.MessageBinary, frame)
+}
+
+// writeText writes a plaintext relay-control text frame (the runner→relay control
+// channel — e.g. bye). Only the sender goroutine calls it, so the connection keeps a
+// single writer.
+func (o *Orchestrator) writeText(ctx context.Context, c *connState, payload []byte) error {
+	wctx, cancel := context.WithTimeout(ctx, writeTimeout)
+	defer cancel()
+	return c.ws.Write(wctx, websocket.MessageText, payload)
 }
 
 func (o *Orchestrator) handleControl(c *connState, data []byte) {
