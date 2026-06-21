@@ -1,0 +1,20 @@
+version: 2
+
+updates:
+  # Server image base layers (the hexpm/elixir builder + the debian runner in
+  # portal/Dockerfile). Dependabot bumps the image refs it can resolve so OS/base
+  # CVEs aren't forgotten between releases. The bare ELIXIR_VERSION / OTP_VERSION /
+  # DEBIAN_VERSION ARGs that compose those refs still need the manual cadence in
+  # SECURITY.md ("Base-image refresh"), coordinated with the toolchain bump.
+  - package-ecosystem: "docker"
+    directory: "/portal"
+    schedule:
+      interval: "monthly"
+    labels: ["dependencies", "docker"]
+
+  # CI action versions — supply-chain hygiene for the workflows.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    labels: ["dependencies", "ci"]

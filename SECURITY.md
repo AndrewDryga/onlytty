@@ -59,3 +59,13 @@ curl -fsS https://<relay>/assets/app.js | shasum -a 256   # compare to the relea
 
 Caveat: this is a verifiable **baseline and tripwire**, not a guarantee — a hostile
 host can still serve different bytes per request. A native viewer remains the real fix.
+
+## Base-image refresh
+
+`portal/Dockerfile` pins its base images by version (`ELIXIR_VERSION`,
+`OTP_VERSION`, `DEBIAN_VERSION`) for reproducible builds. Pinning is correct, but a
+pinned-and-forgotten base accrues OS CVEs. **Cadence: bump the base pins every
+release, and at least monthly.** `.github/dependabot.yml` opens PRs for the image
+refs it can resolve (and for CI action versions); the bare version ARGs are bumped
+by hand in lockstep with `.tool-versions` and CI (the toolchain-bump task). After a
+bump, rebuild and run `make deploy-check` before shipping.

@@ -13,6 +13,11 @@
 #
 # Pinned to images that exist on Docker Hub. The app needs Elixir ~> 1.14, so a
 # stable LTS-ish base is used rather than the host's bleeding-edge toolchain.
+#
+# Refresh cadence: bump these pins each release (and at least monthly) so the base
+# OS picks up security updates — see SECURITY.md "Base-image refresh". Dependabot
+# (.github/dependabot.yml) opens PRs for the resolvable image refs; the bare
+# version ARGs below are bumped by hand, in lockstep with .tool-versions / CI.
 ARG ELIXIR_VERSION=1.17.3
 ARG OTP_VERSION=27.1.2
 ARG DEBIAN_VERSION=bookworm-20241016-slim
