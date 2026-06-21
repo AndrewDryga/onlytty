@@ -31,7 +31,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version: "26"
       - run: make web-check
 
   portal:
@@ -41,8 +41,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: erlef/setup-beam@v1
         with:
-          otp-version: "27"
-          elixir-version: "1.17"
+          otp-version: "29"
+          elixir-version: "1.20"
       - uses: actions/cache@v4
         with:
           path: portal/deps
@@ -62,11 +62,11 @@ jobs:
           cache-dependency-path: runner/go.sum
       - uses: erlef/setup-beam@v1
         with:
-          otp-version: "27"
-          elixir-version: "1.17"
+          otp-version: "29"
+          elixir-version: "1.20"
       - uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version: "26"
       - run: mix deps.get
         working-directory: portal
       - run: npm ci
