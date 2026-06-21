@@ -263,6 +263,7 @@ defmodule OnlyttyWeb.Site.Page do
         <div class="footer-brand">
           <a class="brand" href="/">#{logo()}<span>Only<b>TTY</b></span></a>
           <p>Your terminal, on your phone. End-to-end encrypted, so the server in the middle only ever sees ciphertext.</p>
+          <p>Built by <a href="https://dryga.com" rel="noopener">Andrew Dryga</a> using <a href="https://coop.dryga.com" rel="noopener">co:op</a></p>
         </div>
         <nav aria-label="Product">
           <h3>Product</h3>
@@ -284,9 +285,6 @@ defmodule OnlyttyWeb.Site.Page do
           <a href="/acceptable-use">Acceptable use</a>
           <a href="/sitemap.xml">Sitemap</a>
         </nav>
-      </div>
-      <div class="wrap footer-bottom">
-        <span>© OnlyTTY · built by <a href="https://dryga.com" rel="noopener">Andrew Dryga</a> using <a href="https://coop.dryga.com" rel="noopener">co:op</a></span>
       </div>
     </footer>
     """
