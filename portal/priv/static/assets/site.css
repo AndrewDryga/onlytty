@@ -229,6 +229,8 @@ p { margin: 0 0 1rem; }
 .hero-copy .lede { max-width: 42ch; }
 .hero-demo { display: block; min-width: 0; }
 .hero-snippet { max-width: 27rem; }
+.hero-install-alt { margin: .5rem 0 0; }
+.hero-install-alt code { font-family: ui-monospace, monospace; font-size: .85em; }
 
 /* breadcrumbs (tool/legal pages) */
 .crumbs { font-size: .82rem; color: var(--dim); margin-bottom: 1.1rem; }
