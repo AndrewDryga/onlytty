@@ -16,14 +16,4 @@ terraform {
       version = "~> 6.0"
     }
   }
-
-  # State lives in Terraform Cloud:
-  # https://app.terraform.io/app/OnlyTTY/workspaces/onlytty
-  cloud {
-    organization = "OnlyTTY"
-
-    workspaces {
-      name = "onlytty"
-    }
-  }
 }

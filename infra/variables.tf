@@ -55,13 +55,13 @@ variable "app_port" {
 variable "machine_type" {
   type        = string
   description = "Instance size. e2-small is ~US$13/mo."
-  default     = "e2-small"
+  default     = "e2-micro"
 }
 
 variable "instance_count" {
   type        = number
   description = "MIG size. Sessions are registered cluster-wide via :global, so >1 is supported once the nodes form a BEAM cluster — set dns_cluster_query so DNSCluster can find peers."
-  default     = 1
+  default     = 3
 
   validation {
     condition     = var.instance_count >= 1 && floor(var.instance_count) == var.instance_count
