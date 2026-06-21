@@ -4,6 +4,7 @@
 
 import { deriveKeys, newCipher, b64urlToBytes } from "./crypto.js";
 import { Kind, Control, decodeHello, encodeResize, decodeExit, decodeControl } from "./wire.js";
+import { parsePayload } from "./keys.js";
 
 const enc = new TextEncoder();
 const $ = (id) => document.getElementById(id);
@@ -292,6 +293,96 @@ for (const b of document.querySelectorAll("#keys button[data-key]")) {
   b.onclick = () => touchKey(b.dataset.key);
 }
 $("ctrl").onclick = () => { ctrlArmed = !ctrlArmed; $("ctrl").classList.toggle("on", ctrlArmed); term.focus(); };
+
+// --- pinnable shortcuts (device-local, persisted) ----------------------------
+// Users pin their own labeled keys (Ctrl-R, a `|` pipe, a short snippet) without
+// bloating the default bar. Stored device-wide in localStorage — never per-session,
+// and never anything from the URL (the secret stays out of storage). Sending goes
+// through sendInput, so it stays gated by control + the multi-line paste confirm:
+// a pinned key grants no capability a controlling viewer doesn't already have.
+const SHORTCUTS_KEY = "onlytty.shortcuts";
+let shortcuts = loadShortcuts();
+
+function loadShortcuts() {
+  try {
+    const v = JSON.parse(localStorage.getItem(SHORTCUTS_KEY));
+    if (!Array.isArray(v)) return [];
+    return v
+      .filter((s) => s && typeof s.label === "string" && typeof s.payload === "string")
+      .map((s) => ({ label: s.label.slice(0, 16), payload: s.payload }));
+  } catch { return []; }
+}
+function persistShortcuts() {
+  try { localStorage.setItem(SHORTCUTS_KEY, JSON.stringify(shortcuts)); } catch {}
+  renderShortcuts();
+}
+function renderShortcuts() {
+  const bar = $("keys");
+  for (const b of bar.querySelectorAll("button.user-key")) b.remove();
+  const edit = $("keys-edit");
+  for (const sc of shortcuts) {
+    const b = document.createElement("button");
+    b.className = "user-key";
+    b.textContent = sc.label;
+    b.title = sc.payload;
+    b.onclick = () => { term.focus(); sendInput(parsePayload(sc.payload)); };
+    bar.insertBefore(b, edit);
+  }
+}
+
+function escapeHtml(s) {
+  return s.replace(/[&<>"']/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+function moveShortcut(i, dir) {
+  const j = i + dir;
+  if (j < 0 || j >= shortcuts.length) return;
+  [shortcuts[i], shortcuts[j]] = [shortcuts[j], shortcuts[i]];
+  persistShortcuts();
+}
+function openEditor() {
+  const rows = shortcuts.map((sc, i) =>
+    `<div class="sc-row" data-i="${i}">` +
+      `<span class="sc-label">${escapeHtml(sc.label)}</span>` +
+      `<code class="sc-payload">${escapeHtml(sc.payload)}</code>` +
+      `<span class="sc-act">` +
+        `<button data-act="up" title="Move up" aria-label="Move up">↑</button>` +
+        `<button data-act="down" title="Move down" aria-label="Move down">↓</button>` +
+        `<button data-act="rm" title="Remove" aria-label="Remove">✕</button>` +
+      `</span></div>`).join("");
+  $("overlay-card").innerHTML =
+    "<h1>Shortcuts</h1>" +
+    "<p>Pin keys to the touch bar. Payload supports <code>^X</code> for Ctrl-X " +
+      "(e.g. <code>^L</code> clears, <code>^M</code> is Enter) and literal text.</p>" +
+    `<div id="sc-list">${rows || '<p class="sc-empty">No custom shortcuts yet.</p>'}</div>` +
+    '<div id="sc-add">' +
+      '<input id="sc-label" placeholder="Label" maxlength="16" autocomplete="off">' +
+      '<input id="sc-payload" placeholder="Payload, e.g. ^L" autocomplete="off">' +
+      '<button id="sc-add-btn">Add</button>' +
+    "</div>" +
+    '<button id="sc-done">Done</button>';
+  $("overlay").hidden = false;
+
+  for (const row of $("overlay-card").querySelectorAll(".sc-row")) {
+    const i = +row.dataset.i;
+    row.querySelector('[data-act="up"]').onclick = () => { moveShortcut(i, -1); openEditor(); };
+    row.querySelector('[data-act="down"]').onclick = () => { moveShortcut(i, 1); openEditor(); };
+    row.querySelector('[data-act="rm"]').onclick = () => { shortcuts.splice(i, 1); persistShortcuts(); openEditor(); };
+  }
+  const add = () => {
+    const label = $("sc-label").value.trim();
+    const payload = $("sc-payload").value;
+    if (!label || !payload) return;
+    shortcuts.push({ label: label.slice(0, 16), payload });
+    persistShortcuts();
+    openEditor();
+  };
+  $("sc-add-btn").onclick = add;
+  $("sc-payload").addEventListener("keydown", (e) => { if (e.key === "Enter") add(); });
+  $("sc-done").onclick = () => { $("overlay").hidden = true; term.focus(); };
+}
+$("keys-edit").onclick = openEditor;
+renderShortcuts();
 
 $("paste").onclick = async () => {
   try {

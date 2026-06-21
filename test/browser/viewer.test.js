@@ -121,6 +121,77 @@ test("browser viewer: connect, match fingerprint, take control, type, see output
   }
 });
 
+test("browser viewer: pin a custom shortcut — it sends, persists across reload, and removes", async (t) => {
+  let chromium;
+  try { ({ chromium } = await import("playwright")); } catch { t.skip("playwright not installed"); return; }
+  if (!(await healthy())) { t.skip("relay not reachable at " + base); return; }
+
+  const { proc, link } = await startRunner(["--", "bash", "--norc", "--noprofile", "-i"]);
+  let browser;
+  try {
+    browser = await chromium.launch();
+    const page = await browser.newPage();
+    const errors = [];
+    page.on("pageerror", (e) => errors.push(String(e)));
+
+    await page.goto(link);
+    await page.waitForFunction(
+      () => document.getElementById("status-text").textContent === "connected",
+      null, { timeout: 10000 },
+    );
+
+    // Take control so the pinned shortcut is allowed to send (it goes through the
+    // same control gate as any typed input).
+    await page.click("#control");
+    await page.waitForFunction(
+      () => document.getElementById("control").classList.contains("live"),
+      null, { timeout: 8000 },
+    );
+
+    // Open the editor (the key bar only shows on touch) and pin a shortcut whose
+    // payload uses `^M` (Enter) so tapping it runs a command on the host.
+    await page.evaluate(() => document.body.classList.add("touch"));
+    await page.click("#keys-edit");
+    await page.fill("#sc-label", "ok");
+    await page.fill("#sc-payload", "echo SC_OK^M");
+    await page.click("#sc-add-btn");
+    await page.click("#sc-done");
+
+    await page.waitForSelector("#keys button.user-key");
+    assert.equal(await page.textContent("#keys button.user-key"), "ok");
+
+    // Tapping it sends `echo SC_OK\r` (^M → 0x0d) → the host runs it and prints SC_OK.
+    await page.click("#keys button.user-key");
+    await page.waitForFunction(
+      () => document.querySelector(".xterm-rows")?.innerText.includes("SC_OK"),
+      null, { timeout: 8000 },
+    );
+
+    // It survives a reload (persisted in localStorage, device-level). Re-assert the
+    // touch class — a reload resets the DOM and the desktop test viewport isn't a
+    // phone, so the bar would otherwise stay hidden.
+    await page.reload();
+    await page.evaluate(() => document.body.classList.add("touch"));
+    await page.waitForSelector("#keys button.user-key");
+    assert.equal(await page.textContent("#keys button.user-key"), "ok");
+
+    // The default keys are untouched.
+    assert.ok(await page.locator('#keys button[data-key="ctrlc"]').count() >= 1, "default ^C remains");
+
+    // Remove it via the editor and the user button is gone.
+    await page.evaluate(() => document.body.classList.add("touch"));
+    await page.click("#keys-edit");
+    await page.click('.sc-row [data-act="rm"]');
+    await page.click("#sc-done");
+    assert.equal(await page.locator("#keys button.user-key").count(), 0);
+
+    assert.deepEqual(errors, [], "no page errors");
+  } finally {
+    if (browser) await browser.close();
+    proc.kill("SIGKILL");
+  }
+});
+
 test("browser viewer: wrong passphrase shows a recoverable overlay; the right one connects", async (t) => {
   let chromium;
   try { ({ chromium } = await import("playwright")); } catch { t.skip("playwright not installed"); return; }

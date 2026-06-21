@@ -30,7 +30,22 @@
   #keys { display:none; gap:.3rem; padding:.4rem; padding-bottom: calc(.4rem + env(safe-area-inset-bottom));
     background:var(--bar); border-top:1px solid #1c2333; overflow-x:auto; }
   #keys button { flex:0 0 auto; min-width:2.4rem; font-family: ui-monospace, monospace; }
+  #keys button.user-key { background:#222a3d; font-family: inherit; }
   body.touch #keys { display:flex; }
+  /* shortcut editor (rendered into #overlay) */
+  #sc-list { text-align:left; margin:.6rem 0; max-height:40vh; overflow-y:auto; }
+  .sc-row { display:flex; align-items:center; gap:.5rem; padding:.3rem 0; border-bottom:1px solid #1c2333; }
+  .sc-row .sc-label { flex:0 0 auto; min-width:4rem; font-size:.85rem; }
+  .sc-row .sc-payload { flex:1 1 auto; min-width:0; color:var(--dim); font-size:.75rem;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .sc-act { display:flex; gap:.25rem; flex:0 0 auto; }
+  #sc-add { display:flex; gap:.4rem; margin:.6rem 0; }
+  #sc-add input { width:auto; margin:0; }
+  #sc-add #sc-label { flex:0 0 7rem; }
+  #sc-add #sc-payload { flex:1 1 auto; min-width:0; }
+  .sc-empty { color:var(--dim); }
+  #overlay .sc-act button, #overlay #sc-add button { width:auto; background:#1b2030;
+    border-color:#2a3346; color:var(--fg); padding:.3rem .5rem; }
   #overlay { position:fixed; inset:0; background:rgba(5,8,14,.92); display:flex; align-items:center;
     justify-content:center; padding:1.5rem; text-align:center; z-index:10; }
   #overlay[hidden] { display:none; }
@@ -63,6 +78,7 @@
     <button data-key="right">→</button>
     <button data-key="ctrlc">^C</button>
     <button data-key="ctrld">^D</button>
+    <button id="keys-edit" title="Edit shortcuts" aria-label="Edit shortcuts">＋</button>
   </div>
   <div id="overlay" hidden><div class="card" id="overlay-card"></div></div>
 
