@@ -20,6 +20,10 @@ defmodule Onlytty.Application do
     # Allocate the operator-metrics counter array before anything can bump it.
     Onlytty.Metrics.setup()
 
+    # Graceful drain on SIGTERM (deploys): flip /healthz to 503, nudge connected
+    # clients to reconnect elsewhere, brief grace, then stop. Prod only (runtime.exs).
+    if Application.get_env(:onlytty, :drain_on_sigterm, false), do: Onlytty.Drain.install()
+
     children = [
       OnlyttyWeb.Telemetry,
       # Forms the BEAM cluster so sessions registered under `:global` resolve across

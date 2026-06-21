@@ -65,11 +65,16 @@ defmodule OnlyttyWeb.SessionController do
     end
   end
 
-  @doc "`GET /healthz` — liveness probe."
+  @doc """
+  `GET /healthz` — liveness probe. Returns 503 while the node is draining (SIGTERM),
+  so the load balancer stops routing new connections here during a deploy.
+  """
   def healthz(conn, _params) do
+    {status, body} = if Onlytty.Drain.draining?(), do: {503, "draining"}, else: {200, "ok"}
+
     conn
     |> put_resp_content_type("text/plain")
-    |> send_resp(200, "ok")
+    |> send_resp(status, body)
   end
 
   @doc """

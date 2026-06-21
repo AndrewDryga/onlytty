@@ -311,6 +311,7 @@ function onControlText(data) {
       break;
     case "peer_join": if (!ended) setStatus("connected", "ok"); break;
     case "peer_left": if (!ended) setStatus("runner disconnected — waiting…", "warn"); break;
+    case "going_away": if (!ended) setStatus("relay redeploying — reconnecting…", "warn"); break;
     case "busy":
       noReconnect = true;
       fatal("<h1>Session busy</h1><p>Another viewer is already connected. This session allows one viewer at a time.</p>");

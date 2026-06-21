@@ -87,6 +87,14 @@ defmodule Onlytty.Session do
     GenServer.cast(session, {:close, reason})
   end
 
+  @doc """
+  Nudge connected sockets that the relay node is going away (a deploy drain), so they
+  reconnect elsewhere now. The session stays up for the drain grace; the sockets break
+  when the node actually stops, by which point clients have migrated.
+  """
+  @spec drain(pid()) :: :ok
+  def drain(session), do: GenServer.cast(session, :drain)
+
   @doc "Fetch the session's runner token, for authorizing the runner socket."
   @spec runner_token(pid()) :: String.t()
   def runner_token(session) do
@@ -218,6 +226,15 @@ defmodule Onlytty.Session do
     {:stop, :normal, state}
   end
 
+  def handle_cast(:drain, state) do
+    # The node is shutting down: tell each side to reconnect elsewhere. We don't close
+    # the sockets — traffic keeps flowing over this node until it actually stops.
+    msg = {:onlytty_control, control(:going_away)}
+    if state.runner, do: send(state.runner, msg)
+    if state.viewer, do: send(state.viewer, msg)
+    {:noreply, state}
+  end
+
   @impl true
   def handle_info(:ttl_expired, state) do
     Onlytty.Metrics.inc(:sessions_ttl_expired)
@@ -293,6 +310,7 @@ defmodule Onlytty.Session do
   # Control-plane JSON, metadata only — never any terminal content.
   defp control(:peer_join), do: Jason.encode!(%{t: "peer_join"})
   defp control(:peer_left), do: Jason.encode!(%{t: "peer_left"})
+  defp control(:going_away), do: Jason.encode!(%{t: "going_away"})
 
   # The session id is the viewer connect capability; log only a short prefix so a
   # leaked log can't be used to connect to live sessions.

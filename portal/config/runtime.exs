@@ -123,6 +123,11 @@ if config_env() == :prod do
 
   config :onlytty, :cluster_topologies, cluster_topologies
 
+  # Drain connections gracefully on SIGTERM (a deploy replacing this instance):
+  # /healthz → 503, nudge clients to migrate, brief grace, then stop. Prod only so
+  # dev/test signal handling is untouched.
+  config :onlytty, :drain_on_sigterm, true
+
   config :onlytty, OnlyttyWeb.Endpoint,
     url: [host: host, port: 443, scheme: "https"],
     http: [

@@ -482,6 +482,10 @@ func (o *Orchestrator) handleControl(c *connState, data []byte) {
 		o.note("onlytty: viewer disconnected")
 	case "busy":
 		o.note("onlytty: a viewer is already connected (single-viewer lock)")
+	case "going_away":
+		// The relay node is draining for a deploy. Keep relaying until the socket
+		// actually breaks; the reconnect loop then re-claims the session elsewhere.
+		o.note("onlytty: relay node is redeploying — will reconnect")
 	case "bye":
 		o.note("onlytty: session closed by the relay")
 	}

@@ -59,8 +59,13 @@ write_files:
       [Service]
       Restart=always
       RestartSec=5
+      # Graceful drain on a deploy: `docker stop` sends SIGTERM; the relay flips
+      # /healthz to 503, nudges clients to reconnect elsewhere, waits its grace, then
+      # stops. -t 30 must exceed the in-app grace (~10s); TimeoutStopSec must exceed -t
+      # so systemd doesn't kill `docker stop` mid-drain.
+      TimeoutStopSec=45
       ExecStart=/var/lib/onlytty/start.sh
-      ExecStop=/usr/bin/docker stop onlytty
+      ExecStop=/usr/bin/docker stop -t 30 onlytty
       [Install]
       WantedBy=multi-user.target
 
