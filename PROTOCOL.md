@@ -177,8 +177,12 @@ binary runner↔viewer verbatim.
 E2E means the **relay** never sees terminal IO. It does **not** mean zero trust:
 
 - The viewer runs JS served by the host. A malicious host could serve JS that
-  exfiltrates S from the fragment. Mitigation: assets are static, versioned, and
-  Subresource-Integrity-pinned; a native viewer (no browser JS) is possible later.
-  So host trust is reduced to *code-delivery time*, not *relay time*.
+  exfiltrates S from the fragment. Mitigation: the first-party JS is served
+  `no-store` (always re-fetched, never a stale cached copy) and its SHA-256 is
+  published per release in `VIEWER_HASHES`, so served bytes can be checked against
+  the audited release; the vendored xterm assets are additionally Subresource-
+  Integrity-pinned and content-hashed in their filenames. A native viewer (no
+  browser JS) is possible later. So host trust is reduced to *code-delivery time*,
+  not *relay time*.
 - The link is a capability: anyone you forward it to is a viewer. Mitigations: short
   TTL, single-viewer lock, the optional passphrase (link alone is then insufficient).
