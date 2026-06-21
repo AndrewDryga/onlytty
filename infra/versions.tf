@@ -1,6 +1,11 @@
-# OnlyTTY infrastructure — GCP. Pragmatic + cheap: one small GCE VM running the
-# onlytty container behind Caddy (auto-TLS). Chosen over Cloud Run because the relay
-# holds long-lived WebSockets (up to 7 days) and Cloud Run caps a request at 60 min.
+# OnlyTTY infrastructure — GCP. A global external HTTPS load balancer (Google-
+# managed TLS via Certificate Manager) fronts a regional Managed Instance Group
+# running the onlytty container on Container-Optimized OS. The image is pulled
+# from public GHCR. TLS terminates at the LB (no sidecar TLS proxy) and there is
+# no GCP image registry.
+#
+# The MIG is size 1 by design: sessions are in-memory per instance, so a multi-
+# instance group would split a session's runner and viewer (see lb.tf + README).
 
 terraform {
   required_version = ">= 1.9"

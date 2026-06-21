@@ -1,43 +1,55 @@
 variable "project_id" {
   type        = string
-  description = "GCP project ID to deploy into."
+  description = "GCP project ID to deploy into (e.g. onlytty)."
 }
 
 variable "region" {
   type        = string
-  description = "GCP region (Artifact Registry + static IP)."
+  description = "GCP region for the regional MIG."
   default     = "us-central1"
-}
-
-variable "zone" {
-  type        = string
-  description = "GCP zone for the VM."
-  default     = "us-central1-a"
 }
 
 variable "domain" {
   type        = string
-  description = "Public hostname for the relay; create a DNS A record pointing at the VM's IP (an output)."
+  description = "Public hostname for the relay (e.g. onlytty.com). Served by the HTTPS LB."
 }
 
-variable "acme_email" {
+variable "dns_name" {
   type        = string
-  description = "Contact email for Caddy's Let's Encrypt certificates."
-}
-
-variable "machine_type" {
-  type        = string
-  description = "VM size. e2-small is ~US$13/mo; e2-micro is near the always-free tier."
-  default     = "e2-small"
+  description = "DNS name of the Cloud DNS managed zone, with a trailing dot (e.g. onlytty.com.)."
 }
 
 variable "container_image" {
   type        = string
-  description = "Fully-qualified onlytty image, e.g. us-central1-docker.pkg.dev/PROJECT/onlytty/onlytty:TAG. CI publishes it to the registry output."
+  description = "Fully-qualified onlytty image. Public GHCR by default; the release workflow publishes it."
+  default     = "ghcr.io/AndrewDryga/onlytty:latest"
 }
 
-variable "ssh_source_ranges" {
-  type        = list(string)
-  description = "CIDRs allowed to reach SSH (tcp/22). Lock this down to your IP in production."
-  default     = ["0.0.0.0/0"]
+variable "app_port" {
+  type        = number
+  description = "Port the relay container listens on (LB backend + health check target)."
+  default     = 4000
+}
+
+variable "machine_type" {
+  type        = string
+  description = "Instance size. e2-small is ~US$13/mo."
+  default     = "e2-small"
+}
+
+variable "instance_count" {
+  type        = number
+  description = "MIG size. MUST stay 1 — sessions are in-memory per instance (see lb.tf / README)."
+  default     = 1
+
+  validation {
+    condition     = var.instance_count == 1
+    error_message = "instance_count must be 1 until BEAM clustering + a shared session registry land; >1 splits a session's runner and viewer across instances."
+  }
+}
+
+variable "backend_timeout_sec" {
+  type        = number
+  description = "LB backend timeout. For WebSockets this caps a single connection's lifetime; the runner reconnects+resumes, so a day is plenty and avoids holding backends forever."
+  default     = 86400
 }

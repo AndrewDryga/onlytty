@@ -2,15 +2,15 @@
 #   terraform init -backend-config="bucket=<your-tf-state-bucket>"
 #   terraform apply
 
-project_id      = "my-gcp-project"
-region          = "us-central1"
-zone            = "us-central1-a"
-domain          = "onlytty.example.com"
-acme_email      = "you@example.com"
-machine_type    = "e2-small"
-# Published by the release workflow (.github/workflows/release.yml) to GHCR.
-# (Artifact Registry is also provisioned if you'd rather push there.)
-container_image = "ghcr.io/andrewdryga/onlytty:latest"
+project_id = "onlytty"
+region     = "us-central1"
+domain     = "onlytty.com"
+dns_name   = "onlytty.com." # trailing dot — the Cloud DNS managed zone
 
-# Lock SSH down to your own IP in production, e.g.:
-# ssh_source_ranges = ["203.0.113.4/32"]
+# Public GHCR image, published by the release workflow (.github/workflows/release.yml).
+container_image = "ghcr.io/AndrewDryga/onlytty:latest"
+
+machine_type = "e2-small"
+
+# instance_count MUST stay 1 (in-memory sessions); the variable enforces it.
+# SSH is via IAP only — no ssh_source_ranges to set.
