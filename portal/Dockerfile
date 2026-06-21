@@ -1,23 +1,14 @@
-# Find eligible builder and runner images on Docker Hub. We use Ubuntu/Debian
-# instead of Alpine to avoid DNS resolution issues in production.
+# syntax=docker/dockerfile:1
+# OnlyTTY relay server — Elixir release image (multi-stage).
 #
-# https://hub.docker.com/r/hexpm/elixir/tags?page=1&name=ubuntu
-# https://hub.docker.com/_/ubuntu?tab=tags
+# Debian (not Alpine): musl's resolver breaks the BEAM's DNS in production. Built from
+# the hexpm prebuilt Elixir/Erlang/Debian image; the final image carries only the
+# compiled release plus minimal runtime libraries and a tini init.
 #
-# This file is based on these images:
-#
-#   - https://hub.docker.com/r/hexpm/elixir/tags - for the build image
-#   - https://hub.docker.com/_/debian?tab=tags&page=1&name=bullseye-20260610-slim - for the release image
-#   - https://pkgs.org/ - resource for finding needed packages
-#   - Ex: hexpm/elixir:1.20.1-erlang-29.0.2-debian-bullseye-20260610-slim
-#
-# Pinned to images that exist on Docker Hub. The app needs Elixir ~> 1.14, so a
-# stable LTS-ish base is used rather than the host's bleeding-edge toolchain.
-#
-# Refresh cadence: bump these pins each release (and at least monthly) so the base
+# Refresh cadence: bump the version ARGs each release (and at least monthly) so the base
 # OS picks up security updates — see SECURITY.md "Base-image refresh". Dependabot
-# (.github/dependabot.yml) opens PRs for the resolvable image refs; the bare
-# version ARGs below are bumped by hand, in lockstep with .tool-versions / CI.
+# (.github/dependabot.yml) opens PRs for the resolvable image refs; the bare version ARGs
+# are bumped by hand, in lockstep with .tool-versions / CI.
 ARG ELIXIR_VERSION=1.17.3
 ARG OTP_VERSION=27.1.2
 ARG DEBIAN_VERSION=bookworm-20241016-slim
@@ -25,75 +16,60 @@ ARG DEBIAN_VERSION=bookworm-20241016-slim
 ARG BUILDER_IMAGE="hexpm/elixir:${ELIXIR_VERSION}-erlang-${OTP_VERSION}-debian-${DEBIAN_VERSION}"
 ARG RUNNER_IMAGE="debian:${DEBIAN_VERSION}"
 
+# ── Build the release ────────────────────────────────────────────────────────
 FROM ${BUILDER_IMAGE} AS builder
 
-# install build dependencies
-RUN apt-get update -y && apt-get install -y build-essential git \
-    && apt-get clean && rm -f /var/lib/apt/lists/*_*
+RUN apt-get update -y && apt-get install -y --no-install-recommends build-essential git \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# prepare build dir
 WORKDIR /app
-
-# install hex + rebar
-RUN mix local.hex --force && \
-    mix local.rebar --force
-
-# set build ENV
+RUN mix local.hex --force && mix local.rebar --force
 ENV MIX_ENV="prod"
 
-# install mix dependencies
+# Fetch deps in their own layer (cached until mix.lock changes); a BuildKit cache keeps
+# the hex/rebar download cache warm across rebuilds.
 COPY mix.exs mix.lock ./
-RUN mix deps.get --only $MIX_ENV
-RUN mkdir config
+RUN --mount=type=cache,target=/root/.hex \
+    --mount=type=cache,target=/root/.cache/rebar3 \
+    mix deps.get --only $MIX_ENV
 
-# copy compile-time config files before we compile dependencies
-# to ensure any relevant config change will trigger the dependencies
-# to be re-compiled.
+RUN mkdir config
+# Compile-time config first, so a change here re-compiles deps; runtime.exs comes later.
 COPY config/config.exs config/${MIX_ENV}.exs config/
 RUN mix deps.compile
 
 COPY priv priv
-
 COPY lib lib
-
-# Compile the release
 RUN mix compile
 
-# Changes to config/runtime.exs don't require recompiling the code
 COPY config/runtime.exs config/
-
 COPY rel rel
 RUN mix release
 
-# start a new build stage so that the final image will only contain
-# the compiled release and other runtime necessities
+# ── Runtime ──────────────────────────────────────────────────────────────────
 FROM ${RUNNER_IMAGE}
 
-RUN apt-get update -y && \
-  apt-get install -y libstdc++6 openssl libncurses5 locales ca-certificates \
-  && apt-get clean && rm -f /var/lib/apt/lists/*_*
+# Minimal runtime libs the BEAM needs, plus tini. tini is PID 1 to reap zombies: the
+# release boot script is a shell wrapper that does not reap, so a short-lived child
+# (e.g. the rpc healthcheck) would otherwise leak. ca-certificates for outbound TLS.
+RUN apt-get update -y && apt-get install -y --no-install-recommends \
+      libstdc++6 libncurses6 openssl ca-certificates tini \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Set the locale
-RUN sed -i '/en_US.UTF-8/s/^# //g' /etc/locale.gen && locale-gen
+ENV LANG=C.UTF-8 LANGUAGE=C.UTF-8 LC_ALL=C.UTF-8 MIX_ENV="prod"
 
-ENV LANG=en_US.UTF-8
-ENV LANGUAGE=en_US:en
-ENV LC_ALL=en_US.UTF-8
+# Non-root with an explicit uid (clearer than `nobody` for k8s/MIG); the app dir is
+# owned by it so the release can write its tmp/.
+RUN useradd --create-home --uid 1001 --user-group --shell /bin/sh app
+WORKDIR /app
+COPY --from=builder --chown=1001:0 /app/_build/${MIX_ENV}/rel/onlytty ./
+USER 1001
 
-WORKDIR "/app"
-RUN chown nobody /app
+# BEAM-native liveness: the running node answers RPC and its HTTP endpoint is
+# supervised — no curl in the image. (In prod the GCP load balancer runs the real
+# GET /healthz check; this HEALTHCHECK is for `docker run`/compose.)
+HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \
+  CMD ["/app/bin/onlytty", "rpc", "Process.whereis(OnlyttyWeb.Endpoint) || raise \"endpoint not running\""]
 
-# set runner ENV
-ENV MIX_ENV="prod"
-
-# Only copy the final release from the build stage
-COPY --from=builder --chown=nobody:root /app/_build/${MIX_ENV}/rel/onlytty ./
-
-USER nobody
-
-# If using an environment that doesn't automatically reap zombie processes, it is
-# advised to add an init process such as tini via `apt-get install`
-# above and adding an entrypoint. See https://github.com/krallin/tini for details
-# ENTRYPOINT ["/tini", "--"]
-
+ENTRYPOINT ["/usr/bin/tini", "--"]
 CMD ["/app/bin/server"]
