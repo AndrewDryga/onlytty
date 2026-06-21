@@ -312,7 +312,6 @@ defmodule OnlyttyWeb.Site.Page do
             <a class="btn btn-ghost" href="#how">See how it works</a>
           </div>
           <div class="hero-snippet">#{snippet("curl -fsSL https://onlytty.com/install.sh | sh")}</div>
-          <p class="muted hero-install-alt">or <code>go install github.com/AndrewDryga/onlytty/runner@latest</code></p>
         </div>
         <div class="hero-demo" data-reveal>#{term_demo("claude", "Claude Code", agent: true)}</div>
       </div>
