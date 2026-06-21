@@ -134,6 +134,7 @@ defmodule Onlytty.Session do
       send(state.viewer, {:onlytty_control, control(:peer_join)})
     end
 
+    Onlytty.Metrics.inc(:runners_connected)
     Logger.info("relay session #{short(state.id)}: runner joined")
     {:reply, {:ok, hello_snapshot(state)}, state}
   end
@@ -142,6 +143,7 @@ defmodule Onlytty.Session do
     cond do
       state.locked and is_pid(state.viewer) ->
         # Single-viewer lock held: caller will send {"t":"busy"} and close.
+        Onlytty.Metrics.inc(:viewer_busy_rejects)
         {:reply, :busy, state}
 
       true ->
@@ -157,6 +159,7 @@ defmodule Onlytty.Session do
           send(state.runner, {:onlytty_control, control(:peer_join)})
         end
 
+        Onlytty.Metrics.inc(:viewers_connected)
         Logger.info("relay session #{short(state.id)}: viewer joined")
 
         snapshot =
@@ -180,16 +183,19 @@ defmodule Onlytty.Session do
 
   @impl true
   def handle_info(:ttl_expired, state) do
+    Onlytty.Metrics.inc(:sessions_ttl_expired)
     close_all(state, @close_bye, "expired")
     {:stop, :normal, state}
   end
 
   def handle_info(:idle_expired, state) do
+    Onlytty.Metrics.inc(:sessions_idle_expired)
     close_all(state, @close_bye, "idle")
     {:stop, :normal, state}
   end
 
   def handle_info(:reap_unconnected, %{runner: nil} = state) do
+    Onlytty.Metrics.inc(:sessions_ttl_expired)
     close_all(state, @close_bye, "expired")
     {:stop, :normal, state}
   end

@@ -17,6 +17,9 @@ defmodule Onlytty.Application do
       })
     end
 
+    # Allocate the operator-metrics counter array before anything can bump it.
+    Onlytty.Metrics.setup()
+
     children = [
       OnlyttyWeb.Telemetry,
       {DNSCluster, query: Application.get_env(:onlytty, :dns_cluster_query) || :ignore},

@@ -68,6 +68,12 @@ defmodule OnlyttyWeb.SocketController do
   end
 
   defp reject(conn, status, message) do
+    case status do
+      401 -> Onlytty.Metrics.inc(:upgrade_unauthorized)
+      404 -> Onlytty.Metrics.inc(:upgrade_not_found)
+      _ -> :ok
+    end
+
     conn
     |> put_resp_content_type("text/plain")
     |> send_resp(status, message)

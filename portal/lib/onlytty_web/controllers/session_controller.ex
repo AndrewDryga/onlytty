@@ -22,6 +22,8 @@ defmodule OnlyttyWeb.SessionController do
     # the README's proxy note for deployments where that is the reverse proxy.
     case Onlytty.RateLimit.check(conn.remote_ip) do
       {:error, retry_after} ->
+        Onlytty.Metrics.inc(:rate_limit_rejects)
+
         conn
         |> put_resp_header("retry-after", Integer.to_string(retry_after))
         |> put_status(:too_many_requests)

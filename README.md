@@ -157,6 +157,32 @@ relay faces clients directly. Behind a reverse proxy that is your proxy's addres
 either rate-limit at the proxy too, or add a trusted-`X-Forwarded-For` plug (e.g.
 `remote_ip`) so the real client IP reaches the limiter — don't trust the header blindly.
 
+### Metrics
+
+`GET /metrics` exposes low-cardinality operator counters in Prometheus text format.
+They are **aggregate-only** — there are no per-session labels (no session id, no IP),
+so the endpoint reveals lifecycle totals and nothing about any individual session.
+**Do not expose it publicly**: keep it on an internal interface, firewall it, or scrape
+it behind the proxy (it has no auth of its own).
+
+| Counter | Meaning |
+|---------|---------|
+| `onlytty_sessions_created_total` | sessions successfully created |
+| `onlytty_sessions_at_capacity_total` | create requests refused at the `ONLYTTY_MAX_SESSIONS` cap (503) |
+| `onlytty_runners_connected_total` | runner WebSocket connects (includes reconnects) |
+| `onlytty_viewers_connected_total` | viewer WebSocket connects |
+| `onlytty_viewer_busy_rejects_total` | viewers refused by the single-viewer lock |
+| `onlytty_upgrade_unauthorized_total` | WS upgrades rejected 401 (bad/missing runner token) |
+| `onlytty_upgrade_not_found_total` | WS upgrades rejected 404 (unknown/expired session) |
+| `onlytty_sessions_ttl_expired_total` | sessions closed by TTL (includes never-connected reaps) |
+| `onlytty_sessions_idle_expired_total` | sessions closed by the idle timeout |
+| `onlytty_rate_limit_rejects_total` | create requests refused by the per-IP rate limiter |
+| `onlytty_frame_size_rejects_total` | frames rejected for exceeding the max frame size (stub; wired when that hook lands) |
+
+For richer Phoenix/VM telemetry, the idiomatic alternative is the
+`telemetry_metrics_prometheus_core` reporter wired into `OnlyttyWeb.Telemetry`; this
+endpoint stays a zero-dependency `:counters`-backed core for the lifecycle events.
+
 ## Security model — stated honestly
 
 End-to-end encryption means the **relay** never sees terminal IO: it forwards opaque,

@@ -49,11 +49,14 @@ defmodule Onlytty.SessionStore do
 
     case DynamicSupervisor.start_child(@supervisor, child) do
       {:ok, _pid} ->
+        Onlytty.Metrics.inc(:sessions_created)
+
         {:ok,
          %{id: id, runner_token: runner_token, expires_at: System.system_time(:second) + ttl}}
 
       {:error, :max_children} ->
         # The cap is hit: refuse rather than grow unbounded.
+        Onlytty.Metrics.inc(:sessions_at_capacity)
         {:error, :at_capacity}
     end
   end

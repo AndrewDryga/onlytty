@@ -32,6 +32,8 @@ defmodule OnlyttyWeb.Router do
     get "/sitemap.xml", PageController, :sitemap
 
     get "/healthz", SessionController, :healthz
+    # Aggregate operator metrics (Prometheus text). Firewall it — never public.
+    get "/metrics", MetricsController, :index
     get "/s/:id", SessionController, :viewer
 
     # Raw WebSockets (WebSock behaviour), upgraded in the controller.
