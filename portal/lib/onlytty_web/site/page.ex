@@ -860,7 +860,7 @@ defmodule OnlyttyWeb.Site.Page do
       "@type" => "SoftwareApplication",
       "name" => "OnlyTTY",
       "applicationCategory" => "DeveloperApplication",
-      "operatingSystem" => "macOS, Linux, Windows",
+      "operatingSystem" => "macOS, Linux",
       "url" => base_url() <> "/",
       "description" =>
         "OnlyTTY wraps any terminal command on your machine and gives you an end-to-end-encrypted link to drive it from your phone.",
@@ -875,7 +875,7 @@ defmodule OnlyttyWeb.Site.Page do
       "@type" => "SoftwareApplication",
       "name" => "OnlyTTY for #{t.name}",
       "applicationCategory" => "DeveloperApplication",
-      "operatingSystem" => "macOS, Linux, Windows",
+      "operatingSystem" => "macOS, Linux",
       "url" => base_url() <> "/control/#{t.slug}",
       "description" =>
         "Run #{t.name} on your machine and drive it from your phone with OnlyTTY. #{t.why}",
