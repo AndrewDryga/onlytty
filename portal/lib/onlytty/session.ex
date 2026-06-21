@@ -48,7 +48,7 @@ defmodule Onlytty.Session do
 
   def start_link(opts) do
     id = Keyword.fetch!(opts, :id)
-    GenServer.start_link(__MODULE__, opts, name: Onlytty.SessionStore.via(id))
+    GenServer.start_link(__MODULE__, opts, name: Onlytty.SessionStore.name(id))
   end
 
   @doc "Register the calling process as the runner. Returns the hello snapshot."

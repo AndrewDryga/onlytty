@@ -1,16 +1,17 @@
 defmodule Onlytty.SessionStore do
   @moduledoc """
   Creates sessions and looks them up by id. Sessions are in-memory only — a
-  `Onlytty.Session` GenServer per session, started under a `DynamicSupervisor`
-  and registered by id in `Onlytty.Registry`. Nothing is ever persisted.
+  `Onlytty.Session` GenServer per session, started under a per-node
+  `DynamicSupervisor` but registered CLUSTER-WIDE under `:global` by id, so a runner
+  and a viewer that land on different relay nodes still resolve the same session
+  (the whole point of running more than one VM). Nothing is ever persisted.
 
-  This is the boring lookup boundary the web layer talks to: controllers and
-  socket handlers never touch the Registry or the supervisor directly.
+  This is the boring lookup boundary the web layer talks to: controllers and socket
+  handlers never touch `:global` or the supervisor directly.
   """
 
   alias Onlytty.Session
 
-  @registry Onlytty.Registry
   @supervisor Onlytty.SessionSupervisor
 
   # TTL is opt-in. By default a session has NO expiry (0) and lives as long as the
@@ -25,8 +26,10 @@ defmodule Onlytty.SessionStore do
   @min_ttl 60
   @max_ttl :infinity
 
-  @doc "The Registry `:via` tuple used to name a session process by its id."
-  def via(id), do: {:via, Registry, {@registry, id}}
+  @doc "The cluster-wide `:global` name a session process is registered under."
+  def name(id), do: {:global, gname(id)}
+
+  defp gname(id), do: {:onlytty_session, id}
 
   @doc """
   Create a new session. Generates a URL-safe id and a separate runner token
@@ -63,12 +66,12 @@ defmodule Onlytty.SessionStore do
     end
   end
 
-  @doc "Look up a live session's pid by id."
+  @doc "Look up a live session's pid by id, anywhere in the cluster."
   @spec lookup(String.t()) :: {:ok, pid()} | :error
   def lookup(id) when is_binary(id) do
-    case Registry.lookup(@registry, id) do
-      [{pid, _}] -> {:ok, pid}
-      [] -> :error
+    case :global.whereis_name(gname(id)) do
+      pid when is_pid(pid) -> {:ok, pid}
+      :undefined -> :error
     end
   end
 

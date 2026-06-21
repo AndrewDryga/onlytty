@@ -24,10 +24,10 @@ defmodule Onlytty.Application do
       OnlyttyWeb.Telemetry,
       {DNSCluster, query: Application.get_env(:onlytty, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: Onlytty.PubSub},
-      # In-memory session registry + one supervised GenServer per session. The
-      # supervisor is capped so unauthenticated session creation cannot exhaust the
-      # node (see Onlytty.SessionStore.create/1); tune with ONLYTTY_MAX_SESSIONS.
-      {Registry, keys: :unique, name: Onlytty.Registry},
+      # One supervised GenServer per session, registered cluster-wide under `:global`
+      # by id (so any node can route to a session created on another). The per-node
+      # supervisor is capped so unauthenticated session creation cannot exhaust a node
+      # (see Onlytty.SessionStore.create/1); tune with ONLYTTY_MAX_SESSIONS (per node).
       {DynamicSupervisor,
        name: Onlytty.SessionSupervisor,
        strategy: :one_for_one,
