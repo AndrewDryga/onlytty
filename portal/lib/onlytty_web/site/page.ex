@@ -746,10 +746,15 @@ defmodule OnlyttyWeb.Site.Page do
     lines =
       if opts[:agent] do
         [
-          ~s(<span class="c-dim">› refactor the auth module</span>),
+          ~s(<span class="c-dim">› refactor auth module</span>),
           ~s(<span class="c-ok">●</span> Read auth.ex),
+          ~s(<span class="c-ok">●</span> Read auth_test.ex),
           ~s(<span class="c-ok">●</span> Edited auth.ex <span class="c-ok">+18</span> <span class="c-dim">−4</span>),
-          ~s(<span class="c-ok">●</span> 24 tests passed),
+          ~s(<span class="c-ok">●</span> Ran mix test),
+          ~s(<span class="c-dim">  ✓ 24 passed</span>),
+          ~s(<span class="c-ok">●</span> Edited router.ex <span class="c-ok">+3</span>),
+          ~s(<span class="c-ok">✻</span> done — next?),
+          ~s(<span class="c-dim">› add rate limiting</span>),
           ~s(<span class="c-ok">✻</span> <span class="c-b">#{h(name)}</span>),
           thinking()
         ]
@@ -758,6 +763,8 @@ defmodule OnlyttyWeb.Site.Page do
           ~s(<span class="c-ok">✻</span> <span class="c-b">#{h(name)}</span> <span class="c-dim">live</span>),
           ~s(<span class="c-ok">●</span> <span class="c-dim">shared · read-only</span>),
           ~s(<span class="c-ok">●</span> <span class="c-dim">end-to-end encrypted</span>),
+          ~s(<span class="c-ok">●</span> <span class="c-dim">2 viewers watching</span>),
+          ~s(<span class="c-ok">●</span> <span class="c-dim">expires in 12h</span>),
           prompt_tail(opts)
         ]
       end
