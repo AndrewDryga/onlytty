@@ -59,7 +59,9 @@ code="$(curl -s -o /dev/null -w '%{http_code}' -H 'Host: onlytty.example.com' "h
 [ "$code" = "301" ] && pass "http→https 301 for a real host (force_ssl active; localhost exempt)" || fail "expected 301, got $code"
 
 step "Full encrypted e2e against the production release (runner ↔ release ↔ viewer)"
-ONLYTTY_SERVER="$BASE" bash dev/scripts/e2e.sh
+# Reuse the release container we just brought up: this job has no Elixir toolchain to
+# start its own relay, and e2e.sh otherwise refuses to reuse a server it didn't start.
+ONLYTTY_SERVER="$BASE" ONLYTTY_REUSE_SERVER=1 bash dev/scripts/e2e.sh
 pass "e2e green against the deployed artifact"
 
 step "Cross-compile the release binaries (the release.yml matrix)"
