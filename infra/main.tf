@@ -77,6 +77,30 @@ locals {
   })
 }
 
+# Cloud Router + Cloud NAT give the instances egress (GHCR image pull, Secret
+# Manager, Cloud Logging) without any external IP. Auto-allocated NAT addresses
+# cover all subnets in the region.
+resource "google_compute_router" "default" {
+  name    = "onlytty-router"
+  region  = var.region
+  network = "default"
+
+  depends_on = [google_project_service.apis]
+}
+
+resource "google_compute_router_nat" "default" {
+  name                               = "onlytty-nat"
+  router                             = google_compute_router.default.name
+  region                             = var.region
+  nat_ip_allocate_option             = "AUTO_ONLY"
+  source_subnetwork_ip_ranges_to_nat = "ALL_SUBNETWORKS_ALL_IP_RANGES"
+
+  log_config {
+    enable = false
+    filter = "ERRORS_ONLY"
+  }
+}
+
 resource "google_compute_instance_template" "default" {
   name_prefix  = "onlytty-"
   machine_type = var.machine_type
@@ -90,12 +114,11 @@ resource "google_compute_instance_template" "default" {
     disk_type    = "pd-balanced"
   }
 
-  # Ephemeral external IP is for egress only (pull the image from GHCR, reach
-  # Secret Manager). All ingress is locked to the Google LB/health-check ranges
-  # by the firewall below; swap to Cloud NAT + no external IP to harden further.
+  # No external IP — egress (pull the image from GHCR, reach Secret Manager /
+  # Cloud Logging) goes through Cloud NAT below; ingress arrives from the LB over
+  # the internal network. IAP SSH tunnels through Google, so it needs no public IP.
   network_interface {
     network = "default"
-    access_config {}
   }
 
   metadata = {

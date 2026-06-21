@@ -86,8 +86,11 @@ state. `terraform.tfvars` and `*.tfstate*` are git-ignored.
   tag, the `Deploy` GitHub workflow (`.github/workflows/deploy.yml`) runs
   `gcloud compute instance-groups managed rolling-action replace onlytty-mig
   --region=<region>` after a release; run that command manually for an ad-hoc roll.
+- **No external IP:** instances have no public IP. Egress (GHCR pull, Secret Manager,
+  Cloud Logging) goes through **Cloud NAT** (a Cloud Router + NAT in the region);
+  ingress arrives from the LB over the internal network.
 - **SSH:** via Identity-Aware Proxy only — `gcloud compute ssh <instance>
-  --tunnel-through-iap`. No `0.0.0.0/0` SSH rule.
+  --tunnel-through-iap` (works without a public IP). No `0.0.0.0/0` SSH rule.
 - **Validate locally (no creds):**
   `terraform fmt -check -recursive && terraform init -backend=false && terraform validate`.
 - **Live `plan`/`apply` + end-to-end HTTPS/WS verification** is the separate
