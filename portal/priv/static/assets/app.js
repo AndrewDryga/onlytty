@@ -134,7 +134,7 @@ function dispatch({ kind, payload }) {
       break;
     case Kind.Control:
       hasControl = decodeControl(payload) === Control.Granted;
-      if (hasControl) applySize(); // we now drive geometry
+      if (hasControl) { applySize(); term.focus(); } // we now drive geometry; keep the keyboard up
       updateControlUI();
       break;
     case Kind.Exit: {
@@ -219,15 +219,28 @@ term.onData((d) => {
 $("control").onclick = () => {
   if (ended) return;
   if (hasControl) { send(Kind.CtrlRel, new Uint8Array(0)); hasControl = false; updateControlUI(); applySize(); }
-  else send(Kind.CtrlReq, new Uint8Array(0));
+  // Focus now, inside the click (a user gesture), so the mobile soft keyboard opens
+  // without a second tap; the grant handler refocuses to keep it up.
+  else { send(Kind.CtrlReq, new Uint8Array(0)); term.focus(); }
 };
 
 const KEYS = {
   esc: "\x1b", tab: "\t", up: "\x1b[A", down: "\x1b[B", left: "\x1b[D", right: "\x1b[C",
   ctrlc: "\x03", ctrld: "\x04",
 };
+// Sticky Ctrl composes with the touch keys too, not just the soft keyboard: when
+// armed, the arrows become the standard Ctrl word-navigation sequences; the other
+// keys have no meaningful Ctrl form, so Ctrl just disarms. Either way a touch key
+// consumes the armed Ctrl, so it never silently leaks onto the next typed char.
+const CTRL_KEYS = { up: "\x1b[1;5A", down: "\x1b[1;5B", left: "\x1b[1;5D", right: "\x1b[1;5C" };
+function touchKey(name) {
+  term.focus();
+  const seq = (ctrlArmed && CTRL_KEYS[name]) || KEYS[name];
+  if (ctrlArmed) { ctrlArmed = false; $("ctrl").classList.remove("on"); }
+  sendInput(seq);
+}
 for (const b of document.querySelectorAll("#keys button[data-key]")) {
-  b.onclick = () => { term.focus(); sendInput(KEYS[b.dataset.key]); };
+  b.onclick = () => touchKey(b.dataset.key);
 }
 $("ctrl").onclick = () => { ctrlArmed = !ctrlArmed; $("ctrl").classList.toggle("on", ctrlArmed); term.focus(); };
 

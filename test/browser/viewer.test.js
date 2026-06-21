@@ -73,12 +73,30 @@ test("browser viewer: connect, match fingerprint, take control, type, see output
       null, { timeout: 8000 },
     );
 
+    // Taking control auto-focuses the terminal (so the mobile keyboard opens without a
+    // second tap) — assert that, then type without focusing by hand.
+    await page.waitForFunction(
+      () => document.activeElement === document.querySelector(".xterm-helper-textarea"),
+      null, { timeout: 8000 },
+    );
+
     // Type a command whose OUTPUT differs from the echoed command line, so a match
     // proves the command actually ran on the host.
-    await page.locator(".xterm-helper-textarea").focus();
     await page.keyboard.type("echo MARK_$((21+21))\r");
     await page.waitForFunction(
       () => document.querySelector(".xterm-rows")?.innerText.includes("MARK_42"),
+      null, { timeout: 8000 },
+    );
+
+    // Sticky Ctrl: reveal the touch key-bar, arm Ctrl, then a normal keystroke is sent
+    // as a control char — ^C interrupts a running command and the shell stays usable.
+    await page.evaluate(() => document.body.classList.add("touch"));
+    await page.keyboard.type("sleep 30\r");
+    await page.click("#ctrl");
+    await page.keyboard.type("c");
+    await page.keyboard.type("echo BACK_$((1+1))\r");
+    await page.waitForFunction(
+      () => document.querySelector(".xterm-rows")?.innerText.includes("BACK_2"),
       null, { timeout: 8000 },
     );
 
