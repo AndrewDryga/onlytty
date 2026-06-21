@@ -98,6 +98,30 @@ func TestReplayRejected(t *testing.T) {
 	}
 }
 
+// A viewer taking control is the security-relevant event the host must notice even
+// inside a full-screen app, so it is delivered as an alert (the terminal layer turns
+// that into a bell); routine notices like releasing control are not alerts.
+func TestControlGrantNotifiesAsAlert(t *testing.T) {
+	o, v2r, _ := newTestOrch(t, ControlAsk)
+
+	type notice struct {
+		msg   string
+		alert bool
+	}
+	var got []notice
+	o.notify = func(msg string, alert bool) { got = append(got, notice{msg, alert}) }
+
+	o.handleBinary(seal(t, v2r, 1, protocol.KindCtrlReq, nil))
+	if len(got) != 1 || !got[0].alert {
+		t.Fatalf("control grant should notify as an alert, got %+v", got)
+	}
+
+	o.handleBinary(seal(t, v2r, 2, protocol.KindCtrlRel, nil))
+	if len(got) != 2 || got[1].alert {
+		t.Fatalf("control release should be a routine notice, got %+v", got)
+	}
+}
+
 // withConn attaches a buffered viewer connection so emitted control frames are observable.
 func withConn(o *Orchestrator) *connState {
 	c := &connState{send: make(chan outMsg, 8), done: make(chan struct{})}

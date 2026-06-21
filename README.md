@@ -108,6 +108,9 @@ onlytty [flags] -- <cmd>...  share one command
   --no-qr            print the link without a QR code
   --allow-insecure   allow a plain http:// relay to a non-local host
                      (development/testing only — production requires https)
+  --verbose          print viewer connect/disconnect/control notices inline.
+                     Default on a terminal is quiet (only a bell when a viewer
+                     takes control) so notices don't corrupt full-screen apps.
   --version
 ```
 

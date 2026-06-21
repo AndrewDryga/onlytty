@@ -28,7 +28,9 @@ const (
 )
 
 // Config wires an Orchestrator. LocalIn/LocalOut are the user's terminal; Notify
-// receives short human notices (viewer connect/disconnect/control); both may be nil.
+// receives short human notices (viewer connect/disconnect/control), where the bool
+// marks a security-relevant alert (a viewer took control) the terminal layer may
+// signal with a bell; both LocalOut and Notify may be nil.
 // ControlMode is the host's policy for viewer control requests.
 type ControlMode int
 
@@ -52,7 +54,7 @@ type Config struct {
 	Control     ControlMode
 	LocalIn     io.Reader
 	LocalOut    io.Writer
-	Notify      func(string)
+	Notify      func(msg string, alert bool)
 	Fingerprint string
 }
 
@@ -66,7 +68,7 @@ type Orchestrator struct {
 	ring     *ptysession.Ring
 	localIn  io.Reader
 	localOut io.Writer
-	notify   func(string)
+	notify   func(string, bool)
 	fp       string
 
 	sendMu sync.Mutex // serializes outSeq + seal
@@ -435,7 +437,7 @@ func (o *Orchestrator) handleBinary(frame []byte) {
 			}
 			o.granted.Store(true)
 			o.emit(protocol.KindControl, []byte{protocol.ControlGranted})
-			o.note("onlytty: viewer took control")
+			o.alert("onlytty: viewer took control")
 		}
 	case protocol.KindCtrlRel:
 		o.granted.Store(false)
@@ -444,9 +446,15 @@ func (o *Orchestrator) handleBinary(frame []byte) {
 	}
 }
 
-func (o *Orchestrator) note(s string) {
+// note delivers a routine notice; alert marks a security-relevant one (a viewer took
+// control) so the terminal layer can signal it (a bell) without corrupting the shared
+// screen. Both are no-ops when no notifier is wired.
+func (o *Orchestrator) note(s string)  { o.emitNote(s, false) }
+func (o *Orchestrator) alert(s string) { o.emitNote(s, true) }
+
+func (o *Orchestrator) emitNote(s string, alert bool) {
 	if o.notify != nil {
-		o.notify(s)
+		o.notify(s, alert)
 	}
 }
 
