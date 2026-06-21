@@ -305,7 +305,7 @@ defmodule OnlyttyWeb.Site.Page do
     <section class="hero">
       <div class="wrap hero-grid">
         <div class="hero-copy" data-reveal>
-          <span class="badge"><span class="dot"></span>End-to-end encrypted · <b>open source</b></span>
+          <span class="badge"><span class="dot"></span>End-to-end encrypted</span>
           <h1>Want to control your <span class="hl" data-rotate='#{rotate}'>claude</span> while sitting on the toilet?</h1>
           <p class="lede">OnlyTTY gives any command on your machine a private link you can drive from your phone — end-to-end encrypted, so the relay only ever sees ciphertext.</p>
           <div class="cta-row">

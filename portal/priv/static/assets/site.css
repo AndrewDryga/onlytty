@@ -148,7 +148,6 @@ p { margin: 0 0 1rem; }
 }
 .badge .dot { width: .5rem; height: .5rem; border-radius: 50%; background: var(--ok);
   box-shadow: 0 0 0 0 rgba(52, 211, 153, .5); animation: pulse 2.4s var(--ease-out) infinite; }
-.badge b { color: var(--fg); font-weight: 650; }
 
 /* skip link */
 .skip { position: absolute; left: .75rem; top: .5rem; transform: translateY(-250%);
