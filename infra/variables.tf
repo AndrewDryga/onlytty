@@ -61,7 +61,7 @@ variable "machine_type" {
 variable "instance_count" {
   type        = number
   description = "MIG size. Sessions are registered cluster-wide via :global, so >1 is supported once the nodes form a BEAM cluster — set dns_cluster_query so DNSCluster can find peers."
-  default     = 3
+  default     = 2
 
   validation {
     condition     = var.instance_count >= 1 && floor(var.instance_count) == var.instance_count
