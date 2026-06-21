@@ -39,6 +39,7 @@ let ended = false, noReconnect = false, exitSeen = false;
 let backoff = 500;
 let ctrlArmed = false;
 let everConnected = false, failCount = 0;
+let everDecoded = false, mismatchTimer = null; // wrong-keys (bad passphrase) detection
 
 // --- UI helpers --------------------------------------------------------------
 function setStatus(text, cls) {
@@ -109,11 +110,59 @@ function connect() {
   ws.onerror = () => { try { ws.close(); } catch {} };
 }
 
+// --- wrong-keys recovery (bad passphrase / fingerprint mismatch) --------------
+function showKeyMismatch() {
+  const fp = $("fp").textContent;
+  let html =
+    "<h1>Can't decrypt this session</h1>" +
+    "<p>Frames are arriving, but the keys derived in this browser don't match the terminal — so every frame fails to decrypt. Compare the fingerprint here with the one in your terminal:</p>" +
+    "<p><code>" + fp + "</code></p>";
+  if (needPass) {
+    html +=
+      "<p>This is almost always a wrong passphrase. Re-enter it to try again — no reload needed:</p>" +
+      '<input id="pass-retry" type="password" autocomplete="off" placeholder="Passphrase" autofocus>' +
+      '<button id="pass-retry-go">Retry</button>';
+  } else {
+    html +=
+      "<p>The secret in this link doesn't match the session. Open the original link from the terminal — the secret never reaches the server, so it can't be recovered here.</p>";
+  }
+  $("overlay-card").innerHTML = html;
+  $("overlay").hidden = false;
+  if (needPass) {
+    const retry = () => { const v = $("pass-retry").value; if (v) { $("overlay").hidden = true; retryWithPassphrase(v); } };
+    $("pass-retry-go").onclick = retry;
+    $("pass-retry").addEventListener("keydown", (e) => { if (e.key === "Enter") retry(); });
+  }
+}
+
+async function retryWithPassphrase(passphrase) {
+  // Re-derive keys with the new passphrase and reconnect, so the runner re-sends its
+  // HELLO and we decrypt cleanly. Detach the old socket's onclose so it doesn't race
+  // the fresh connect.
+  if (ws) { try { ws.onclose = null; ws.close(); } catch {} ws = null; }
+  if (mismatchTimer) { clearTimeout(mismatchTimer); mismatchTimer = null; }
+  everDecoded = false; lastSeq = 0; outSeq = 0; hasControl = false; updateControlUI();
+  setStatus("reconnecting…", "warn");
+  await start(passphrase);
+}
+
 async function onMessage(ev) {
   if (typeof ev.data === "string") { onControlText(ev.data); return; }
   const frame = new Uint8Array(ev.data);
   let msg;
-  try { msg = await openC.open(frame); } catch { return; } // drop unauthenticated
+  try {
+    msg = await openC.open(frame);
+  } catch {
+    // Frames are arriving but none authenticate → the keys are wrong (wrong passphrase,
+    // or a link secret that doesn't match this session). Don't hang silently: after a
+    // short grace with no successful decrypt, surface a recoverable overlay.
+    if (!everDecoded && !mismatchTimer) {
+      mismatchTimer = setTimeout(() => { if (!everDecoded) showKeyMismatch(); }, 1200);
+    }
+    return;
+  }
+  everDecoded = true;
+  if (mismatchTimer) { clearTimeout(mismatchTimer); mismatchTimer = null; }
   if (msg.seq <= lastSeq) return; // replay / stale
   lastSeq = msg.seq;
   dispatch(msg);

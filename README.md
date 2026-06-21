@@ -95,7 +95,9 @@ onlytty [flags] -- <cmd>...  share one command
 ```
 
 The terminal shows a **fingerprint**; the browser shows the same one. If they match,
-both ends derived the same keys from the same secret.
+both ends derived the same keys from the same secret. If they differ — usually a
+wrong passphrase — the viewer says it can't decrypt and lets you re-enter the
+passphrase without reloading, instead of hanging silently.
 
 ## The mobile viewer
 
