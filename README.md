@@ -177,8 +177,11 @@ Found a vulnerability? See [SECURITY.md](SECURITY.md).
 
 ## Self-host the relay
 
-The relay is a single Elixir release container. Sessions are **in memory only** —
-nothing terminal-related is ever persisted, so there is no database.
+The relay is an Elixir release container. Sessions are **in memory only** — nothing
+terminal-related is ever persisted, so there is no database. It **scales horizontally**:
+run several instances behind the load balancer and they form one BEAM cluster, so a
+runner and a viewer that hit different instances still pair (sessions are registered
+cluster-wide via `:global`). See [`infra/`](infra/README.md) for the multi-instance setup.
 
 ```bash
 docker build -t onlytty-server ./portal      # or pull ghcr.io/andrewdryga/onlytty

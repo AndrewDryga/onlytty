@@ -51,7 +51,8 @@ timing/size, but never read or forge terminal IO.
 | `ONLYTTY_RATELIMIT_WINDOW` | `60` | rate-limit window length (seconds) |
 | `ONLYTTY_METRICS_TOKEN` | — | bearer token for `GET /metrics` from non-loopback (e.g. via the LB); unset → loopback-only |
 | `SENTRY_DSN` / `SENTRY_RELEASE` / `SENTRY_ENVIRONMENT` | — | backend-only error reporting; no-ops unless `SENTRY_DSN` is set |
-| `DNS_CLUSTER_QUERY` | — | optional DNS-based clustering query |
+| `DNS_CLUSTER_QUERY` | — | DNS name resolving to all relay nodes; DNSCluster polls it to form the BEAM cluster (set when running >1 instance, so sessions resolve cluster-wide via `:global`) |
+| `RELEASE_COOKIE` | _(image-baked)_ | Erlang distribution cookie; same on every node. Same image already matches — set to pin a stable one across builds |
 
 Session lifecycle: a session is reaped at its (clamped) TTL, after the idle timeout
 with no runner traffic, or — if a runner that has connected then drops — after a short

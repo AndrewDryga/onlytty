@@ -9,23 +9,35 @@ image registry.
 
 ```
             ┌─ IPv4/IPv6 anycast ─┐
-DNS A/AAAA ─┤  HTTPS LB (TLS, LB- ├─► backend (HTTP, /healthz) ─► MIG (size 1) ─► onlytty :4000
-            │  managed cert)      │                                  COS instance, in-memory, no DB
+DNS A/AAAA ─┤  HTTPS LB (TLS, LB- ├─► backend (HTTP, /healthz) ─► MIG (1+ nodes) ─► onlytty :4000
+            │  managed cert)      │                              COS, clustered BEAM, in-memory, no DB
             └─ :80 → :443 redirect┘
 ```
 
 WebSockets traverse the HTTP backend natively (Upgrade); `backend_timeout_sec` caps a
 single connection's lifetime (default 1 day) and the runner reconnects + resumes.
 
-## ⚠️ The MIG stays at one instance
+## Scaling out (more than one instance)
 
-OnlyTTY sessions are held **in memory on the instance that created them**
-(`Onlytty.SessionStore` is not shared). With more than one instance a session's runner
-and viewer can land on different instances and never connect — and LB session affinity
-cannot fix it, because the runner and the viewer are *different clients*. So
-`instance_count` is **1** and the variable validation enforces it. Raising it requires a
-follow-up that adds BEAM clustering + a distributed session registry (libcluster +
-`pg`/Horde); file that separately before scaling out.
+OnlyTTY sessions are held **in memory on the node that created them**, but each session
+is registered **cluster-wide via `:global`**, so a runner and a viewer that land on
+different instances resolve the same session over Erlang distribution. To run more than
+one node:
+
+1. Set `instance_count` > 1.
+2. Set `dns_cluster_query` to a DNS name that resolves to **all** instance IPs —
+   DNSCluster polls it to connect the nodes. This is the one operator-supplied piece on
+   a bare GCP MIG (point it at a Cloud DNS record covering the instances, or a managed
+   internal record the instances register into); on headless-DNS platforms (Fly, k8s)
+   the platform name works directly.
+
+The container runs with `--network host`, and the `onlytty-allow-cluster` firewall opens
+epmd (4369) + the distribution ports (9100–9105) tag→tag between the relay's own
+instances only. Each node is named `onlytty@<internal-ip>`; the cookie is the
+image-baked release cookie (same image ⇒ same cookie), or set `RELEASE_COOKIE` to pin a
+stable one. A node that dies loses only its own sessions — the runner reconnects and
+re-creates — which is fine: the live sockets die with the node, so there is no session
+hand-off to engineer.
 
 ## Image: public vs private GHCR
 
