@@ -12,10 +12,15 @@ write_files:
     content: |
       #!/bin/bash
       set -euo pipefail
-      # SECRET_KEY_BASE from Secret Manager via the instance metadata token.
+      # SECRET_KEY_BASE from Secret Manager via the instance metadata token. A
+      # successful-but-empty grep/cut doesn't fail the pipeline under pipefail, so
+      # guard each step explicitly — never boot the relay with an empty secret.
       TOKEN=$(curl -s -H "Metadata-Flavor: Google" http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token | cut -d'"' -f4)
+      [ -n "$TOKEN" ] || { echo "failed to obtain metadata access token" >&2; exit 1; }
       DATA=$(curl -s -H "Authorization: Bearer $TOKEN" "https://secretmanager.googleapis.com/v1/projects/${project_id}/secrets/${secret_name}/versions/latest:access" | grep -oE '"data": ?"[^"]*"' | cut -d'"' -f4)
+      [ -n "$DATA" ] || { echo "failed to read secret ${secret_name} from Secret Manager" >&2; exit 1; }
       SECRET_KEY_BASE=$(printf '%s' "$DATA" | base64 -d)
+      [ -n "$SECRET_KEY_BASE" ] || { echo "decoded SECRET_KEY_BASE is empty" >&2; exit 1; }
       docker rm -f onlytty 2>/dev/null || true
       # Public GHCR pull — no credentials. For a private repo, `docker login
       # ghcr.io` here with a read-only PAT injected via Secret Manager.
