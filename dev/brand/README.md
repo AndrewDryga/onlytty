@@ -20,9 +20,13 @@ recorded — re-export at the target dimensions below, then optimize the PNG
 | `mascot-mono.png` | — | monochrome mascot variant; not currently served |
 | `logo-lockup-light.png` | — | wordmark/lockup for external use (READMEs, decks); not currently served |
 
-The served `og.png` (~650 KB) and `icon-512.png` (~210 KB) are heavy for what they are
-— see the `(perf/assets) Shrink the heavy served static images` task to optimize them
-in place (same dimensions/filenames).
+The served PNGs are optimized in place (same dimensions/filenames) with **pngquant**
+(`--quality=80-96 --strip`) then **oxipng** (`-o6`) — near-lossless, no visible quality
+loss. Re-run that pair after re-exporting any served PNG. Current sizes: og.png ~39 KB,
+icon-512 ~25 KB, icon-192 ~6 KB, apple-touch ~5 KB, mascot ~15 KB.
+
+NOTE: `og.png` still shows a stale `$ relay -- claude` snippet — it needs re-exporting
+from `banner.png` with the `onlytty` command (a content change, not an optimization).
 
 Since the repo isn't published yet, dropping these sources entirely (keeping them in
 the design tool / a release artifact) is a legitimate alternative to versioning them
