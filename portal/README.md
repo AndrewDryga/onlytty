@@ -24,6 +24,7 @@ The full gate (run from the repo root) is `make server-check`:
 |-------|---------|
 | `POST /api/sessions` | create a session → `{id, runner_token, expires_at}` |
 | `GET /healthz` | liveness probe (`200 ok`) |
+| `GET /metrics` | Prometheus counters (access-gated: loopback-only unless `ONLYTTY_METRICS_TOKEN`) |
 | `GET /s/:id` | the static browser viewer page |
 | `GET /ws/runner/:id` | runner WebSocket (Bearer `runner_token`) |
 | `GET /ws/viewer/:id` | viewer WebSocket (single-viewer lock) |
@@ -44,11 +45,19 @@ timing/size, but never read or forge terminal IO.
 | `ONLYTTY_MAX_TTL` | `604800` | hard ceiling on session TTL (s) — **7 days**; requested TTLs clamp to it |
 | `ONLYTTY_IDLE_TIMEOUT` | `600` | close a session after this many seconds with no runner traffic |
 | `ONLYTTY_MAX_SESSIONS` | `2000` | cap on concurrent in-memory sessions (bounds create-spam) |
+| `ONLYTTY_MAX_FRAME_BYTES` | `1048576` | max size of a single WebSocket frame (1 MiB); over-cap closes 1009 |
+| `ONLYTTY_ALLOWED_ORIGINS` | _(same host)_ | comma-separated **extra** browser-viewer origins (additive to same-host; defense-in-depth). Runner WS is never gated |
+| `ONLYTTY_RATELIMIT_MAX` | `30` | max `POST /api/sessions` per window per IP (`0` disables) |
+| `ONLYTTY_RATELIMIT_WINDOW` | `60` | rate-limit window length (seconds) |
+| `ONLYTTY_METRICS_TOKEN` | — | bearer token for `GET /metrics` from non-loopback (e.g. via the LB); unset → loopback-only |
+| `SENTRY_DSN` / `SENTRY_RELEASE` / `SENTRY_ENVIRONMENT` | — | backend-only error reporting; no-ops unless `SENTRY_DSN` is set |
 | `DNS_CLUSTER_QUERY` | — | optional DNS-based clustering query |
 
 Session lifecycle: a session is reaped at its (clamped) TTL, after the idle timeout
-with no runner, or when the runner disconnects. Creation is unauthenticated, so the
-`ONLYTTY_MAX_SESSIONS` cap returns `503` once the pool is full.
+with no runner traffic, or — if a runner that has connected then drops — after a short
+grace with no reconnect (a runner drop is kept reconnect-friendly, not closed
+immediately). A never-connected session is reaped after the same grace. Creation is
+unauthenticated, so the `ONLYTTY_MAX_SESSIONS` cap returns `503` once the pool is full.
 
 ## Production
 
