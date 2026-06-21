@@ -1,6 +1,6 @@
 <div align="center">
 
-# relay
+# OnlyTTY
 
 **Run a command anywhere, get a link, drive it from your phone — end-to-end encrypted, so the server in the middle only ever sees ciphertext.**
 
