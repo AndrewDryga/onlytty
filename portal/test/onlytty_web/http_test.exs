@@ -21,7 +21,7 @@ defmodule OnlyttyWeb.HTTPTest do
   end
 
   describe "POST /api/sessions" do
-    test "returns id, runner_token and a future expires_at", %{conn: conn} do
+    test "returns id, runner_token and a no-expiry sentinel by default", %{conn: conn} do
       conn = post(conn, ~p"/api/sessions")
       assert conn.status == 201
       body = json_response(conn, 201)
@@ -30,10 +30,8 @@ defmodule OnlyttyWeb.HTTPTest do
       assert is_binary(body["runner_token"]) and byte_size(body["runner_token"]) >= 16
       assert body["id"] != body["runner_token"]
 
-      # default ttl is 1800s; expires_at must be ~30 min in the future.
-      now = System.system_time(:second)
-      assert body["expires_at"] > now + 1700
-      assert body["expires_at"] <= now + 1800 + 5
+      # No --ttl → no expiry → expires_at is the 0 sentinel.
+      assert body["expires_at"] == 0
     end
 
     test "honors a custom ttl_seconds", %{conn: conn} do
@@ -44,12 +42,12 @@ defmodule OnlyttyWeb.HTTPTest do
       assert body["expires_at"] <= now + 120 + 5
     end
 
-    test "clamps a too-large ttl_seconds to the 7-day max", %{conn: conn} do
+    test "honors a large ttl_seconds when no ceiling is configured", %{conn: conn} do
       now = System.system_time(:second)
       conn = post(conn, ~p"/api/sessions", %{ttl_seconds: 999_999_999})
       body = json_response(conn, 201)
-      assert body["expires_at"] <= now + 604_800 + 5
-      assert body["expires_at"] > now + 604_800 - 5
+      # ONLYTTY_MAX_TTL is unset in test, so there is no ceiling — the TTL is honored.
+      assert body["expires_at"] > now + 999_999_999 - 5
     end
 
     test "clamps a too-small ttl_seconds up to the 60s min", %{conn: conn} do

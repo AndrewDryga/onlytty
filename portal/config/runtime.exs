@@ -21,8 +21,8 @@ if System.get_env("PHX_SERVER") do
 end
 
 # Onlytty session limits, tunable at runtime in every environment.
-#   ONLYTTY_DEFAULT_TTL   — default session TTL in seconds (PROTOCOL default 1800)
-#   ONLYTTY_MAX_TTL       — hard ceiling on session TTL in seconds (default 604800 = 7d)
+#   ONLYTTY_DEFAULT_TTL   — TTL (s) for a request that omits one; default 0 = no expiry
+#   ONLYTTY_MAX_TTL       — optional hard ceiling on session TTL (s); unset = no ceiling
 #   ONLYTTY_IDLE_TIMEOUT  — close a session after this many seconds with no runner
 #                         traffic (default 600)
 if ttl = System.get_env("ONLYTTY_DEFAULT_TTL") do

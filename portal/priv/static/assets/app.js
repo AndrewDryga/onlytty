@@ -385,7 +385,14 @@ term.onData((d) => {
 // fall to a terminal state ourselves so a missed EXIT can never leave the viewer
 // hanging at "waiting…" indefinitely.
 function startTtl() {
-  if (ttlTimer) clearInterval(ttlTimer);
+  if (ttlTimer) { clearInterval(ttlTimer); ttlTimer = null; }
+  if (expiresAt === 0) { // 0 = no server-side expiry (lives as long as the runner runs)
+    const el = $("ttl");
+    el.hidden = false;
+    el.textContent = "no expiry";
+    el.classList.remove("soon");
+    return;
+  }
   tickTtl();
   ttlTimer = setInterval(tickTtl, 1000);
 }

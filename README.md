@@ -116,8 +116,10 @@ onlytty [flags] -- <cmd>...  share one command
                      request only). Take control back any time (any mode) with:
                      kill -USR1 <onlytty-pid>
   --read-only        deprecated alias for --control view-only
-  --ttl <dur>        session lifetime before the link expires
-                     (default 12h; the relay clamps every TTL to 60s–7d)
+  --ttl <dur>        session lifetime before the link expires. Default: no expiry —
+                     the session lives as long as onlytty runs (it ends when the
+                     command exits). Set a duration to bound it; the relay you
+                     connect to may impose a maximum.
   --passphrase       prompt for a passphrase mixed into the keys; share it
                      out-of-band so the link alone cannot decrypt
   --passphrase-generate
@@ -199,8 +201,8 @@ context — without HTTPS the viewer refuses to run.
 | `SECRET_KEY_BASE` | — | required in prod (`mix phx.gen.secret`) |
 | `PHX_HOST` | `example.com` | public hostname (URLs + the http→https redirect) |
 | `PORT` | `4000` | listen port |
-| `ONLYTTY_DEFAULT_TTL` | `1800` | default session TTL (s); clamped to 60s–`ONLYTTY_MAX_TTL` |
-| `ONLYTTY_MAX_TTL` | `604800` | hard TTL ceiling (s) — 7 days |
+| `ONLYTTY_DEFAULT_TTL` | `0` | TTL (s) for a request that omits one; `0` = no expiry |
+| `ONLYTTY_MAX_TTL` | _(unset)_ | optional hard TTL ceiling (s); unset = no ceiling |
 | `ONLYTTY_MAX_SESSIONS` | `2000` | cap on concurrent sessions |
 
 Further tuning — `ONLYTTY_IDLE_TIMEOUT`, `ONLYTTY_MAX_FRAME_BYTES`,

@@ -158,7 +158,9 @@ binary runner↔viewer verbatim.
 ## Endpoints
 
 - `POST /api/sessions` → `{"id","runner_token","expires_at"}`.
-  Optional body `{"ttl_seconds":int}` (default 1800, max 604800 = 7d).
+  Optional body `{"ttl_seconds":int}` (default `0` = no expiry; a positive value is
+  floored at 60s and capped by the relay's optional `ONLYTTY_MAX_TTL`). `expires_at`
+  is `0` when the session has no expiry.
 - `GET  /s/:id` → the viewer HTML page (static; JS reads id from path, S from `#`).
 - `GET  /ws/runner/:id` → WebSocket; requires `Authorization: Bearer <runner_token>`.
 - `GET  /ws/viewer/:id` → WebSocket; capability is knowing `:id`.
@@ -167,7 +169,9 @@ binary runner↔viewer verbatim.
 ## Session lifecycle & limits (relay)
 
 - Sessions live **in memory only** — nothing terminal-related is ever persisted.
-- TTL: the session is closed at `expires_at` (default 30 min).
+- TTL: with a positive `ttl_seconds`, the session is closed at `expires_at`; by
+  default there is no TTL — the session lives as long as the runner (it ends on
+  command exit or runner disconnect).
 - Single-viewer lock by default: a second viewer gets `{"t":"busy"}` and is closed.
 - Idle timeout: closed after a period with no runner traffic.
 - The relay forwards binary frames it cannot decrypt; it stores none of them.

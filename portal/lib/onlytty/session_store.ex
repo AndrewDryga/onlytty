@@ -13,14 +13,17 @@ defmodule Onlytty.SessionStore do
   @registry Onlytty.Registry
   @supervisor Onlytty.SessionSupervisor
 
-  # PROTOCOL.md: default 1800s, max 604800 (7d — sessions are long-lived and survive
-  # runner reconnects, so the ceiling is days, not hours). We also clamp a sane lower
-  # bound so a session can't expire before anyone can connect. Both the default and
-  # the max are overridable at runtime via the :default_ttl / :max_ttl app env
-  # (ONLYTTY_DEFAULT_TTL / ONLYTTY_MAX_TTL).
-  @default_ttl 1800
+  # TTL is opt-in. By default a session has NO expiry (0) and lives as long as the
+  # runner runs — it ends when the command exits or the runner disconnects, not on a
+  # clock. A positive `--ttl` opts into a time bound; a too-small one is floored at
+  # @min_ttl so it can't expire before anyone connects. An operator of a shared relay
+  # can impose a ceiling with ONLYTTY_MAX_TTL (a no-expiry request is then forced down
+  # to it); unset means no ceiling. Both knobs are runtime app env (:default_ttl /
+  # :max_ttl ← ONLYTTY_DEFAULT_TTL / ONLYTTY_MAX_TTL). 0 means "no expiry" throughout
+  # (both `ttl_seconds` and `expires_at`).
+  @default_ttl 0
   @min_ttl 60
-  @max_ttl 604_800
+  @max_ttl :infinity
 
   @doc "The Registry `:via` tuple used to name a session process by its id."
   def via(id), do: {:via, Registry, {@registry, id}}
@@ -51,8 +54,7 @@ defmodule Onlytty.SessionStore do
       {:ok, _pid} ->
         Onlytty.Metrics.inc(:sessions_created)
 
-        {:ok,
-         %{id: id, runner_token: runner_token, expires_at: System.system_time(:second) + ttl}}
+        {:ok, %{id: id, runner_token: runner_token, expires_at: expiry_at(ttl)}}
 
       {:error, :max_children} ->
         # The cap is hit: refuse rather than grow unbounded.
@@ -81,9 +83,22 @@ defmodule Onlytty.SessionStore do
   # 16 random bytes = 128 bits, URL-safe, no padding.
   defp random_token, do: 16 |> :crypto.strong_rand_bytes() |> Base.url_encode64(padding: false)
 
-  defp clamp_ttl(nil), do: default_ttl()
-  defp clamp_ttl(ttl) when is_integer(ttl), do: ttl |> max(@min_ttl) |> min(max_ttl())
-  defp clamp_ttl(_), do: default_ttl()
+  # Returns the TTL in seconds, where 0 means "no expiry". An omitted request uses the
+  # configured default; <= 0 means no expiry; a positive value is floored at @min_ttl.
+  # cap/1 then applies the operator ceiling, forcing even a no-expiry request down to it
+  # when ONLYTTY_MAX_TTL is set.
+  defp clamp_ttl(nil), do: clamp_ttl(default_ttl())
+  defp clamp_ttl(ttl) when is_integer(ttl) and ttl <= 0, do: cap(0)
+  defp clamp_ttl(ttl) when is_integer(ttl), do: cap(max(ttl, @min_ttl))
+  defp clamp_ttl(_), do: cap(0)
+
+  defp cap(ttl) when ttl <= 0, do: if(max_ttl() == :infinity, do: 0, else: max_ttl())
+  defp cap(ttl), do: if(max_ttl() == :infinity, do: ttl, else: min(ttl, max_ttl()))
+
+  # 0 ttl = no expiry → expires_at 0, a sentinel the runner banner and viewer render as
+  # "no expiry"; a positive ttl yields an absolute unix-second deadline.
+  defp expiry_at(0), do: 0
+  defp expiry_at(ttl), do: System.system_time(:second) + ttl
 
   defp idle_ms do
     Application.get_env(:onlytty, :idle_timeout_ms, 10 * 60 * 1000)

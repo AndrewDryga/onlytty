@@ -106,7 +106,7 @@ defmodule Onlytty.Session do
       id: Keyword.fetch!(opts, :id),
       runner_token: Keyword.fetch!(opts, :runner_token),
       created_at: now,
-      expires_at: now + ttl,
+      expires_at: if(ttl > 0, do: now + ttl, else: 0),
       runner: nil,
       runner_ref: nil,
       viewer: nil,
@@ -115,7 +115,7 @@ defmodule Onlytty.Session do
       idle_ms: idle_ms,
       idle_timer: nil,
       unconnected_ms: unconnected_ms,
-      ttl_timer: Process.send_after(self(), :ttl_expired, ttl * 1000),
+      ttl_timer: if(ttl > 0, do: Process.send_after(self(), :ttl_expired, ttl * 1000), else: nil),
       unconnected_timer: Process.send_after(self(), :reap_unconnected, unconnected_ms)
     }
 
