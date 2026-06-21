@@ -361,7 +361,7 @@ defmodule OnlyttyWeb.Site.Page do
           </div>
           #{bento_tile("md", "shield", "No inbound ports", "The CLI dials out over TLS. Nothing listens on your machine, so your firewall stays exactly as shut as it is now.")}
           #{bento_tile("md", "trash", "Nothing persisted", "Live sessions live in memory and vanish on expiry. No accounts, no history, nothing written to disk, no logs of your bytes.")}
-          #{bento_tile("sm", "wifi", "Survives bad Wi-Fi", "Sessions ride out dropouts, sleep, and dead zones — lose signal on the subway, resurface, and your terminal's right where you left it.")}
+          #{bento_tile("sm", "wifi", "Survives bad Wi-Fi", "Your phone rides out dropouts, sleep, and dead zones — lose signal on the subway, resurface, and the viewer reconnects right where you left off.")}
           #{bento_tile("sm", "key", "The link is the key", "Anyone with the full link can watch and take control. Start it read-only, or add a passphrase the link alone can't decrypt.")}
           #{bento_tile("sm", "terminal", "Works with any CLI", "If it runs in a terminal, OnlyTTY shares it — agents, editors, REPLs, TUIs, or your whole shell.")}
         </div>
@@ -835,7 +835,7 @@ defmodule OnlyttyWeb.Site.Page do
       {"Is it really free and open source?",
        ~s(Yes. The relay server and the CLI are open source — host your own relay or audit the code on <a href="#{@github}" rel="noopener">GitHub</a>. No accounts, no tracking.)},
       {"How long does a session last, and what if my connection drops?",
-       ~s(As long as you want it to. Sessions are long-lived and resilient — they ride out flaky networks, sleep, and dead zones, reconnecting on their own so you can drop off Wi-Fi and pick right back up. Set the lifetime with <code>--ttl</code>, up to 7 days. When you exit the command or it expires, it's gone — the relay stores nothing.)},
+       ~s(As long as you want it to. Sessions are long-lived, and your phone or laptop rides out flaky networks, sleep, and dead zones — the viewer reconnects on its own so you can drop off Wi-Fi and pick right back up. Set the lifetime with <code>--ttl</code>, up to 7 days. When you exit the command or it expires, it's gone — the relay stores nothing.)},
       {"Okay, but the toilet thing?",
        "We're simply acknowledging that the bathroom is now a valid on-call location. Approve the deploy, kill the runaway process, answer your agent's question — then wash your hands. You're welcome."}
     ]
