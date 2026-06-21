@@ -46,6 +46,15 @@ function startRunner(args, { wantPass = false } = {}) {
   });
 }
 
+// The session-fingerprint popup auto-shows on first load (covered by its own test
+// below). The other flows aren't about verification, so accept it to clear the
+// overlay — this also records the session as verified, so a later reload won't re-prompt.
+async function dismissVerify(page) {
+  await page.waitForSelector("#fp-match", { timeout: 10000 });
+  await page.click("#fp-match");
+  await page.waitForFunction(() => document.getElementById("overlay").hidden, null, { timeout: 4000 });
+}
+
 test("browser viewer: connect, match fingerprint, take control, type, see output", async (t) => {
   let chromium;
   try { ({ chromium } = await import("playwright")); } catch { t.skip("playwright not installed"); return; }
@@ -61,6 +70,7 @@ test("browser viewer: connect, match fingerprint, take control, type, see output
     page.on("console", (m) => { if (m.type() === "error") errors.push(m.text()); });
 
     await page.goto(link);
+    await dismissVerify(page);
 
     // The fingerprint shown in the browser must equal the one in the terminal: proof
     // both sides derived the same keys from the secret in the fragment.
@@ -135,6 +145,7 @@ test("browser viewer: pin a custom shortcut — it sends, persists across reload
     page.on("pageerror", (e) => errors.push(String(e)));
 
     await page.goto(link);
+    await dismissVerify(page);
     await page.waitForFunction(
       () => document.getElementById("status-text").textContent === "connected",
       null, { timeout: 10000 },
@@ -203,6 +214,7 @@ test("browser viewer: key-bar show/hide toggle persists across reload", async (t
     browser = await chromium.launch();
     const page = await browser.newPage();
     await page.goto(link);
+    await dismissVerify(page);
     await page.waitForSelector("#menu-btn");
 
     // Desktop default (precise pointer + hover): the key bar is hidden.
@@ -287,6 +299,7 @@ test("browser viewer: mobile layout — Take control stays on-screen at 360px; ^
     const page = await browser.newPage({ viewport: { width: 360, height: 780 } });
     await page.addInitScript(() => { try { localStorage.setItem("onlytty.keybar", "show"); } catch {} });
     await page.goto(link);
+    await dismissVerify(page);
     await page.waitForFunction(
       () => document.getElementById("status-text").textContent === "connected",
       null, { timeout: 10000 },
@@ -301,10 +314,18 @@ test("browser viewer: mobile layout — Take control stays on-screen at 360px; ^
 
     // Secondary controls are reachable via the ⋯ menu (not crammed into the bar).
     await page.click("#menu-btn");
+    assert.ok(await page.locator("#kbd").isVisible(), "Open keyboard in the ⋯ menu");
     assert.ok(await page.locator("#menu-verify").isVisible(), "Verify in the ⋯ menu");
     assert.ok(await page.locator("#paste").isVisible(), "Paste in the ⋯ menu");
-    await page.click("#menu-btn");
-    assert.equal(await page.locator("#menu").isVisible(), false, "⋯ menu closes");
+    // Blur the terminal first, then "Open keyboard" must focus it (that's what raises
+    // the mobile soft keyboard) and close the menu.
+    await page.evaluate(() => document.querySelector(".xterm-helper-textarea")?.blur());
+    await page.click("#kbd");
+    assert.equal(await page.locator("#menu").isVisible(), false, "⋯ menu closes after a pick");
+    await page.waitForFunction(
+      () => document.activeElement === document.querySelector(".xterm-helper-textarea"),
+      null, { timeout: 4000 },
+    );
 
     // Key bar visible (pref forced) and its keys are ≥44px tap targets.
     assert.equal(await page.locator("#keys").isVisible(), true, "key bar visible on the phone");
@@ -324,6 +345,49 @@ test("browser viewer: mobile layout — Take control stays on-screen at 360px; ^
       () => document.querySelector(".xterm-rows")?.innerText.includes("MOB_7"),
       null, { timeout: 8000 },
     );
+  } finally {
+    if (browser) await browser.close();
+    proc.kill("SIGKILL");
+  }
+});
+
+test("browser viewer: session fingerprint is verified once, then remembered per session", async (t) => {
+  let chromium;
+  try { ({ chromium } = await import("playwright")); } catch { t.skip("playwright not installed"); return; }
+  if (!(await healthy())) { t.skip("relay not reachable at " + base); return; }
+
+  const { proc, link, fingerprint } = await startRunner(["--", "bash", "--norc", "--noprofile", "-i"]);
+  let browser;
+  try {
+    browser = await chromium.launch();
+    const page = await browser.newPage();
+    await page.goto(link);
+
+    // First load of a session: the verify popup auto-appears, and its fingerprint must
+    // equal the terminal's (proof both ends derived the same keys).
+    await page.waitForSelector("#fp-match", { timeout: 10000 });
+    assert.equal(await page.locator("#overlay").isVisible(), true, "verify popup shows on first load");
+    const shown = (await page.locator("#overlay-card code").textContent()).replace(/-/g, "");
+    assert.equal(shown, fingerprint.replace(/-/g, ""), "popup fingerprint matches the terminal");
+
+    // Confirm the match → the popup closes and the fact is saved, scoped to THIS
+    // session id (a per-session key, not a global flag).
+    await page.click("#fp-match");
+    await page.waitForFunction(() => document.getElementById("overlay").hidden, null, { timeout: 4000 });
+    const key = await page.evaluate(() => {
+      const ks = Object.keys(localStorage).filter((k) => k.startsWith("onlytty.verified."));
+      return ks.length === 1 ? ks[0] : null;
+    });
+    assert.ok(key && key.length > "onlytty.verified.".length, "verification stored under a per-session key");
+
+    // Reload the same session: it's remembered, so the popup does NOT show again — it
+    // connects straight through with no overlay.
+    await page.reload();
+    await page.waitForFunction(
+      () => document.getElementById("status-text").textContent === "connected",
+      null, { timeout: 10000 },
+    );
+    assert.equal(await page.locator("#overlay").isVisible(), false, "a verified session skips the popup on reload");
   } finally {
     if (browser) await browser.close();
     proc.kill("SIGKILL");

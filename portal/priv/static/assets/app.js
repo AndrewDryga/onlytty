@@ -61,6 +61,43 @@ function updateControlUI() {
   b.className = hasControl ? "live" : "";
 }
 
+// --- session-fingerprint verification ----------------------------------------
+// On the first load of a session we prompt the user to compare the fingerprint
+// with the one in their terminal — proof both ends derived the same keys from the
+// same secret, with no one in the middle. The confirmation is remembered per
+// session: keyed by the session id and storing the exact fingerprint that was
+// confirmed, so a reload doesn't nag, but a *different* session — or keys that no
+// longer match (e.g. a different passphrase) — must be verified afresh. Stored
+// device-local; never anything from the URL.
+const VERIFIED_KEY = "onlytty.verified." + id;
+function isVerified(fp) {
+  try { return !!fp && localStorage.getItem(VERIFIED_KEY) === fp; } catch { return false; }
+}
+function showVerify() {
+  const fp = $("fp").textContent;
+  if (!fp) return;
+  const o = $("overlay");
+  $("overlay-card").innerHTML =
+    "<h1>Verify this session</h1>" +
+    "<p>Compare this with the fingerprint shown in your terminal. If they match, the connection is end-to-end encrypted with no one in the middle — confirm once and this browser won't ask again for this session.</p>" +
+    `<p><code>${fp}</code></p>` +
+    '<button id="fp-match">They match</button>' +
+    '<button id="fp-nomatch" class="ghost">They don’t</button>';
+  $("fp-match").onclick = () => {
+    try { localStorage.setItem(VERIFIED_KEY, fp); } catch {}
+    o.hidden = true;
+    term.focus();
+  };
+  $("fp-nomatch").onclick = () => {
+    $("overlay-card").innerHTML =
+      "<h1>Don't trust this session</h1>" +
+      "<p>The fingerprint here doesn't match your terminal, so the keys differ — this may be the wrong link or a tampered session. Don't type anything secret: close this tab and re-open the original link printed by your terminal.</p>" +
+      "<button data-dismiss>OK</button>";
+    o.querySelectorAll("[data-dismiss]").forEach((b) => b.addEventListener("click", () => { o.hidden = true; }));
+  };
+  o.hidden = false;
+}
+
 // Touch key bar is for phones (coarse pointer, no hover) — not touchscreen
 // laptops/2-in-1s, which have a precise pointer and a real keyboard. The phone
 // default can be overridden per-device (e.g. an iPad + keyboard opting out, or a
@@ -98,6 +135,8 @@ async function start(passphrase) {
   sealC = await newCipher(keys.v2r, enc.encode(id));
   $("fp").textContent = groupFingerprint(keys.fingerprint);
   $("fp").title = "Confirm this matches the fingerprint shown in the terminal";
+  // First load of this session (or keys we haven't confirmed): prompt to verify.
+  if (!isVerified($("fp").textContent)) showVerify();
   connect();
 }
 
@@ -297,10 +336,10 @@ menu.addEventListener("click", (e) => { if (e.target.closest("button") && !e.tar
 document.addEventListener("click", (e) => {
   if (!menu.hidden && !menu.contains(e.target) && e.target !== $("menu-btn")) menu.hidden = true;
 });
-$("menu-verify").addEventListener("click", () => {
-  const fp = $("fp").textContent;
-  if (fp) fatal(`<h1>Session fingerprint</h1><p>Compare this with the fingerprint shown in your terminal — if they match, both ends derived the same keys from the same secret.</p><p><code>${fp}</code></p><button data-dismiss>OK</button>`);
-});
+$("menu-verify").addEventListener("click", showVerify);
+// Open the mobile soft keyboard on demand — focusing inside the click gesture is
+// what lets iOS/Android raise it (tapping the terminal isn't always discoverable).
+$("kbd").onclick = () => term.focus();
 
 const KEYS = {
   esc: "\x1b", tab: "\t", up: "\x1b[A", down: "\x1b[B", left: "\x1b[D", right: "\x1b[C",

@@ -74,6 +74,7 @@
   #overlay input { width:100%; margin:.8rem 0; padding:.6rem; font-size:1rem; background:#0b0e14;
     color:var(--fg); border:1px solid #2a3346; border-radius:.45rem; }
   #overlay button { width:100%; padding:.6rem; background:var(--accent); border-color:var(--accent); color:#fff; }
+  #overlay button.ghost { background:#1b2030; border-color:#2a3346; color:var(--fg); }
 </style>
 </head>
 <body>
@@ -84,9 +85,10 @@
     <button id="control">Take control</button>
     <button id="menu-btn" title="More controls" aria-label="More controls" aria-haspopup="true">⋯</button>
     <div id="menu" hidden role="menu">
-      <button id="menu-verify" class="item" role="menuitem">Verify fingerprint</button>
+      <button id="kbd" class="item" role="menuitem">Open keyboard</button>
       <button id="paste" class="item" role="menuitem">Paste</button>
       <button id="keys-toggle" class="item" role="menuitem">Show / hide keys</button>
+      <button id="menu-verify" class="item" role="menuitem">Verify fingerprint</button>
       <div class="item">Text size<span class="seg"><button id="font-dec" title="Smaller">A−</button><button id="font-inc" title="Larger">A+</button></span></div>
     </div>
   </div>
