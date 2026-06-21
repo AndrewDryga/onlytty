@@ -204,6 +204,14 @@ resource "google_compute_region_instance_group_manager" "onlytty" {
   region             = var.region
   target_size        = var.instance_count
 
+  # Block `terraform apply` until the rollout finishes and every instance is on the new
+  # version and stable — so a broken deploy (instances that never come up healthy) FAILS
+  # the apply instead of returning while the fleet is down. With auto_healing below, an
+  # instance that can't pass /healthz keeps the group unstable, so the apply waits until
+  # it recovers or the timeouts below trip.
+  wait_for_instances        = true
+  wait_for_instances_status = "UPDATED"
+
   version {
     instance_template = google_compute_instance_template.onlytty.id
   }
@@ -225,6 +233,14 @@ resource "google_compute_region_instance_group_manager" "onlytty" {
     # healthy one — so sessions migrate as old instances drain (see Onlytty.Drain).
     max_surge_fixed       = 3
     max_unavailable_fixed = 0
+  }
+
+  # Bound the wait_for_instances wait so a rollout that never goes healthy fails in ~20m
+  # instead of hanging.
+  timeouts {
+    create = "20m"
+    update = "20m"
+    delete = "15m"
   }
 
   depends_on = [google_project_service.apis]

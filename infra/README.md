@@ -49,26 +49,33 @@ and add a `docker login ghcr.io` step in `templates/cloud-init.yaml` before the 
 ## First-time setup
 
 ```bash
-# 0. Log in to Terraform Cloud (once):
+# 0. Enable the bootstrap APIs once — Terraform can't enable these itself (managing
+#    project services requires them already on):
+gcloud services enable cloudresourcemanager.googleapis.com serviceusage.googleapis.com \
+  --project=<project>
+
+# 1. Log in to Terraform Cloud (once), configure, init:
 terraform login
-
-# 1. Configure:
-cp terraform.tfvars.example terraform.tfvars   # then edit (project, domain, dns_name, image)
-
-# 2. Apply:
+cp terraform.tfvars.example terraform.tfvars   # then edit (or set these as TFC workspace vars)
 terraform init
-terraform apply
 
-# 3. Delegate your domain's nameservers to the Cloud DNS zone:
-terraform output nameservers      # set these as the NS records at your registrar
-#    (A/AAAA + the cert DNS-authorization CNAME are managed in the zone for you.)
-
-# 4. Add the session secret (never stored in TF state):
+# 2. Create the secret container, then add its value. The relay can't boot without it and
+#    the apply in step 4 BLOCKS until the relay is healthy (wait_for_instances), so the
+#    secret must exist first:
+terraform apply -target=google_secret_manager_secret.secret_key_base
 openssl rand -base64 64 | gcloud secrets versions add onlytty-secret-key-base \
   --data-file=- --project=<project>
 
-# 5. Publish the image to public GHCR (the release workflow in .github/workflows
-#    does this). Instances pull it on boot.
+# 3. Publish the relay image to public GHCR (the release workflow does this). Instances
+#    pull it on boot, so it must exist before the blocking apply below.
+
+# 4. Apply — blocks until the MIG rolls out and every instance is healthy; a broken
+#    rollout fails the apply instead of returning while the fleet is down:
+terraform apply
+
+# 5. Delegate your domain's nameservers to the Cloud DNS zone:
+terraform output nameservers      # set these as the NS records at your registrar
+#    (A/AAAA, the cert DNS-auth CNAME, and your email records all live in the zone.)
 ```
 
 The Google-managed cert goes ACTIVE once the DNS authorization resolves (minutes after
