@@ -80,22 +80,28 @@ go install github.com/AndrewDryga/onlytty/runner@latest     # with Go
 make install                                                # from a clone → ~/.local/bin/onlytty
 ```
 
-**Relay server** — see [Deploy the relay](#deploy-the-relay). You point the runner at
-it with `--server` or `ONLYTTY_SERVER`.
+**Relay server** — `onlytty` connects through a relay you run; see
+[Self-host the relay](#self-host-the-relay). Point the runner at it with `--server`
+or `ONLYTTY_SERVER`.
 
 ## Quickstart
 
+OnlyTTY has two pieces: the `onlytty` runner you just installed, and a **relay** it
+connects through. Try it locally first, then [self-host a relay behind
+HTTPS](#self-host-the-relay) for real use.
+
 ```bash
-# 1. Run a relay somewhere reachable (or locally for a first try):
+# 1. Start a local dev relay (from a clone; needs Elixir):
 cd portal && mix deps.get && mix phx.server     # dev relay on http://localhost:4000
 
-# 2. Point the runner at it and share something:
+# 2. In another terminal, point the runner at it and share something:
 export ONLYTTY_SERVER=http://localhost:4000
 onlytty -- htop
 # → a link + QR is printed. Open it (same machine) or scan it (phone).
 ```
 
-For real use, deploy the relay behind HTTPS and set `ONLYTTY_SERVER=https://relay.example.com`.
+For real use, point the runner at your deployed relay:
+`export ONLYTTY_SERVER=https://relay.example.com`.
 
 ## CLI reference
 
@@ -142,85 +148,7 @@ The browser viewer (xterm.js, no framework, no build step) is built for phones:
 - **Reconnect & resume** — drops are repainted from the runner's ring buffer.
 - **Wake lock**, font-size controls, and host-driven sizing while watching (your size once you take control).
 
-## Deploy the relay
-
-The relay is an Elixir release. Sessions are **in memory only** — nothing
-terminal-related is ever persisted, so there is no database.
-
-```bash
-docker build -t onlytty-server ./portal
-docker run -p 4000:4000 \
-  -e PHX_SERVER=true \
-  -e SECRET_KEY_BASE="$(openssl rand -base64 64)" \
-  -e PHX_HOST=relay.example.com \
-  -e PORT=4000 \
-  onlytty-server
-```
-
-Put it behind a TLS-terminating proxy (Cloudflare, Fly, Render, Caddy, nginx) that
-forwards `x-forwarded-proto`. **TLS is required**: in prod the relay redirects
-http→https + sets HSTS, and the browser's Web Crypto API only works in a secure
-context. Without HTTPS the viewer refuses to run (and the secret could leak in transit).
-
-| Env | Default | Meaning |
-|-----|---------|---------|
-| `PHX_SERVER` | — | set `true` to start the HTTP server in a release |
-| `SECRET_KEY_BASE` | — | required in prod (`mix phx.gen.secret`) |
-| `PHX_HOST` | `example.com` | public hostname (used for URLs + the SSL redirect) |
-| `PORT` | `4000` | listen port |
-| `ONLYTTY_DEFAULT_TTL` | `1800` | default session TTL in seconds; every requested TTL is clamped to 60s–`ONLYTTY_MAX_TTL` |
-| `ONLYTTY_MAX_TTL` | `604800` | hard ceiling on session TTL in seconds (7 days); requested TTLs are clamped to it |
-| `ONLYTTY_IDLE_TIMEOUT` | `600` | close after this many seconds with no runner traffic |
-| `ONLYTTY_MAX_SESSIONS` | `2000` | cap on concurrent sessions (bounds create-spam) |
-| `ONLYTTY_MAX_FRAME_BYTES` | `1048576` | max size of a single WebSocket frame (1 MiB); over-cap frames are closed (1009), never forwarded — bounds memory use and covert-tunnel abuse |
-| `ONLYTTY_ALLOWED_ORIGINS` | _(same host)_ | comma-separated **extra** origins allowed to open a **browser viewer** WS (defense-in-depth). The same-host Origin is always allowed; this list is additive, so set it only to also permit other hosts. The runner WS is never gated. |
-| `ONLYTTY_RATELIMIT_MAX` | `30` | max `POST /api/sessions` per window per IP (`0` disables) |
-| `ONLYTTY_RATELIMIT_WINDOW` | `60` | rate-limit window in seconds |
-| `ONLYTTY_METRICS_TOKEN` | — | bearer token for `GET /metrics`; unset = loopback-only, set = also allow `Authorization: Bearer <token>` from any IP |
-| `SENTRY_DSN` | — | backend error reporting; unset disables it (dev/test/CI never report) |
-| `SENTRY_RELEASE` | — | optional release tag for Sentry events |
-
-Error reporting is **backend-only**: the server captures crashes via Sentry's logger
-handler (no request context attached, so no IPs or bodies; terminal IO is E2E and never
-reaches the server). The browser viewer ships **no** Sentry/telemetry by design — a
-client SDK would capture the URL fragment that holds the session secret.
-
-Throttling keys on the **direct peer IP** (`conn.remote_ip`), which is correct when the
-relay faces clients directly. Behind a reverse proxy that is your proxy's address, so
-either rate-limit at the proxy too, or add a trusted-`X-Forwarded-For` plug (e.g.
-`remote_ip`) so the real client IP reaches the limiter — don't trust the header blindly.
-
-### Metrics
-
-`GET /metrics` exposes low-cardinality operator counters in Prometheus text format.
-They are **aggregate-only** — there are no per-session labels (no session id, no IP),
-so the endpoint reveals lifecycle totals and nothing about any individual session.
-Access is enforced, not just advised: by default `/metrics` answers only a **loopback**
-client (an on-box scrape); every other request gets `404`. To let a remote scraper
-(e.g. Prometheus reaching it through the load balancer) read it, set
-`ONLYTTY_METRICS_TOKEN` and send `Authorization: Bearer <token>`. The check is against
-the real TCP peer — `X-Forwarded-For` is not trusted — so a spoofed loopback address
-can't bypass it.
-
-| Counter | Meaning |
-|---------|---------|
-| `onlytty_sessions_created_total` | sessions successfully created |
-| `onlytty_sessions_at_capacity_total` | create requests refused at the `ONLYTTY_MAX_SESSIONS` cap (503) |
-| `onlytty_runners_connected_total` | runner WebSocket connects (includes reconnects) |
-| `onlytty_viewers_connected_total` | viewer WebSocket connects |
-| `onlytty_viewer_busy_rejects_total` | viewers refused by the single-viewer lock |
-| `onlytty_upgrade_unauthorized_total` | WS upgrades rejected 401 (bad/missing runner token) |
-| `onlytty_upgrade_not_found_total` | WS upgrades rejected 404 (unknown/expired session) |
-| `onlytty_sessions_ttl_expired_total` | sessions closed by TTL (includes never-connected and runner-gone reaps) |
-| `onlytty_sessions_idle_expired_total` | sessions closed by the idle timeout |
-| `onlytty_rate_limit_rejects_total` | create requests refused by the per-IP rate limiter |
-| `onlytty_frame_size_rejects_total` | frames rejected for exceeding `ONLYTTY_MAX_FRAME_BYTES` (closed 1009) |
-
-For richer Phoenix/VM telemetry, the idiomatic alternative is the
-`telemetry_metrics_prometheus_core` reporter wired into `OnlyttyWeb.Telemetry`; this
-endpoint stays a zero-dependency `:counters`-backed core for the lifecycle events.
-
-## Security model — stated honestly
+## Security model
 
 End-to-end encryption means the **relay** never sees terminal IO: it forwards opaque,
 authenticated ciphertext and stores none of it. A replayed or reordered frame is
@@ -231,12 +159,11 @@ It is **not** zero-trust, and here's the honest residue:
 
 - **The browser runs JS served by the relay host.** A malicious host could serve a
   viewer that exfiltrates the secret from the fragment. So host trust is reduced to
-  *code-delivery time*, not *relay time*. The viewer's third-party code (xterm) is
-  vendored and Subresource-Integrity-pinned; a native viewer (no browser JS) would
-  remove this caveat entirely. The first-party viewer code (`viewer.html`, `app.js`,
-  `wire.js`, `crypto.js`, `keys.js`) is served `Cache-Control: no-store`, so the
-  browser always fetches the audited bytes and a tampered bundle can't be cached;
-  the SRI-pinned `vendor/*` assets are served `immutable`.
+  *code-delivery time*, not *relay time*. The first-party viewer code is served
+  `Cache-Control: no-store` (you always fetch the audited bytes; a tampered bundle
+  can't be cached), and the third-party code (xterm) is vendored and
+  Subresource-Integrity-pinned. A native viewer (no browser JS) would remove this
+  caveat entirely.
 - **The link is a capability.** Anyone you forward it to becomes a viewer. Mitigate
   with a short `--ttl`, the single-viewer lock (default), and `--passphrase`.
 - **Trust the fingerprint, not the prose.** The fingerprint shown at both ends is
@@ -246,80 +173,48 @@ It is **not** zero-trust, and here's the honest residue:
 
 Found a vulnerability? See [SECURITY.md](SECURITY.md).
 
-## Prerequisites
+## Self-host the relay
 
-`make check` needs **Go** (with `gofmt`), **Elixir/OTP** (with `mix`), and **Node 26+**
-(with `npm`) — versions are pinned in `.tool-versions` (asdf/mise). `make e2e`
-additionally needs a Playwright browser:
-
-```bash
-npm install                       # Playwright (a dev dependency)
-npx playwright install chromium   # the browser binary
-npx playwright install-deps       # Linux only: native libs for headless Chromium
-```
-
-Run **`make doctor`** to see what's installed and get install hints for anything missing.
-
-## Develop
+The relay is a single Elixir release container. Sessions are **in memory only** —
+nothing terminal-related is ever persisted, so there is no database.
 
 ```bash
-make check     # the gate: runner (go) + web (node) + server (elixir)
-make e2e       # boots its own relay, then a Go viewer and a headless-browser viewer
-               # drive a real session end-to-end through it (it fails if a server is
-               # already on the port; set ONLYTTY_REUSE_SERVER=1 to reuse one instead)
-make audit     # opt-in dependency/security audit (not part of `check`)
-make fuzz      # fuzz the protocol decoders (they parse relay-forwarded bytes)
-make load      # concurrent session-create load against $ONLYTTY_SERVER
-make soak      # N full runner↔viewer pairs + reconnect storms; reports RSS + capacity
+docker build -t onlytty-server ./portal      # or pull ghcr.io/andrewdryga/onlytty
+docker run -p 4000:4000 \
+  -e PHX_SERVER=true \
+  -e SECRET_KEY_BASE="$(openssl rand -base64 64)" \
+  -e PHX_HOST=relay.example.com \
+  -e PORT=4000 \
+  onlytty-server
 ```
 
-`make soak` (boots a relay if none is up; override `N`, `DURATION`, `CHURN`) drives N
-concurrent **full** sessions — real runner + viewer WebSocket pairs carrying encrypted
-traffic — and periodically bounces a fraction of viewers to simulate reconnect storms.
-It samples the relay's resident memory (local `beam.smp` RSS via `/proc`) and reports
-frames moved, cap rejects (503s when over `ONLYTTY_MAX_SESSIONS`), reconnect drops, and
-RSS min/max/final, exiting non-zero on a crash or a runaway-memory signal. Use it to
-find the max stable concurrent sessions per VM size for deploy sizing (record the
-numbers from a long run against the target). Like any viewer it only ever sees
-ciphertext it decrypts locally — it measures sizes and liveness, never plaintext.
+Put it behind a TLS-terminating proxy (Cloudflare, Fly, Render, Caddy, nginx) that
+forwards `x-forwarded-proto`. **TLS is required**: in production the relay redirects
+http→https and sets HSTS, and the browser's Web Crypto API only works in a secure
+context — without HTTPS the viewer refuses to run.
 
-`make audit` runs `govulncheck ./...` (Go), `npm audit` (web), and `mix hex.audit`
-(retired Hex packages). It is **opt-in** locally (kept out of the `check` gate), but the
-release workflow gates publishing on `make check` + `make e2e` + `make audit`. Install
-the Go scanner once with `go install golang.org/x/vuln/cmd/govulncheck@latest`.
+| Env | Default | Meaning |
+|-----|---------|---------|
+| `PHX_SERVER` | — | set `true` to start the HTTP server |
+| `SECRET_KEY_BASE` | — | required in prod (`mix phx.gen.secret`) |
+| `PHX_HOST` | `example.com` | public hostname (URLs + the http→https redirect) |
+| `PORT` | `4000` | listen port |
+| `ONLYTTY_DEFAULT_TTL` | `1800` | default session TTL (s); clamped to 60s–`ONLYTTY_MAX_TTL` |
+| `ONLYTTY_MAX_TTL` | `604800` | hard TTL ceiling (s) — 7 days |
+| `ONLYTTY_MAX_SESSIONS` | `2000` | cap on concurrent sessions |
 
-### CI / required checks
+Further tuning — `ONLYTTY_IDLE_TIMEOUT`, `ONLYTTY_MAX_FRAME_BYTES`,
+`ONLYTTY_ALLOWED_ORIGINS`, `ONLYTTY_RATELIMIT_MAX`/`_WINDOW`, `ONLYTTY_METRICS_TOKEN`,
+and `SENTRY_DSN` — is documented in
+[`portal/config/runtime.exs`](portal/config/runtime.exs). The relay exposes aggregate,
+label-free operator counters at `GET /metrics` (Prometheus text; loopback-only unless
+you set `ONLYTTY_METRICS_TOKEN`).
 
-`.github/workflows/ci.yml` runs four jobs on every pull request (and push to `main`):
-**`runner (go)`**, **`web (node)`**, **`portal (elixir)`**, and **`e2e (runner ↔ relay
-↔ viewer)`** — i.e. the full `make check` gate plus `make e2e`. All four must be green
-to merge.
+## Contributing
 
-Enforcement lives in GitHub branch protection (it can't be set from a repo file). Make
-those four the **required status checks** on `main`, e.g.:
-
-```bash
-gh api -X PUT repos/AndrewDryga/onlytty/branches/main/protection \
-  -f 'required_status_checks[strict]=true' \
-  -f 'required_status_checks[checks][][context]=runner (go)' \
-  -f 'required_status_checks[checks][][context]=web (node)' \
-  -f 'required_status_checks[checks][][context]=portal (elixir)' \
-  -f 'required_status_checks[checks][][context]=e2e (runner ↔ relay ↔ viewer)' \
-  -F 'enforce_admins=true' \
-  -F 'required_pull_request_reviews=null' \
-  -F 'restrictions=null'
-```
-
-(Or set them under Settings → Branches → Branch protection rules.)
-
-| Path | What |
-|------|------|
-| `runner/` | the `onlytty` runner (Go CLI) |
-| `runner/internal/protocol/` | crypto + wire format (Go); golden vectors pin it to the JS |
-| `portal/` | the relay control plane (Elixir/Phoenix, no database) |
-| `portal/priv/static/` | the browser viewer (vanilla JS + vendored xterm) |
-| `dev/` | dev/CI tooling: `dev/scripts/` (e2e, load, deploy-check), `dev/test/` (Node interop, transport + browser e2e, deploy compose), `dev/brand/` (design sources) |
-| `PROTOCOL.md` | the wire + crypto contract every component obeys |
+Contributions welcome. `make check` runs the full test gate (Go runner + Elixir relay +
+Node viewer) and `make e2e` drives a real session end-to-end; the wire and crypto
+contract every component obeys is in [PROTOCOL.md](PROTOCOL.md).
 
 ## License
 
