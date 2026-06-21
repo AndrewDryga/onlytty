@@ -175,7 +175,14 @@ function connect() {
   ws.binaryType = "arraybuffer";
 
   let queue = Promise.resolve(); // serialize async frame handling to preserve order
-  ws.onmessage = (ev) => { queue = queue.then(() => onMessage(ev)); };
+  // A .catch keeps the chain alive: without it, one throwing frame leaves `queue`
+  // permanently rejected and every later frame is silently skipped until reconnect.
+  ws.onmessage = (ev) => {
+    queue = queue.then(() => onMessage(ev)).catch((e) => {
+      console.error("dropped a frame that failed to process:", e);
+      if (!ended) setStatus("a frame couldn't be processed", "warn");
+    });
+  };
   ws.onopen = () => { everConnected = true; failCount = 0; setStatus("waiting for runner…", "warn"); backoff = 500; requestWakeLock(); };
   ws.onclose = () => {
     if (ended || noReconnect) return;

@@ -351,6 +351,47 @@ test("browser viewer: mobile layout — Take control stays on-screen at 360px; ^
   }
 });
 
+test("browser viewer: a frame whose handler throws doesn't wedge the stream", async (t) => {
+  let chromium;
+  try { ({ chromium } = await import("playwright")); } catch { t.skip("playwright not installed"); return; }
+  if (!(await healthy())) { t.skip("relay not reachable at " + base); return; }
+
+  const { proc, link } = await startRunner(["--", "bash", "--norc", "--noprofile", "-i"]);
+  let browser;
+  try {
+    browser = await chromium.launch();
+    const page = await browser.newPage();
+    await page.goto(link);
+    // Make xterm's write throw exactly once — simulating a handler error on one frame.
+    // The queue must recover so later frames still render (without the .catch it wedges).
+    await page.evaluate(() => {
+      const proto = window.Terminal.prototype;
+      const real = proto.write;
+      let armed = true;
+      proto.write = function (...a) {
+        if (armed) { armed = false; throw new Error("synthetic write failure"); }
+        return real.apply(this, a);
+      };
+    });
+    await dismissVerify(page);
+    await page.click("#control");
+    await page.waitForFunction(
+      () => document.getElementById("control").classList.contains("live"),
+      null, { timeout: 8000 },
+    );
+
+    // The first write throws (caught); a later command's output must still render.
+    await page.keyboard.type("echo WEDGE_$((6+7))\r");
+    await page.waitForFunction(
+      () => document.querySelector(".xterm-rows")?.innerText.includes("WEDGE_13"),
+      null, { timeout: 8000 },
+    );
+  } finally {
+    if (browser) await browser.close();
+    proc.kill("SIGKILL");
+  }
+});
+
 test("browser viewer: shows an expiry countdown and Disconnect frees the viewer slot", async (t) => {
   let chromium;
   try { ({ chromium } = await import("playwright")); } catch { t.skip("playwright not installed"); return; }
