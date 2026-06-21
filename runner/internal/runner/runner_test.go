@@ -99,27 +99,26 @@ func TestReplayRejected(t *testing.T) {
 	}
 }
 
-// A viewer taking control is the security-relevant event the host must notice even
-// inside a full-screen app, so it is delivered as an alert (the terminal layer turns
-// that into a bell); routine notices like releasing control are not alerts.
-func TestControlGrantNotifiesAsAlert(t *testing.T) {
+// Taking and releasing control both notify the host, and each notice carries the
+// current screen-busy state: idle → the renderer shows it; while the child draws its
+// own UI → busy, so the renderer stays silent.
+func TestControlNotifiesHostWithScreenState(t *testing.T) {
 	o, v2r, _ := newTestOrch(t, ControlAsk)
 
-	type notice struct {
-		msg   string
-		alert bool
-	}
-	var got []notice
-	o.notify = func(msg string, alert, _ bool) { got = append(got, notice{msg, alert}) }
+	var busy []bool
+	o.notify = func(_ string, b bool) { busy = append(busy, b) }
 
-	o.handleBinary(seal(t, v2r, 1, protocol.KindCtrlReq, nil))
-	if len(got) != 1 || !got[0].alert {
-		t.Fatalf("control grant should notify as an alert, got %+v", got)
+	o.handleBinary(seal(t, v2r, 1, protocol.KindCtrlReq, nil)) // take
+	o.handleBinary(seal(t, v2r, 2, protocol.KindCtrlRel, nil)) // release
+	if len(busy) != 2 || busy[0] || busy[1] {
+		t.Fatalf("idle screen: take+release should each notify as not-busy, got %+v", busy)
 	}
 
-	o.handleBinary(seal(t, v2r, 2, protocol.KindCtrlRel, nil))
-	if len(got) != 2 || got[1].alert {
-		t.Fatalf("control release should be a routine notice, got %+v", got)
+	// Once the child is drawing its own UI, the next control notice reports busy.
+	o.markScreenActivity([]byte("\x1b[2J\x1b[H"))
+	o.handleBinary(seal(t, v2r, 3, protocol.KindCtrlReq, nil))
+	if len(busy) != 3 || !busy[2] {
+		t.Fatalf("busy screen: control notice should report screen busy, got %+v", busy)
 	}
 }
 

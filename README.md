@@ -110,9 +110,8 @@ onlytty [flags] -- <cmd>...  share one command
                      (development/testing only — production requires https)
   --verbose          always print viewer connect/disconnect/control notices
                      inline. By default they appear only when no full-screen or
-                     line-drawing app (editor, Claude Code, …) is active — with a
-                     bell still flagging a control grant — so notices never corrupt
-                     what's on screen.
+                     line-drawing app (editor, Claude Code, …) is active, so
+                     notices never corrupt what's on screen.
   --version
 ```
 
