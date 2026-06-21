@@ -105,7 +105,7 @@ defmodule OnlyttyWeb.Site.Page do
     legal_page("Terms of Service", "/terms", """
     <p class="lede">OnlyTTY is a relay that pairs a command running on your machine with a browser, forwarding <strong>end-to-end-encrypted</strong> terminal frames between them. The relay never sees your terminal content — it forwards ciphertext and stores nothing.</p>
     <h2>The link is a capability</h2>
-    <p>Each session is reached by a link whose <code>#fragment</code> holds the secret. Anyone with the full link is a viewer, and — unless you started the session read-only — can take control and type into it. Treat the link like a password: share it deliberately, use <code>--read-only</code> or <code>--passphrase</code> when you need to, and stop sharing by exiting the command.</p>
+    <p>Each session is reached by a link whose <code>#fragment</code> holds the secret. Anyone with the full link is a viewer, and — unless you started the session read-only — can take control and type into it. Treat the link like a password: share it deliberately, use <code>--control view-only</code> or <code>--passphrase</code> when you need to, and stop sharing by exiting the command.</p>
     <h2>No accounts, ephemeral sessions</h2>
     <p>There are no accounts. Sessions live in memory only and expire (by default within hours, capped at 7 days); when a session ends, it is gone.</p>
     <h2>Acceptable use</h2>
@@ -339,7 +339,7 @@ defmodule OnlyttyWeb.Site.Page do
         <div class="steps">
           #{step("1", "Run it", "<code>onlytty -- claude</code> — or just <code>onlytty</code> to share your whole shell. It keeps running in your terminal and prints a link plus a QR code.")}
           #{step("2", "Scan it", "Open the link on your phone. The session secret rides in the URL <code>#fragment</code>, which never leaves the browser — so the relay can't read a thing.")}
-          #{step("3", "Drive it", "Watch live, or tap <em>take control</em> to type — anyone with the link can, so share it like a key (or start <code>--read-only</code>). Lose signal? It reconnects and picks up where you left off.")}
+          #{step("3", "Drive it", "Watch live, or tap <em>take control</em> to type — anyone with the link can, so share it like a key (or start <code>--control view-only</code>). Lose signal? It reconnects and picks up where you left off.")}
         </div>
       </div>
     </section>
@@ -428,7 +428,7 @@ defmodule OnlyttyWeb.Site.Page do
             #{example_row("Install", "go install github.com/AndrewDryga/onlytty/runner@latest")}
             #{example_row("Your whole shell", "onlytty")}
             #{example_row("One command", "onlytty -- claude")}
-            #{example_row("Watch-only", "onlytty --read-only -- htop")}
+            #{example_row("Watch-only", "onlytty --control view-only -- htop")}
           </div>
         </div>
         <div class="cta-row center"><a class="btn btn-primary" href="#{@github}" rel="noopener">Get the CLI on GitHub</a><a class="btn btn-ghost" href="/tools">See what you can control</a></div>
@@ -829,7 +829,7 @@ defmodule OnlyttyWeb.Site.Page do
       {"Do I have to open a port or install an agent?",
        "No inbound ports and no daemon. The <code>onlytty</code> CLI dials out over WebSocket/TLS, so nothing listens on your machine. It's a single Go binary."},
       {"Who can take control of my session?",
-       ~s(Anyone with the full link. The link is the key: whoever opens it can watch — and can tap <em>take control</em> to type. Read-only is just the default view, not a per-person gate, so share the link like a password. Want watch-only? Start with <code>--read-only</code>. Want a second factor? Add <code>--passphrase</code>, and the link alone won't decrypt. Either way, exit the command to stop sharing instantly.)},
+       ~s(Anyone with the full link. The link is the key: whoever opens it can watch — and can tap <em>take control</em> to type. Read-only is just the default view, not a per-person gate, so share the link like a password. Want watch-only? Start with <code>--control view-only</code>. Want a second factor? Add <code>--passphrase</code>, and the link alone won't decrypt. Either way, exit the command to stop sharing instantly.)},
       {"What can I actually control?",
        ~s(Anything that runs in a terminal: AI coding agents, editors, REPLs, database shells, ops TUIs, or your whole <code>\$SHELL</code>. Browse the <a href="/tools">full list</a> for ready-made guides.)},
       {"Is it really free and open source?",
