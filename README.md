@@ -248,7 +248,7 @@ Found a vulnerability? See [SECURITY.md](SECURITY.md).
 
 ## Prerequisites
 
-`make check` needs **Go** (with `gofmt`), **Elixir/OTP** (with `mix`), and **Node 22+**
+`make check` needs **Go** (with `gofmt`), **Elixir/OTP** (with `mix`), and **Node 26+**
 (with `npm`) — versions are pinned in `.tool-versions` (asdf/mise). `make e2e`
 additionally needs a Playwright browser:
 
