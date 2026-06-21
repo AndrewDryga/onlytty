@@ -15,6 +15,26 @@ resource "google_project_service" "apis" {
   disable_on_destroy = false
 }
 
+# ── Network: a small dedicated VPC instead of the project default network ────
+#
+# The default VPC often carries broad "allow internal" rules and unrelated subnets.
+# A dedicated network keeps OnlyTTY's firewall and NAT blast radius obvious without
+# adding runtime cost.
+resource "google_compute_network" "default" {
+  name                    = "onlytty-vpc"
+  auto_create_subnetworks = false
+
+  depends_on = [google_project_service.apis]
+}
+
+resource "google_compute_subnetwork" "default" {
+  name                     = "onlytty-${var.region}"
+  region                   = var.region
+  ip_cidr_range            = var.subnet_cidr
+  network                  = google_compute_network.default.id
+  private_ip_google_access = true
+}
+
 # ── SECRET_KEY_BASE — created here, value added out-of-band (never in state) ─
 resource "google_secret_manager_secret" "secret_key_base" {
   secret_id = "onlytty-secret-key-base"
@@ -84,7 +104,7 @@ locals {
 resource "google_compute_router" "default" {
   name    = "onlytty-router"
   region  = var.region
-  network = "default"
+  network = google_compute_network.default.id
 
   depends_on = [google_project_service.apis]
 }
@@ -94,7 +114,12 @@ resource "google_compute_router_nat" "default" {
   router                             = google_compute_router.default.name
   region                             = var.region
   nat_ip_allocate_option             = "AUTO_ONLY"
-  source_subnetwork_ip_ranges_to_nat = "ALL_SUBNETWORKS_ALL_IP_RANGES"
+  source_subnetwork_ip_ranges_to_nat = "LIST_OF_SUBNETWORKS"
+
+  subnetwork {
+    name                    = google_compute_subnetwork.default.id
+    source_ip_ranges_to_nat = ["ALL_IP_RANGES"]
+  }
 
   log_config {
     enable = false
@@ -119,7 +144,8 @@ resource "google_compute_instance_template" "default" {
   # Cloud Logging) goes through Cloud NAT below; ingress arrives from the LB over
   # the internal network. IAP SSH tunnels through Google, so it needs no public IP.
   network_interface {
-    network = "default"
+    network    = google_compute_network.default.id
+    subnetwork = google_compute_subnetwork.default.id
   }
 
   metadata = {
@@ -173,6 +199,13 @@ resource "google_compute_region_instance_group_manager" "default" {
     minimal_action        = "REPLACE"
     max_surge_fixed       = 3
     max_unavailable_fixed = 0
+  }
+
+  lifecycle {
+    precondition {
+      condition     = var.instance_count == 1 || trimspace(var.dns_cluster_query) != ""
+      error_message = "dns_cluster_query must be set when instance_count is greater than 1 so relay nodes form one BEAM cluster."
+    }
   }
 
   depends_on = [google_project_service.apis]

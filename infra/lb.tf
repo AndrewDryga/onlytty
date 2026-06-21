@@ -165,7 +165,7 @@ resource "google_compute_global_forwarding_rule" "http_v6" {
 # ── Firewall: only the Google LB + health-check ranges reach the app port ────
 resource "google_compute_firewall" "lb_to_app" {
   name      = "onlytty-allow-lb"
-  network   = "default"
+  network   = google_compute_network.default.id
   direction = "INGRESS"
   allow {
     protocol = "tcp"
@@ -180,7 +180,7 @@ resource "google_compute_firewall" "lb_to_app" {
 #   gcloud compute ssh <instance> --tunnel-through-iap
 resource "google_compute_firewall" "iap_ssh" {
   name      = "onlytty-allow-iap-ssh"
-  network   = "default"
+  network   = google_compute_network.default.id
   direction = "INGRESS"
   allow {
     protocol = "tcp"
@@ -196,7 +196,7 @@ resource "google_compute_firewall" "iap_ssh" {
 # reach these ports.
 resource "google_compute_firewall" "cluster_dist" {
   name      = "onlytty-allow-cluster"
-  network   = "default"
+  network   = google_compute_network.default.id
   direction = "INGRESS"
   allow {
     protocol = "tcp"

@@ -2,15 +2,15 @@
 
 A production deployment fronted by a **global external HTTPS load balancer** with a
 **Google-managed TLS certificate** (Certificate Manager + DNS authorization), backing
-a **regional Managed Instance Group** of Container-Optimized OS instances that run the
-`onlytty` relay container pulled from **public GHCR**. `SECRET_KEY_BASE` lives in Secret
-Manager. TLS terminates at the load balancer — there is no sidecar TLS proxy and no GCP
-image registry.
+a **regional Managed Instance Group** of Container-Optimized OS instances in a
+dedicated VPC/subnet. The instances run the `onlytty` relay container pulled from
+**public GHCR**. `SECRET_KEY_BASE` lives in Secret Manager. TLS terminates at the load
+balancer — there is no sidecar TLS proxy and no GCP image registry.
 
 ```
             ┌─ IPv4/IPv6 anycast ─┐
-DNS A/AAAA ─┤  HTTPS LB (TLS, LB- ├─► backend (HTTP, /healthz) ─► MIG (1+ nodes) ─► onlytty :4000
-            │  managed cert)      │                              COS, clustered BEAM, in-memory, no DB
+DNS A/AAAA ─┤  HTTPS LB (TLS, LB- ├─► backend (HTTP, /healthz) ─► dedicated VPC ─► MIG (1+ nodes)
+            │  managed cert)      │                                                COS, BEAM, no DB
             └─ :80 → :443 redirect┘
 ```
 
@@ -31,13 +31,16 @@ one node:
    internal record the instances register into); on headless-DNS platforms (Fly, k8s)
    the platform name works directly.
 
+Terraform rejects `instance_count > 1` when `dns_cluster_query` is empty, because a
+multi-node MIG without cluster discovery can split a runner and viewer across nodes.
+
 The container runs with `--network host`, and the `onlytty-allow-cluster` firewall opens
 epmd (4369) + the distribution ports (9100–9105) tag→tag between the relay's own
 instances only. Each node is named `onlytty@<internal-ip>`; the cookie is the
-image-baked release cookie (same image ⇒ same cookie), or set `RELEASE_COOKIE` to pin a
-stable one. A node that dies loses only its own sessions — the runner reconnects and
-re-creates — which is fine: the live sockets die with the node, so there is no session
-hand-off to engineer.
+hex SHA-256 of `onlytty-release-cookie:<SECRET_KEY_BASE>`, so it stays stable across
+image builds and rolling updates without adding another secret. A node that dies loses
+only its own sessions — the runner reconnects and re-creates — which is fine: the live
+sockets die with the node, so there is no session hand-off to engineer.
 
 ## Image: public vs private GHCR
 
@@ -82,10 +85,12 @@ the NS delegation propagates). Then `GET https://<domain>/healthz` returns 200.
 | `project_id` | — | GCP project (e.g. `onlytty`) |
 | `domain` | — | public hostname served by the LB |
 | `dns_name` | — | Cloud DNS managed-zone name, trailing dot (e.g. `onlytty.com.`) |
+| `subnet_cidr` | `10.80.0.0/24` | CIDR for the dedicated OnlyTTY subnet |
 | `container_image` | `ghcr.io/andrewdryga/onlytty:latest` | public GHCR image |
 | `app_port` | `4000` | relay container port (LB backend + health check) |
 | `machine_type` | `e2-small` | instance size |
-| `instance_count` | `1` | **must stay 1** (in-memory sessions); enforced by validation |
+| `instance_count` | `1` | MIG size; `>1` requires `dns_cluster_query` |
+| `dns_cluster_query` | `""` | DNS name resolving to all relay instance IPs for BEAM clustering |
 | `backend_timeout_sec` | `86400` | LB backend timeout = max WebSocket lifetime |
 
 `SECRET_KEY_BASE` is **not** a variable — it lives only in Secret Manager, never in TF
@@ -99,7 +104,7 @@ state. `terraform.tfvars` and `*.tfstate*` are git-ignored.
   `gcloud compute instance-groups managed rolling-action replace onlytty-mig
   --region=<region>` after a release; run that command manually for an ad-hoc roll.
 - **No external IP:** instances have no public IP. Egress (GHCR pull, Secret Manager,
-  Cloud Logging) goes through **Cloud NAT** (a Cloud Router + NAT in the region);
+  Cloud Logging) goes through **Cloud NAT** scoped only to the dedicated OnlyTTY subnet;
   ingress arrives from the LB over the internal network.
 - **SSH:** via Identity-Aware Proxy only — `gcloud compute ssh <instance>
   --tunnel-through-iap` (works without a public IP). No `0.0.0.0/0` SSH rule.

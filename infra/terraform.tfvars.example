@@ -7,10 +7,17 @@ region     = "us-central1"
 domain     = "onlytty.com"
 dns_name   = "onlytty.com." # trailing dot — the Cloud DNS managed zone
 
+# Dedicated OnlyTTY subnet. Change only if it overlaps another VPC you peer with.
+subnet_cidr = "10.80.0.0/24"
+
 # Public GHCR image, published by the release workflow (.github/workflows/release.yml).
 container_image = "ghcr.io/andrewdryga/onlytty:latest"
 
 machine_type = "e2-small"
 
-# instance_count MUST stay 1 (in-memory sessions); the variable enforces it.
+# Low-cost default: one VM. To scale out, set instance_count > 1 and provide a
+# dns_cluster_query name that resolves to all relay instance IPs.
+instance_count     = 1
+dns_cluster_query = ""
+
 # SSH is via IAP only — no ssh_source_ranges to set.

@@ -1,11 +1,11 @@
 # OnlyTTY infrastructure — GCP. A global external HTTPS load balancer (Google-
 # managed TLS via Certificate Manager) fronts a regional Managed Instance Group
-# running the onlytty container on Container-Optimized OS. The image is pulled
-# from public GHCR. TLS terminates at the LB (no sidecar TLS proxy) and there is
-# no GCP image registry.
+# running the onlytty container on Container-Optimized OS in a dedicated VPC. The
+# image is pulled from public GHCR. TLS terminates at the LB (no sidecar TLS
+# proxy) and there is no GCP image registry.
 #
-# The MIG is size 1 by design: sessions are in-memory per instance, so a multi-
-# instance group would split a session's runner and viewer (see lb.tf + README).
+# The default is one small VM for cost. Larger MIGs are supported when the BEAM
+# nodes can discover each other via dns_cluster_query (see lb.tf + README).
 
 terraform {
   required_version = ">= 1.9"
