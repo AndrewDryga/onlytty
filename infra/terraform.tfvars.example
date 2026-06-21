@@ -17,7 +17,7 @@ subnet_cidr = "10.80.0.0/24"
 # Public GHCR image, published by the release workflow (.github/workflows/release.yml).
 container_image = "ghcr.io/andrewdryga/onlytty:latest"
 
-machine_type = "e2-small"
+# machine_type — required (no default); set it in the Terraform Cloud workspace.
 
 # Number of relay VMs (default 2 for HA). >1 forms a BEAM cluster automatically —
 # libcluster's GCE strategy discovers peers via the Compute API, no extra config.

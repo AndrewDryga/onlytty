@@ -83,17 +83,8 @@ variables before applying, and set the Terraform input variables there too
 
 ## Variables & secrets
 
-| Variable | Default | Meaning |
-|----------|---------|---------|
-| `project_id` | — | GCP project (e.g. `onlytty`) |
-| `domain` | — | public hostname served by the LB |
-| `dns_name` | — | Cloud DNS managed-zone name, trailing dot (e.g. `onlytty.com.`) |
-| `subnet_cidr` | `10.80.0.0/24` | CIDR for the dedicated OnlyTTY subnet |
-| `container_image` | `ghcr.io/andrewdryga/onlytty:latest` | public GHCR image |
-| `app_port` | `4000` | relay container port (LB backend + health check) |
-| `machine_type` | `e2-small` | instance size |
-| `instance_count` | `2` | MIG size; `>1` clusters automatically via the Compute API (no extra config) |
-| `backend_timeout_sec` | `86400` | LB backend timeout = max WebSocket lifetime |
+Inputs are declared in `variables.tf` (its descriptions are the source of truth);
+production values are set in the Terraform Cloud workspace, not committed here.
 
 `SECRET_KEY_BASE` is **not** a variable — it lives only in Secret Manager, never in TF
 state. `terraform.tfvars` and `*.tfstate*` are git-ignored.

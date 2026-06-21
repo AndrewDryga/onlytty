@@ -54,8 +54,7 @@ variable "app_port" {
 
 variable "machine_type" {
   type        = string
-  description = "Instance size. e2-small is ~US$13/mo."
-  default     = "e2-micro"
+  description = "Compute Engine machine type for the relay instances."
 }
 
 variable "instance_count" {
