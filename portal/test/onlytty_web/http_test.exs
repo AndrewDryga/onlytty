@@ -2,8 +2,9 @@ defmodule OnlyttyWeb.HTTPTest do
   @moduledoc "Plain HTTP endpoints: session creation, health, viewer page."
   use OnlyttyWeb.ConnCase, async: true
 
-  # The directives that prove the strict policy is present (matched loosely so
-  # adding directives later doesn't break the test).
+  # The directives that prove the policy is strict where it matters — scripts are
+  # same-origin only (style-src keeps 'unsafe-inline' for xterm; see SecurityHeaders).
+  # Matched loosely so adding directives later doesn't break the test.
   @csp_required ["default-src 'none'", "script-src 'self'", "frame-ancestors 'none'"]
 
   defp assert_security_headers(conn) do

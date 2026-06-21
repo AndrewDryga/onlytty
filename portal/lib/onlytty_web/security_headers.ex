@@ -1,15 +1,17 @@
 defmodule OnlyttyWeb.SecurityHeaders do
   @moduledoc """
-  Hardening headers on every response — most importantly a strict
-  Content-Security-Policy.
+  Hardening headers on every response — most importantly a Content-Security-Policy
+  that is strict for scripts (the part that matters), with one deliberate exception
+  for styles (called out below).
 
   The viewer is the trust boundary: it is served by the (untrusted) relay host and
   could otherwise be swapped to exfiltrate the URL `#fragment` that carries the
   session secret. `script-src 'self'` (no `'unsafe-inline'`, no `eval`) is the
   load-bearing directive — it stops injected or inline JS from reading the
-  fragment. `style-src` allows `'unsafe-inline'` because the viewer and the
-  marketing pages use inline styles (a far weaker vector — no script execution);
-  everything else is same-origin only under `default-src 'none'`.
+  fragment. `style-src` keeps `'unsafe-inline'` because the vendored xterm terminal
+  applies inline styles to the DOM at runtime (verified: dropping it breaks the
+  viewer); it's a far weaker vector — styles can't execute JS or read the fragment.
+  Everything else is same-origin only under `default-src 'none'`.
 
   Set via `register_before_send/2` so the headers also land on static-asset
   responses, which `Plug.Static` sends before any later plug would run.
