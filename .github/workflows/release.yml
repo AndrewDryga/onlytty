@@ -47,12 +47,15 @@ jobs:
             rm -f onlytty
           done
           cd ../dist && shasum -a 256 *.tar.gz > SHA256SUMS
+      - name: Viewer asset manifest (SHA-256 of every served viewer file)
+        run: make viewer-hash > dist/VIEWER_HASHES
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
           files: |
             dist/onlytty-*.tar.gz
             dist/SHA256SUMS
+            dist/VIEWER_HASHES
 
   portal-image:
     name: portal image → GHCR

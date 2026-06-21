@@ -42,7 +42,7 @@ SHA256 := $(shell command -v sha256sum >/dev/null 2>&1 && echo sha256sum || echo
 viewer-hash: ## SHA-256 of each viewer asset (reproducible — publish with each release)
 	@cd portal/priv/static && $(SHA256) \
 	  viewer.html \
-	  assets/app.js assets/crypto.js assets/wire.js \
+	  assets/app.js assets/crypto.js assets/wire.js assets/keys.js \
 	  assets/vendor/xterm.1f991ac3.js assets/vendor/xterm.ba8e6985.css assets/vendor/addon-fit.bdaefa37.js
 
 fuzz: ## Fuzz the protocol decoders (override length: make fuzz FUZZTIME=2m)

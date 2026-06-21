@@ -52,7 +52,8 @@ The viewer is first-party JS the relay host serves, so a hostile host *could* sw
 verify the bytes you were served against the audited release.
 
 Each tagged release publishes a `VIEWER_HASHES` manifest (SHA-256 of `viewer.html`
-and every `assets/` file). Reproduce it from a clean checkout with **`make
+and every viewer asset it loads — the first-party JS, including `keys.js`, plus the
+SRI-pinned vendored files). Reproduce it from a clean checkout with **`make
 viewer-hash`** — the viewer has no build step, so identical files always produce
 identical hashes. To check what a live relay actually sent you:
 
