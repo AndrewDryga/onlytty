@@ -26,6 +26,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      id-token: write # mint the OIDC token Sigstore signs the attestation with
+      attestations: write # record the build provenance
     steps:
       - uses: actions/checkout@v4
         with:
@@ -49,6 +51,12 @@ jobs:
           cd ../dist && shasum -a 256 *.tar.gz > SHA256SUMS
       - name: Viewer asset manifest (SHA-256 of every served viewer file)
         run: make viewer-hash > dist/VIEWER_HASHES
+      - name: Attest build provenance for the binaries
+        # SLSA provenance for every tarball listed in SHA256SUMS. Keyless (Sigstore,
+        # via the OIDC token) — no secrets. Verify: gh attestation verify <tarball> --repo <repo>
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-checksums: dist/SHA256SUMS
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
@@ -63,10 +71,15 @@ jobs:
     permissions:
       contents: read
       packages: write
+      id-token: write # mint the OIDC token Sigstore signs the attestation with
+      attestations: write # record the build provenance
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ inputs.ref || github.ref }}
+      - name: Image name (GHCR requires lowercase)
+        id: img
+        run: echo "name=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/onlytty" >> "$GITHUB_OUTPUT"
       - uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -75,13 +88,22 @@ jobs:
       - uses: docker/metadata-action@v5
         id: meta
         with:
-          images: ghcr.io/${{ github.repository_owner }}/onlytty
+          images: ${{ steps.img.outputs.name }}
           tags: |
             type=semver,pattern={{version}}
             type=raw,value=latest
       - uses: docker/build-push-action@v6
+        id: build
         with:
           context: ./portal
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+      - name: Attest build provenance for the image
+        # Keyless SLSA provenance, pushed alongside the image in GHCR. Verify:
+        # gh attestation verify oci://<image>:<tag> --repo <repo>
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-name: ${{ steps.img.outputs.name }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true

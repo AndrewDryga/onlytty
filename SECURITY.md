@@ -47,7 +47,15 @@ read-only viewer cannot type or resize the host. The full contract is [PROTOCOL.
 - **Release integrity ≠ authenticity.** The installer verifies `SHA256SUMS`, which
   catches a corrupted or truncated download. It does *not* prove the release is
   untampered: the sums ship from the same release as the binary, so an attacker who
-  swaps one swaps both. Signing the sums + build provenance (planned) closes this gap.
+  swaps one swaps both. For authenticity, every release publishes keyless SLSA build
+  provenance (Sigstore, via the workflow's OIDC identity — no signing keys to manage):
+
+  ```bash
+  # a release binary
+  gh attestation verify onlytty-<ver>-<os>-<arch>.tar.gz --repo AndrewDryga/onlytty
+  # the portal image
+  gh attestation verify oci://ghcr.io/andrewdryga/onlytty:<ver> --repo AndrewDryga/onlytty
+  ```
 
 ## Verifying the served viewer
 

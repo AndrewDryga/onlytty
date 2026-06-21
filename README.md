@@ -65,8 +65,13 @@ audit instead, read [`install.sh`](install.sh), or download the
 
 The checksum protects against a corrupted or truncated download, **not** a
 compromised release — `SHA256SUMS` ships from the same release as the binary, so an
-attacker who can swap one can swap both. Tamper-resistance needs a signature over the
-sums (planned; see [SECURITY.md](SECURITY.md)).
+attacker who can swap one can swap both. For tamper-resistance, every release also
+publishes keyless [build provenance](https://docs.github.com/actions/security-guides/using-artifact-attestations);
+verify a binary's origin with the GitHub CLI:
+
+```bash
+gh attestation verify onlytty-<ver>-<os>-<arch>.tar.gz --repo AndrewDryga/onlytty
+```
 
 With Go, or from a clone:
 
