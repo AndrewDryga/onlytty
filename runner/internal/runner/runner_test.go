@@ -1,12 +1,15 @@
 package runner
 
 import (
+	"context"
+	"io"
 	"os"
 	"testing"
 	"time"
 
 	"github.com/AndrewDryga/onlytty/runner/internal/protocol"
 	"github.com/AndrewDryga/onlytty/runner/internal/ptysession"
+	"github.com/AndrewDryga/onlytty/runner/internal/relayclient"
 )
 
 // newTestOrch builds an Orchestrator over a real PTY running `cat`, plus the viewer's
@@ -258,5 +261,66 @@ func TestRevokeTakesControlBack(t *testing.T) {
 	case m := <-c.send:
 		t.Fatalf("revoke with no grant still emitted %v", m)
 	default:
+	}
+}
+
+// runOrch builds an Orchestrator over argv with a client pointed at an unreachable
+// relay (so connectLoop just backs off) and runs it; returns a channel of the exit code.
+func runOrch(t *testing.T, ctx context.Context, argv []string) (*ptysession.Session, <-chan int) {
+	t.Helper()
+	ps, err := ptysession.Start(argv, os.Environ())
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = ps.SetSize(80, 24)
+
+	keys, err := protocol.DeriveKeys(make([]byte, protocol.SecretLen), "sess", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	client, err := relayclient.New("http://127.0.0.1:1", true) // refused → transient, backs off
+	if err != nil {
+		t.Fatal(err)
+	}
+	pr, _ := io.Pipe() // localIn: blocks like an idle stdin (never written/closed)
+	o, err := New(Config{
+		Session: ps, Keys: keys, SessionID: "sess", Client: client,
+		LocalIn: pr, LocalOut: io.Discard,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan int, 1)
+	go func() { done <- o.Run(ctx) }()
+	return ps, done
+}
+
+// A parent cancel (SIGTERM/SIGHUP) must tear down the PTY so Run returns promptly,
+// even with a long-running child that won't exit on its own — otherwise pumpOutput
+// blocks on the PTY read forever and wg.Wait hangs.
+func TestRunReturnsOnCancelWithLongChild(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	_, done := runOrch(t, ctx, []string{"sleep", "60"})
+
+	time.Sleep(150 * time.Millisecond) // let Run spin up its goroutines
+	cancel()
+
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Run did not return within 5s of cancel — PTY teardown hung")
+	}
+}
+
+// Normal command-exit teardown still works: a child that exits on its own ends Run.
+func TestRunReturnsOnChildExit(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	_, done := runOrch(t, ctx, []string{"true"})
+
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Run did not return after the child exited")
 	}
 }

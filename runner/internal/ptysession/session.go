@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"sync"
+	"syscall"
 
 	"github.com/creack/pty"
 )
@@ -73,3 +74,13 @@ func (s *Session) ExitCode() int {
 
 // Close releases the PTY. The child receives EOF on its controlling terminal.
 func (s *Session) Close() error { return s.ptmx.Close() }
+
+// Terminate signals the child to stop (SIGTERM) and releases the PTY. Used on
+// shutdown/cancellation so a long-running child is reaped rather than left running,
+// and any in-flight Read on the PTY unblocks. Best-effort; safe to pair with Wait.
+func (s *Session) Terminate() error {
+	if s.cmd.Process != nil {
+		_ = s.cmd.Process.Signal(syscall.SIGTERM)
+	}
+	return s.ptmx.Close()
+}

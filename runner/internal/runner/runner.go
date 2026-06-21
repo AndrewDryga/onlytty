@@ -84,6 +84,8 @@ type Orchestrator struct {
 
 	connMu sync.Mutex
 	conn   *connState
+
+	shutdownOnce sync.Once // guards the single PTY teardown (child-exit and ctx-cancel race)
 }
 
 type outMsg struct {
@@ -144,7 +146,16 @@ func (o *Orchestrator) Run(parent context.Context) int {
 		o.signalExit()
 		time.Sleep(exitFlush)
 		cancel()
-		_ = o.sess.Close() // unblocks pumpOutput
+		o.shutdown() // unblocks pumpOutput
+	}()
+
+	// Cancellation watcher: a parent cancel (SIGTERM/SIGHUP) doesn't make the child
+	// exit, so without this pumpOutput would block forever on the PTY read and wg.Wait
+	// would hang. Tear the PTY down on ctx.Done so shutdown can't hang behind a
+	// long-running child; shutdown() also SIGTERMs the child so it's reaped.
+	go func() {
+		<-ctx.Done()
+		o.shutdown()
 	}()
 
 	var wg sync.WaitGroup
@@ -231,6 +242,14 @@ func (o *Orchestrator) keepalive(ctx context.Context) {
 func (o *Orchestrator) signalExit() {
 	o.emit(protocol.KindExit, protocol.EncodeExit(int32(o.sess.ExitCode())))
 	o.emitText(byeEnded)
+}
+
+// shutdown tears down the PTY exactly once. Both the child-exit watcher and the
+// ctx-cancel watcher call it; sync.Once makes the race safe (and avoids a double
+// close). Terminate also SIGTERMs the child so a cancel while it's still running
+// reaps it instead of leaving it (and unblocks pumpOutput's blocked Read).
+func (o *Orchestrator) shutdown() {
+	o.shutdownOnce.Do(func() { _ = o.sess.Terminate() })
 }
 
 // emit queues a sealed binary message for the current viewer connection. It never blocks
