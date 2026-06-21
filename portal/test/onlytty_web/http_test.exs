@@ -79,6 +79,17 @@ defmodule OnlyttyWeb.HTTPTest do
     assert text_response(conn, 200) == "ok"
   end
 
+  test "GET /install.sh serves the installer (the hero one-liner resolves)", %{conn: conn} do
+    conn = get(conn, "/install.sh")
+    assert conn.status == 200
+    assert conn.resp_body =~ "#!/bin/sh"
+
+    # Guard against drift: the served copy must match the canonical repo-root
+    # install.sh (the Docker image ships ./portal, so we keep a copy under priv).
+    canonical = Path.expand("../../../install.sh", __DIR__)
+    assert conn.resp_body == File.read!(canonical)
+  end
+
   test "GET /s/:id serves the viewer HTML even for an unknown id", %{conn: conn} do
     conn = get(conn, ~p"/s/does-not-exist")
     assert conn.status == 200
