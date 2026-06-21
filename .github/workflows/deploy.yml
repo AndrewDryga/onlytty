@@ -1,15 +1,20 @@
 name: Deploy
 
-# Rolls the production relay by replacing the regional MIG's instances (each re-pulls
-# the onlytty image on boot via cloud-init). Runs after a release is published, or
-# manually. No-ops until GCP Workload Identity Federation is wired up — set repo
-# variables GCP_PROJECT / GCP_REGION and secrets GCP_WORKLOAD_IDENTITY_PROVIDER /
-# GCP_SERVICE_ACCOUNT (see infra/README.md).
+# Pin the production image and roll the relay via Terraform Cloud. This sets the
+# `container_image` Terraform variable in the TFC workspace to the requested version
+# and QUEUES a run; a human approves it in TFC ("Confirm & Apply") — that approval is
+# the deploy gate. Terraform's update_policy then rolls the MIG, draining each old
+# instance gracefully (see Onlytty.Drain). Needs the TF_API_TOKEN secret (a TFC API
+# token with access to the workspace). No-ops if the token is unset.
 
 on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Image version to deploy, e.g. 0.1.0 (defaults to the release tag)"
+        required: false
   release:
     types: [published]
-  workflow_dispatch:
 
 concurrency:
   group: deploy-production
@@ -17,22 +22,66 @@ concurrency:
 
 permissions:
   contents: read
-  id-token: write # Workload Identity Federation
 
 jobs:
   deploy:
-    name: roll the relay MIG
+    name: pin image + queue a TFC run (approve in TFC)
     runs-on: ubuntu-latest
-    environment: production
-    if: vars.GCP_PROJECT != ''
     steps:
-      - uses: google-github-actions/auth@c200f3691d83b41bf9bbd8638997a462592937ed # v2
-        with:
-          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
-      - uses: google-github-actions/setup-gcloud@e427ad8a34f8676edf47cf7d7925499adf3eb74f # v2
-      - name: Rolling-replace the MIG instances (each re-pulls the image on boot)
+      - name: Pin container_image and queue a Terraform Cloud run
+        env:
+          TF_API_TOKEN: ${{ secrets.TF_API_TOKEN }}
+          INPUT_VERSION: ${{ inputs.version }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          OWNER: ${{ github.repository_owner }}
         run: |
-          gcloud compute instance-groups managed rolling-action replace onlytty-mig \
-            --region="${{ vars.GCP_REGION }}" --project="${{ vars.GCP_PROJECT }}" \
-            --max-surge=1 --max-unavailable=0
+          set -euo pipefail
+          if [ -z "${TF_API_TOKEN:-}" ]; then
+            echo "TF_API_TOKEN not set — skipping deploy (configure it to enable)."
+            exit 0
+          fi
+
+          org="OnlyTTY"
+          workspace="onlytty"
+          api="https://app.terraform.io/api/v2"
+
+          # Prefer the workflow_dispatch input; otherwise the published release tag.
+          version="${INPUT_VERSION:-$RELEASE_TAG}"
+          version="${version#v}"
+          [ -n "$version" ] || { echo "no version (pass the input or publish a release)"; exit 1; }
+          image="ghcr.io/$(echo "$OWNER" | tr '[:upper:]' '[:lower:]')/onlytty:${version}"
+          echo "Deploying image: $image"
+
+          auth=(-H "Authorization: Bearer $TF_API_TOKEN" -H "Content-Type: application/vnd.api+json")
+
+          ws=$(curl -fsS "${auth[@]}" "$api/organizations/$org/workspaces/$workspace" | jq -r '.data.id')
+          [ -n "$ws" ] && [ "$ws" != "null" ] || { echo "could not resolve workspace $org/$workspace"; exit 1; }
+
+          var=$(curl -fsS "${auth[@]}" "$api/workspaces/$ws/vars" \
+            | jq -r '.data[] | select(.attributes.key=="container_image") | .id')
+
+          if [ -n "$var" ] && [ "$var" != "null" ]; then
+            curl -fsS -X PATCH "${auth[@]}" "$api/workspaces/$ws/vars/$var" \
+              -d "$(jq -nc --arg id "$var" --arg v "$image" \
+                '{data:{id:$id,type:"vars",attributes:{value:$v}}}')" >/dev/null
+            echo "updated container_image -> $image"
+          else
+            curl -fsS -X POST "${auth[@]}" "$api/workspaces/$ws/vars" \
+              -d "$(jq -nc --arg v "$image" \
+                '{data:{type:"vars",attributes:{key:"container_image",value:$v,category:"terraform"}}}')" >/dev/null
+            echo "created container_image -> $image"
+          fi
+
+          run_id=$(curl -fsS -X POST "${auth[@]}" "$api/runs" \
+            -d "$(jq -nc --arg ws "$ws" --arg m "Deploy $image" \
+              '{data:{type:"runs",attributes:{message:$m},relationships:{workspace:{data:{type:"workspaces",id:$ws}}}}}')" \
+            | jq -r '.data.id')
+
+          echo "Queued TFC run: $run_id"
+          {
+            echo "### Deploy queued — approve in Terraform Cloud"
+            echo ""
+            echo "Image: \`$image\`"
+            echo ""
+            echo "Run: https://app.terraform.io/app/$org/workspaces/$workspace/runs/$run_id"
+          } >> "$GITHUB_STEP_SUMMARY"

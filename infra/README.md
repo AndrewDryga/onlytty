@@ -91,11 +91,13 @@ state. `terraform.tfvars` and `*.tfstate*` are git-ignored.
 
 ## Notes
 
-- **Updating the app:** push a new image tag, set `container_image`, `terraform apply`
-  (a rolling MIG update replaces the instance). For a plain image re-pull at the current
-  tag, the `Deploy` GitHub workflow (`.github/workflows/deploy.yml`) runs
-  `gcloud compute instance-groups managed rolling-action replace onlytty-mig
-  --region=<region>` after a release; run that command manually for an ad-hoc roll.
+- **Deploying a new version:** tag `vX.Y.Z` → the `Release` workflow builds and pushes
+  `ghcr.io/<owner>/onlytty:X.Y.Z`. Then the `Deploy` workflow
+  (`.github/workflows/deploy.yml` — `workflow_dispatch` with a version, or a published
+  release) sets the `container_image` Terraform variable in the TFC workspace to that
+  pinned tag and **queues a run** via the TFC API; a human approves it in TFC
+  ("Confirm & Apply"). Terraform's `update_policy` then rolls the MIG, draining each old
+  instance gracefully (see `Onlytty.Drain`). Needs the `TF_API_TOKEN` repo secret.
 - **No external IP:** instances have no public IP. Egress (GHCR pull, Secret Manager,
   Cloud Logging) goes through **Cloud NAT** scoped only to the dedicated OnlyTTY subnet;
   ingress arrives from the LB over the internal network.
