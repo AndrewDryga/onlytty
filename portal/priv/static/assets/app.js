@@ -325,12 +325,19 @@ async function send(kind, payload) {
   try { ws.send(await sealC.seal(outSeq, kind, payload)); } catch {}
 }
 
+// Anything past this in a single chunk is a paste, not typing — confirm it even
+// without newlines (a giant one-liner is as risky as a multi-line block).
+const PASTE_CONFIRM_LEN = 1024;
+
 async function sendInput(data) {
   if (!hasControl) return;
-  // Guard accidental multi-line pastes.
-  if (data.length > 2 && /[\n\r]/.test(data.slice(0, -1))) {
+  // Guard accidental pastes: a multi-line block, or a large single-line chunk.
+  const multiline = data.length > 2 && /[\n\r]/.test(data.slice(0, -1));
+  if (multiline) {
     const lines = data.split(/\r?\n/).length;
     if (!confirm(`Send ${lines} lines to the terminal?`)) return;
+  } else if (data.length > PASTE_CONFIRM_LEN) {
+    if (!confirm(`Send ${data.length} characters to the terminal?`)) return;
   }
   await send(Kind.Input, enc.encode(data));
 }

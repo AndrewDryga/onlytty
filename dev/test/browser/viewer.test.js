@@ -351,6 +351,60 @@ test("browser viewer: mobile layout — Take control stays on-screen at 360px; ^
   }
 });
 
+test("browser viewer: a large single-line paste is confirmed and only sent on accept", async (t) => {
+  let chromium;
+  try { ({ chromium } = await import("playwright")); } catch { t.skip("playwright not installed"); return; }
+  if (!(await healthy())) { t.skip("relay not reachable at " + base); return; }
+
+  const { proc, link } = await startRunner(["--", "bash", "--norc", "--noprofile", "-i"]);
+  let browser;
+  try {
+    browser = await chromium.launch();
+    const page = await browser.newPage();
+
+    let dialogMsg = null, accept = false;
+    page.on("dialog", async (d) => { dialogMsg = d.message(); accept ? await d.accept() : await d.dismiss(); });
+
+    await page.goto(link);
+    await dismissVerify(page);
+    await page.click("#control");
+    await page.waitForFunction(
+      () => document.getElementById("control").classList.contains("live"),
+      null, { timeout: 8000 },
+    );
+
+    // A big one-liner (no newline) — pasted into xterm's textarea.
+    const marker = "PASTEMARK", big = marker + "y".repeat(1200);
+    const paste = (text) => page.evaluate((t) => {
+      const ta = document.querySelector(".xterm-helper-textarea");
+      const dt = new DataTransfer(); dt.setData("text/plain", t);
+      ta.dispatchEvent(new ClipboardEvent("paste", { clipboardData: dt, bubbles: true, cancelable: true }));
+    }, text);
+    const onScreen = () => page.evaluate((m) => document.querySelector(".xterm-rows")?.innerText.includes(m), marker);
+
+    // Dismissed → the guard fired (message mentions characters) and nothing was sent.
+    accept = false; dialogMsg = null;
+    await paste(big);
+    await page.waitForFunction(() => true, null, { timeout: 600 }).catch(() => {});
+    assert.match(dialogMsg || "", /characters/, "large single-line paste prompts a character-count confirm");
+    assert.equal(await onScreen(), false, "a dismissed paste is not sent");
+
+    // Accepted → it reaches the terminal.
+    accept = true; dialogMsg = null;
+    await paste(big);
+    await page.waitForFunction((m) => document.querySelector(".xterm-rows")?.innerText.includes(m),
+      marker, { timeout: 5000 });
+
+    // Small input types straight through (no confirm).
+    dialogMsg = null;
+    await page.keyboard.type("ok");
+    assert.equal(dialogMsg, null, "small input is not gated by a confirm");
+  } finally {
+    if (browser) await browser.close();
+    proc.kill("SIGKILL");
+  }
+});
+
 test("browser viewer: a denied control request shows feedback (host view-only)", async (t) => {
   let chromium;
   try { ({ chromium } = await import("playwright")); } catch { t.skip("playwright not installed"); return; }
