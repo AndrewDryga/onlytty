@@ -63,6 +63,22 @@ defmodule Onlytty.WSClient do
     {code, reason}
   end
 
+  @doc """
+  Await a hard server-side close, the kind Bandit's frame-size guard produces by
+  *stopping* the connection process. The client sees this as either a clean close
+  frame — `{:close, code, _}`, returns `code` — or, when the socket is torn down
+  before that frame is read (more likely under load), a `:gun_down`, returns `:down`.
+  Both mean "rejected and closed"; callers assert on `in [expected_code, :down]`.
+  """
+  def recv_close_or_down(pid, ref, timeout \\ 5000) do
+    receive do
+      {:gun_ws, ^pid, ^ref, {:close, code, _reason}} -> code
+      {:gun_down, ^pid, _proto, _reason, _streams} -> :down
+    after
+      timeout -> flunk("no close frame or :gun_down within #{timeout}ms for #{inspect(ref)}")
+    end
+  end
+
   @doc "Assert no frame arrives within `timeout` ms on this connection."
   def refute_frame(pid, ref, timeout \\ 200) do
     refute_receive {:gun_ws, ^pid, ^ref, _frame}, timeout

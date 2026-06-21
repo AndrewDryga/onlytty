@@ -297,10 +297,12 @@ defmodule OnlyttyWeb.OnlyttySocketTest do
 
       before = Onlytty.Metrics.value(:frame_size_rejects)
 
-      # Just over the 1 MiB default cap: Bandit closes the sender with 1009 before the
-      # payload is ever forwarded, so the viewer only learns the runner dropped.
+      # Just over the 1 MiB default cap: Bandit rejects the frame and closes the sender —
+      # a 1009 close frame, or an abrupt drop under load — before the payload is ever
+      # forwarded, so the viewer only learns the runner dropped. The metric below confirms
+      # the reject regardless of how the close surfaced.
       WSClient.send_binary(runner, r_ref, :binary.copy(<<0>>, 1024 * 1024 + 1))
-      assert {1009, _} = WSClient.recv_close(runner, r_ref)
+      assert WSClient.recv_close_or_down(runner, r_ref) in [1009, :down]
       assert WSClient.recv_json(viewer, v_ref)["t"] == "peer_left"
       WSClient.refute_frame(viewer, v_ref)
       assert Onlytty.Metrics.value(:frame_size_rejects) == before + 1
@@ -318,9 +320,10 @@ defmodule OnlyttyWeb.OnlyttySocketTest do
       r_ref = WSClient.connect!(runner, "/ws/runner/#{s.id}", runner_headers(s.runner_token))
       assert WSClient.recv_json(runner, r_ref)["t"] == "hello"
 
-      # 2 KiB > the 1 KiB cap → rejected; a small frame would have passed.
+      # 2 KiB > the 1 KiB cap → rejected; a small frame would have passed. The reject
+      # surfaces as a 1009 close frame, or an abrupt drop under load.
       WSClient.send_binary(runner, r_ref, :binary.copy(<<0>>, 2048))
-      assert {1009, _} = WSClient.recv_close(runner, r_ref)
+      assert WSClient.recv_close_or_down(runner, r_ref) in [1009, :down]
     end
   end
 
