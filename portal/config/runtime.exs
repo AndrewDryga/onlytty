@@ -26,21 +26,21 @@ end
 #   ONLYTTY_IDLE_TIMEOUT  — close a session after this many seconds with no runner
 #                         traffic (default 600)
 if ttl = System.get_env("ONLYTTY_DEFAULT_TTL") do
-  config :onlytty, :default_ttl, String.to_integer(ttl)
+  config :onlytty, :default_ttl, Onlytty.Env.pos_int!("ONLYTTY_DEFAULT_TTL", ttl)
 end
 
 if max_ttl = System.get_env("ONLYTTY_MAX_TTL") do
-  config :onlytty, :max_ttl, String.to_integer(max_ttl)
+  config :onlytty, :max_ttl, Onlytty.Env.pos_int!("ONLYTTY_MAX_TTL", max_ttl)
 end
 
 if idle = System.get_env("ONLYTTY_IDLE_TIMEOUT") do
-  config :onlytty, :idle_timeout_ms, String.to_integer(idle) * 1000
+  config :onlytty, :idle_timeout_ms, Onlytty.Env.pos_int!("ONLYTTY_IDLE_TIMEOUT", idle) * 1000
 end
 
 # ONLYTTY_MAX_SESSIONS — cap on concurrent in-memory sessions (default 2000). Bounds
 # the impact of unauthenticated session creation. Read by the DynamicSupervisor.
 if max = System.get_env("ONLYTTY_MAX_SESSIONS") do
-  config :onlytty, :max_sessions, String.to_integer(max)
+  config :onlytty, :max_sessions, Onlytty.Env.pos_int!("ONLYTTY_MAX_SESSIONS", max)
 end
 
 # ONLYTTY_MAX_FRAME_BYTES — max size of a single WebSocket frame (default 1048576 = 1
@@ -48,7 +48,7 @@ end
 # or forwarded — bounds memory use and covert-tunnel abuse. Keep it generous enough for
 # a large paste / full-screen redraw (~256KB–1MB).
 if bytes = System.get_env("ONLYTTY_MAX_FRAME_BYTES") do
-  config :onlytty, :max_frame_bytes, String.to_integer(bytes)
+  config :onlytty, :max_frame_bytes, Onlytty.Env.pos_int!("ONLYTTY_MAX_FRAME_BYTES", bytes)
 end
 
 # ONLYTTY_ALLOWED_ORIGINS — comma-separated *extra* origins allowed to open a
@@ -61,13 +61,19 @@ end
 
 # Per-IP throttle for POST /api/sessions (defaults: 30 requests / 60s).
 #   ONLYTTY_RATELIMIT_MAX     — max creates per window per IP ("0" disables)
-#   ONLYTTY_RATELIMIT_WINDOW  — window length in seconds
+#   ONLYTTY_RATELIMIT_WINDOW  — window length in seconds (must be > 0)
 if max = System.get_env("ONLYTTY_RATELIMIT_MAX") do
-  config :onlytty, :rate_limit_max, (max == "0" && :infinity) || String.to_integer(max)
+  # "0" intentionally disables the limiter (:infinity); any other value is a positive int.
+  rate_max =
+    if max == "0", do: :infinity, else: Onlytty.Env.pos_int!("ONLYTTY_RATELIMIT_MAX", max)
+
+  config :onlytty, :rate_limit_max, rate_max
 end
 
 if win = System.get_env("ONLYTTY_RATELIMIT_WINDOW") do
-  config :onlytty, :rate_limit_window_ms, String.to_integer(win) * 1000
+  config :onlytty,
+         :rate_limit_window_ms,
+         Onlytty.Env.pos_int!("ONLYTTY_RATELIMIT_WINDOW", win) * 1000
 end
 
 # ONLYTTY_METRICS_TOKEN — bearer token that lets a remote scraper (e.g. Prometheus
