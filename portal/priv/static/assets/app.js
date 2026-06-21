@@ -289,8 +289,15 @@ $("control").onclick = () => {
   else { send(Kind.CtrlReq, new Uint8Array(0)); term.focus(); }
 };
 
-// Tap the (truncated) fingerprint chip to see the full value and compare it with the terminal.
-$("fp").addEventListener("click", () => {
+// Overflow menu (⋯): the secondary controls live here so the top bar stays uncluttered.
+// Tapping it toggles; tapping an item (except the font +/−) or outside closes it.
+const menu = $("menu");
+$("menu-btn").addEventListener("click", (e) => { e.stopPropagation(); menu.hidden = !menu.hidden; });
+menu.addEventListener("click", (e) => { if (e.target.closest("button") && !e.target.closest(".seg")) menu.hidden = true; });
+document.addEventListener("click", (e) => {
+  if (!menu.hidden && !menu.contains(e.target) && e.target !== $("menu-btn")) menu.hidden = true;
+});
+$("menu-verify").addEventListener("click", () => {
   const fp = $("fp").textContent;
   if (fp) fatal(`<h1>Session fingerprint</h1><p>Compare this with the fingerprint shown in your terminal — if they match, both ends derived the same keys from the same secret.</p><p><code>${fp}</code></p><button data-dismiss>OK</button>`);
 });

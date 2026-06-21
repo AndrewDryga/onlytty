@@ -13,30 +13,35 @@
   html, body { margin:0; height:100%; background:var(--bg); color:var(--fg);
     font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif; -webkit-text-size-adjust:100%; }
   body { display:flex; flex-direction:column; overflow:hidden; }
-  #bar { display:flex; align-items:center; gap:.5rem; padding:.45rem .6rem;
+  /* Top bar holds only the always-needed things: status (left) + the primary
+     Take-control button + a ⋯ menu (right). Everything secondary is in the menu, so
+     the row never overflows at any width. */
+  #bar { position:relative; display:flex; align-items:center; gap:.5rem; padding:.45rem .6rem;
     padding-top: calc(.45rem + env(safe-area-inset-top)); background:var(--bar);
     border-bottom:1px solid #1c2333; font-size:.8rem; }
-  /* Tools scroll horizontally on a narrow screen; #control is pinned OUTSIDE this
-     scroll region so the primary action is never pushed off-screen. */
-  #bar-tools { display:flex; align-items:center; gap:.4rem; flex:1 1 auto; min-width:0;
-    overflow-x:auto; scrollbar-width:none; }
-  #bar-tools::-webkit-scrollbar { display:none; }
-  #status { display:inline-flex; align-items:center; gap:.4rem; color:var(--dim); flex:0 1 auto; min-width:0; }
+  #status { display:inline-flex; align-items:center; gap:.4rem; color:var(--dim); min-width:0; }
   #status-text { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   #dot { width:.5rem; height:.5rem; border-radius:50%; background:var(--dim); flex:0 0 auto; }
   #dot.ok { background:var(--ok); } #dot.warn { background:var(--warn); }
-  /* Fingerprint is verify-once info, so it's a compact tappable chip (truncated;
-     tap shows the full value to compare with the terminal). */
-  .fp { flex:0 0 auto; max-width:6rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
-    color:var(--dim); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size:.72rem;
-    background:#1a2030; border-color:#2a3346; padding:.25rem .45rem; }
-  .fp::before { content:"🔒 "; }
-  #control { flex:0 0 auto; }
+  .spacer { flex:1 1 auto; }
+  #control, #menu-btn { flex:0 0 auto; }
+  #menu-btn { font-size:1.05rem; line-height:1; padding:.3rem .55rem; }
   button { background:#262e44; color:var(--fg); border:1px solid #3c465f; border-radius:.45rem;
     padding:.35rem .55rem; font-size:.8rem; cursor:pointer; -webkit-tap-highlight-color:transparent; }
   button:active { background:#323c58; }
   button.on { background:var(--accent); border-color:var(--accent); color:#fff; }
   #control.live { background:var(--ok); border-color:var(--ok); color:#04210f; }
+  /* The ⋯ overflow menu (drops below the button, over the terminal). */
+  #menu { position:absolute; top:100%; right:.5rem; margin-top:.3rem; z-index:9; min-width:13.5rem;
+    display:flex; flex-direction:column; gap:.1rem; padding:.35rem; background:#161b28;
+    border:1px solid #2a3346; border-radius:.65rem; box-shadow:0 12px 32px rgba(0,0,0,.55); }
+  #menu[hidden] { display:none; }
+  #menu .item { display:flex; align-items:center; justify-content:space-between; gap:.75rem;
+    width:100%; text-align:left; background:transparent; border:0; color:var(--fg);
+    padding:.7rem .6rem; border-radius:.45rem; font-size:.92rem; min-height:44px; }
+  #menu .item:active { background:#222a3d; }
+  #menu .seg { display:flex; gap:.35rem; flex:0 0 auto; }
+  #menu .seg button { min-width:2.7rem; }
   /* 44px tap targets on touch (phones), where the bars are the primary input path. */
   body.touch #bar button, body.touch #keys button { min-height:44px; }
   #terminal { flex:1 1 auto; min-height:0; padding:.25rem; overflow:hidden; }
@@ -73,15 +78,17 @@
 </head>
 <body>
   <div id="bar">
-    <div id="bar-tools">
-      <span id="status"><span id="dot"></span><span id="status-text">connecting…</span></span>
-      <button id="fp" class="fp" title="Tap to verify against your terminal"></button>
-      <button id="font-dec" title="Smaller">A−</button>
-      <button id="font-inc" title="Larger">A+</button>
-      <button id="keys-toggle" title="Show/hide key bar" aria-label="Show or hide the key bar">⌨</button>
-      <button id="paste" title="Paste from clipboard">Paste</button>
-    </div>
+    <span id="status"><span id="dot"></span><span id="status-text">connecting…</span></span>
+    <span id="fp" hidden></span>
+    <span class="spacer"></span>
     <button id="control">Take control</button>
+    <button id="menu-btn" title="More controls" aria-label="More controls" aria-haspopup="true">⋯</button>
+    <div id="menu" hidden role="menu">
+      <button id="menu-verify" class="item" role="menuitem">Verify fingerprint</button>
+      <button id="paste" class="item" role="menuitem">Paste</button>
+      <button id="keys-toggle" class="item" role="menuitem">Show / hide keys</button>
+      <div class="item">Text size<span class="seg"><button id="font-dec" title="Smaller">A−</button><button id="font-inc" title="Larger">A+</button></span></div>
+    </div>
   </div>
   <div id="terminal"></div>
   <div id="keys">

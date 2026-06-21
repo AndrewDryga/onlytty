@@ -64,7 +64,7 @@ test("browser viewer: connect, match fingerprint, take control, type, see output
 
     // The fingerprint shown in the browser must equal the one in the terminal: proof
     // both sides derived the same keys from the secret in the fragment.
-    await page.waitForSelector("#fp");
+    await page.waitForFunction(() => document.getElementById("fp").textContent.length > 0, null, { timeout: 10000 });
     const shown = (await page.textContent("#fp")).replace(/-/g, "");
     assert.equal(shown, fingerprint.replace(/-/g, ""), "fingerprint must match");
 
@@ -203,19 +203,22 @@ test("browser viewer: key-bar show/hide toggle persists across reload", async (t
     browser = await chromium.launch();
     const page = await browser.newPage();
     await page.goto(link);
-    await page.waitForSelector("#keys-toggle");
+    await page.waitForSelector("#menu-btn");
 
     // Desktop default (precise pointer + hover): the key bar is hidden.
     assert.equal(await page.locator("#keys").isVisible(), false, "bar hidden by default on desktop");
 
-    // Toggle it on; it shows and the preference persists across a reload.
+    // The keys toggle lives in the ⋯ menu. Open it, toggle on; the bar shows and the
+    // preference persists across a reload.
+    await page.click("#menu-btn");
     await page.click("#keys-toggle");
     assert.equal(await page.locator("#keys").isVisible(), true, "bar shown after toggle");
     await page.reload();
-    await page.waitForSelector("#keys-toggle");
+    await page.waitForSelector("#menu-btn");
     assert.equal(await page.locator("#keys").isVisible(), true, "bar still shown after reload");
 
-    // Toggle it back off.
+    // Toggle it back off (reopen the menu).
+    await page.click("#menu-btn");
     await page.click("#keys-toggle");
     assert.equal(await page.locator("#keys").isVisible(), false, "bar hidden after second toggle");
   } finally {
@@ -279,8 +282,8 @@ test("browser viewer: mobile layout — Take control stays on-screen at 360px; ^
   let browser;
   try {
     browser = await chromium.launch();
-    // A small phone-width viewport with the key bar forced on. The redesign pins
-    // #control OUTSIDE the scrollable tools, so it must stay fully on-screen.
+    // A small phone-width viewport with the key bar forced on. The top bar holds only
+    // status + Take control + ⋯, so the primary action stays fully on-screen.
     const page = await browser.newPage({ viewport: { width: 360, height: 780 } });
     await page.addInitScript(() => { try { localStorage.setItem("onlytty.keybar", "show"); } catch {} });
     await page.goto(link);
@@ -295,6 +298,13 @@ test("browser viewer: mobile layout — Take control stays on-screen at 360px; ^
     assert.ok(box, "#control present");
     assert.ok(box.x >= 0 && box.x + box.width <= 361,
       `#control must be on-screen at 360px (x=${box.x}, w=${box.width})`);
+
+    // Secondary controls are reachable via the ⋯ menu (not crammed into the bar).
+    await page.click("#menu-btn");
+    assert.ok(await page.locator("#menu-verify").isVisible(), "Verify in the ⋯ menu");
+    assert.ok(await page.locator("#paste").isVisible(), "Paste in the ⋯ menu");
+    await page.click("#menu-btn");
+    assert.equal(await page.locator("#menu").isVisible(), false, "⋯ menu closes");
 
     // Key bar visible (pref forced) and its keys are ≥44px tap targets.
     assert.equal(await page.locator("#keys").isVisible(), true, "key bar visible on the phone");
