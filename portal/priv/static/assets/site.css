@@ -224,9 +224,12 @@ p { margin: 0 0 1rem; }
 /* ── hero ── */
 .hero { position: relative; overflow-x: clip; padding: clamp(3rem, 7vw, 5.5rem) 0 clamp(2.5rem, 5vw, 4rem); }
 .hero-grid { display: grid; grid-template-columns: 1fr 1.08fr; gap: clamp(1.5rem, 4vw, 3.25rem); align-items: center; }
+/* Both columns must be allowed to shrink below their content's intrinsic width, or a
+   long line (the install snippet) floors the 1fr track and the hero overflows on mobile. */
+.hero-copy, .hero-demo { min-width: 0; }
 .hero-copy h1 { margin-bottom: .65rem; }
 .hero-copy .lede { max-width: 42ch; }
-.hero-demo { display: block; min-width: 0; }
+.hero-demo { display: block; }
 .hero-snippet { max-width: 27rem; }
 .hero-install-alt { margin: .5rem 0 0; }
 .hero-install-alt code { font-family: ui-monospace, monospace; font-size: .85em; }
@@ -242,7 +245,7 @@ p { margin: 0 0 1rem; }
   border: 1px solid var(--line-2); border-radius: var(--r-sm); padding: .3rem .3rem .3rem .9rem;
   max-width: 100%; overflow: hidden; margin: 1.2rem 0; box-shadow: var(--ring); }
 .snippet code { font-size: .9rem; color: var(--fg); overflow-x: auto; white-space: nowrap;
-  flex: 1 1 auto; padding: .45rem 0; scrollbar-width: none; }
+  flex: 1 1 auto; min-width: 0; padding: .45rem 0; scrollbar-width: none; }
 .snippet code::-webkit-scrollbar { display: none; }
 .snippet .prompt { color: var(--accent); user-select: none; margin-right: .4rem; }
 .copy { flex: 0 0 auto; background: rgba(255, 255, 255, .04); color: var(--fg-2);
