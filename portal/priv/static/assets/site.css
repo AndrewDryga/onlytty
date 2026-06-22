@@ -267,11 +267,9 @@ p { margin: 0 0 1rem; }
 
 /* ── hero stage: terminal window + live phone ── */
 .stage { position: relative; }
-.stage::before { content: ""; position: absolute; inset: -12% -8% -18% -8%; z-index: 0; pointer-events: none;
-  background: radial-gradient(60% 60% at 60% 40%, rgba(34, 211, 238, .16), transparent 70%); filter: blur(8px); }
 .term { position: relative; z-index: 1; width: 100%; background: #0a0d15; border: 1px solid var(--line-2);
   border-radius: var(--r-lg); overflow: hidden;
-  box-shadow: var(--shadow-lg), var(--ring), 0 0 80px -28px var(--accent-glow); }
+  box-shadow: var(--shadow-lg), var(--ring); }
 .term-bar { display: flex; align-items: center; gap: .45rem; padding: .72rem .95rem;
   background: linear-gradient(180deg, #161b29, #0d1018); border-bottom: 1px solid var(--line); }
 .tdot { width: .72rem; height: .72rem; border-radius: 50%; }
