@@ -493,7 +493,11 @@ p { margin: 0 0 1rem; }
   .footer-grid { grid-template-columns: 1fr 1fr; }
 }
 @media (max-width: 640px) {
-  .phone { display: none; }
+  /* On phones, swap the desktop terminal window for the phone viewer — it's the
+     product on the device you're actually holding. */
+  .hero .term { display: none; }
+  .hero .stage { display: flex; justify-content: center; }
+  .hero .phone { position: static; right: auto; bottom: auto; width: min(214px, 62vw); }
   .bento { grid-template-columns: 1fr; }
   .bento .b-md, .bento .b-sm { grid-column: auto; }
 }
