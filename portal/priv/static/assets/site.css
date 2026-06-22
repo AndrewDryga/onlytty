@@ -185,6 +185,14 @@ p { margin: 0 0 1rem; }
 .btn:active { transform: translateY(0); }
 .btn svg { width: 18px; height: 18px; }
 .btn-sm { padding: .52rem 1.1rem; font-size: .9rem; }
+/* Touch devices: the small nav CTAs and the copy buttons must meet the 44px
+   tap-target floor (the snippet/nav are the primary mobile conversion path). */
+@media (pointer: coarse) {
+  .btn-sm,
+  .copy {
+    min-height: 44px;
+  }
+}
 .btn-primary { color: var(--ink); background: linear-gradient(180deg, #46e0f5, #15bdd8);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, .45), 0 6px 22px rgba(34, 211, 238, .28); }
 .btn-primary:hover { box-shadow: inset 0 1px 0 rgba(255, 255, 255, .5), 0 12px 38px rgba(34, 211, 238, .45); }
