@@ -683,7 +683,7 @@ defmodule OnlyttyWeb.Site.Page do
       :gap,
       qr(),
       ~s(Link  <span class="c-link">onlytty.com/s/7q2k</span><span class="c-frag">#…</span>),
-      ~s(Expires  never · <span class="c-dim">read-only</span>),
+      ~s(Expires  never),
       :gap,
       ~s(<span class="c-dim">Scan it on your phone →</span>),
       :gap,
@@ -704,7 +704,7 @@ defmodule OnlyttyWeb.Site.Page do
         ~s(<div class="term-bar"><span class="tdot r"></span><span class="tdot y"></span><span class="tdot g"></span><span class="term-title">#{h(name)} — onlytty</span><span class="term-live"><i></i>shared</span></div>) <>
         ~s(<pre class="term-body">) <> body <> ~s(</pre></div>)
 
-    ~s(<div class="stage" role="img" aria-label="A terminal running 'onlytty -- #{h(cmd)}' shares an end-to-end-encrypted link; a phone shows the same #{h(name)} session live and in your control.">) <>
+    ~s(<div class="stage" role="img" aria-label="A terminal running 'onlytty -- #{h(cmd)}' shares an end-to-end-encrypted link; a phone shows the same #{h(name)} session live, ready to take control.">) <>
       term <> phone(name, opts) <> ~s(</div>)
   end
 
@@ -760,9 +760,9 @@ defmodule OnlyttyWeb.Site.Page do
       else
         [
           ~s(<span class="c-ok">✻</span> <span class="c-b">#{h(name)}</span> <span class="c-dim">live</span>),
-          ~s(<span class="c-ok">●</span> <span class="c-dim">shared · read-only</span>),
+          ~s(<span class="c-ok">●</span> <span class="c-dim">view-only · tap to drive</span>),
           ~s(<span class="c-ok">●</span> <span class="c-dim">end-to-end encrypted</span>),
-          ~s(<span class="c-ok">●</span> <span class="c-dim">1 viewer watching</span>),
+          ~s(<span class="c-ok">●</span> <span class="c-dim">single viewer</span>),
           ~s(<span class="c-ok">●</span> <span class="c-dim">no expiry</span>),
           prompt_tail(opts)
         ]
