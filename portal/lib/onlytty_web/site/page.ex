@@ -50,6 +50,7 @@ defmodule OnlyttyWeb.Site.Page do
           trust_bar() <>
           tool_marquee() <>
           how_section() <>
+          ciphertext_section() <>
           use_cases() <>
           features_section() <>
           home_tools() <> faq_section() <> start_section()
@@ -296,21 +297,48 @@ defmodule OnlyttyWeb.Site.Page do
 
     """
     <section class="hero">
-      <div class="wrap hero-grid">
-        <div class="hero-copy" data-reveal>
-          <span class="badge"><span class="dot"></span>End-to-end encrypted</span>
+      <div class="wrap">
+        <div class="hero-deck" data-reveal>
+          <span class="badge"><span class="dot"></span>End-to-end encrypted · open source · no accounts</span>
           <h1>Want to control your <span class="hl" data-rotate='#{rotate}'>claude</span> while sitting on the toilet?</h1>
-          <p class="lede">OnlyTTY gives any command on your machine a private link you can drive from your phone — end-to-end encrypted, so the relay only ever sees ciphertext.</p>
+          <p class="lede">Run any command on your machine, scan the link it prints, and drive it from your phone. The relay in the middle only ever forwards ciphertext — your keystrokes stay yours.</p>
           <div class="cta-row">
             <a class="btn btn-primary" href="#start">Get started — it's free</a>
             <a class="btn btn-ghost" href="#how">See how it works</a>
           </div>
-          <div class="hero-snippet">#{snippet("curl -fsSL https://onlytty.com/install.sh | sh")}</div>
+          #{snippet("curl -fsSL https://onlytty.com/install.sh | sh")}
         </div>
-        <div class="hero-demo" data-reveal>#{term_demo("claude", "Claude Code", agent: true)}</div>
+        <div class="hero-stage" data-reveal>#{hero_term()}</div>
       </div>
     </section>
     """
+  end
+
+  # The hero centerpiece: the real onlytty banner rendered as the page's own
+  # "standard output" — the command, the link with the #fragment secret called out
+  # as never reaching the server, a scannable QR, the fingerprint, and the live agent
+  # line. Mirrors printBanner in runner/cmd/onlytty/main.go; only the QR is canned.
+  defp hero_term do
+    ~s(<div class="stage" role="img" aria-label="A terminal running 'onlytty -- claude' prints a private, end-to-end-encrypted link and a QR code; a phone shows the same Claude Code session live.">) <>
+      ~s(<div class="term term-wide">) <>
+      ~s(<div class="term-bar"><span class="tdot r"></span><span class="tdot y"></span><span class="tdot g"></span><span class="term-title">claude — onlytty</span><span class="term-live"><i></i>shared</span></div>) <>
+      ~s(<div class="term-body ht-body">) <>
+      ~s(<div class="ht-cmd"><span class="c-p">$</span> onlytty -- claude</div>) <>
+      ~s(<div class="c-b ht-banner-h">onlytty — shared, end-to-end encrypted</div>) <>
+      ~s(<div class="ht-out"><div class="ht-qr">) <>
+      qr() <>
+      ~s(</div><div class="ht-meta">) <>
+      ~s(<div class="ht-row"><span class="ht-k">Link</span><span><span class="c-link">onlytty.com/s/7q2k</span><span class="c-frag">#kFn2…</span></span></div>) <>
+      ~s(<div class="frag-note">↳ the <span class="c-frag">#…</span> never reaches the server</div>) <>
+      ~s(<div class="ht-row"><span class="ht-k">Fingerprint</span><span class="c-dim">9F2A-7C41-3D8E</span></div>) <>
+      ~s(<div class="ht-row"><span class="ht-k">Expires</span><span class="c-dim">never · single viewer</span></div>) <>
+      ~s(</div></div>) <>
+      ~s(<div class="ht-live"><span class="c-ok">✻</span> <span class="c-b">Claude Code</span> ) <>
+      thinking() <>
+      ~s(</div>) <>
+      ~s(</div></div>) <>
+      phone("Claude Code", agent: true) <>
+      ~s(</div>)
   end
 
   defp trust_bar do
@@ -330,12 +358,50 @@ defmodule OnlyttyWeb.Site.Page do
     """
     <section id="how" class="section">
       <div class="wrap">
-        <p class="eyebrow center">How it works</p>
-        <h2 class="center">Three steps. No port forwarding, no agents, no accounts.</h2>
+        <div class="section-head">
+          <p class="eyebrow">how it works</p>
+          <h2>Three steps. No port forwarding, no agents, no accounts.</h2>
+        </div>
         <div class="steps">
-          #{step("1", "Run it", "<code>onlytty -- claude</code> — or just <code>onlytty</code> to share your whole shell. It keeps running in your terminal and prints a link plus a QR code.")}
-          #{step("2", "Scan it", "Open the link on your phone. The session secret rides in the URL <code>#fragment</code>, which never leaves the browser — so the relay can't read a thing.")}
-          #{step("3", "Drive it", "Watch live, or tap <em>take control</em> to type — anyone with the link can, so share it like a key (or start <code>--control view-only</code>). Lose signal? It reconnects and picks up where you left off.")}
+          #{step("01", "Run it", "<code>onlytty -- claude</code> — or just <code>onlytty</code> to share your whole shell. It keeps running in your terminal and prints a link plus a QR code.")}
+          #{step("02", "Scan it", "Open the link on your phone. The session secret rides in the URL <code>#fragment</code>, which never leaves the browser — so the relay can't read a thing.")}
+          #{step("03", "Drive it", "Watch live, or tap <em>take control</em> to type — anyone with the link can, so share it like a key (or start <code>--control view-only</code>). Lose signal? It reconnects and picks up where you left off.")}
+        </div>
+      </div>
+    </section>
+    """
+  end
+
+  # The trust mechanism, shown not claimed: the same stream is readable on both ends
+  # and opaque in the middle. The relay column is the real wire format (AEAD frames).
+  defp ciphertext_section do
+    plain =
+      ~s(<span class="c-p">$</span> onlytty -- claude\n) <>
+        ~s(<span class="c-dim">●</span> Read auth.ex\n) <>
+        ~s(<span class="c-dim">●</span> Edited auth.ex <span class="c-ok">+18 −4</span>\n) <>
+        ~s(<span class="c-dim">●</span> Ran mix test  <span class="c-ok">✓ 24 passed</span>)
+
+    panel = fn label, dot, body, extra ->
+      ~s(<figure class="cipher-panel"><figcaption><span class="cp-dot #{dot}"></span>#{label}</figcaption>) <>
+        ~s(<pre class="cp-body">#{body}</pre>#{extra}</figure>)
+    end
+
+    arrow = ~s(<div class="cipher-arrow" aria-hidden="true">→</div>)
+
+    """
+    <section class="section cipher-sec">
+      <div class="wrap">
+        <div class="section-head">
+          <p class="eyebrow">end-to-end encrypted</p>
+          <h2>The relay forwards bytes it can't read.</h2>
+          <p class="lede">Keys are derived from the secret in the link's <code>#fragment</code> — which the browser never sends to the server. Your machine and your phone hold the keys; the relay in the middle only ever sees ciphertext.</p>
+        </div>
+        <div class="cipher-flow" data-reveal>
+          #{panel.("Your machine", "ok", plain, "")}
+          #{arrow}
+          #{panel.("What the relay sees", "warn", ~s(<span class="cipher" aria-hidden="true">#{cipher_lines()}</span>), ~s(<figcaption class="cp-note">opaque AEAD frames — no keys, ever</figcaption>))}
+          #{arrow}
+          #{panel.("Your phone", "ok", plain, "")}
         </div>
       </div>
     </section>
@@ -346,15 +412,11 @@ defmodule OnlyttyWeb.Site.Page do
     """
     <section class="section alt">
       <div class="wrap">
-        <p class="eyebrow center">Security &amp; trust</p>
-        <h2 class="center">A remote terminal you don't have to be nervous about.</h2>
+        <div class="section-head">
+          <p class="eyebrow">Security &amp; trust</p>
+          <h2>A remote terminal you don't have to be nervous about.</h2>
+        </div>
         <div class="bento" data-reveal>
-          <div class="b b-lg">
-            <span class="feature-icon" aria-hidden="true">#{icon("lock")}</span>
-            <h3>End-to-end encrypted</h3>
-            <p>Keys come from a secret in the link's fragment that the relay never receives. It forwards ciphertext; your keystrokes stay yours.</p>
-            <div class="b-cipher" aria-hidden="true">#{cipher_lines()}</div>
-          </div>
           #{bento_tile("md", "shield", "No inbound ports", "The CLI dials out over TLS. Nothing listens on your machine, so your firewall stays exactly as shut as it is now.")}
           #{bento_tile("md", "trash", "Nothing persisted", "Live sessions live in memory and vanish when you exit the command. No accounts, no history, nothing written to disk, no logs of your bytes.")}
           #{bento_tile("sm", "wifi", "Survives bad Wi-Fi", "Your phone rides out dropouts, sleep, and dead zones — lose signal on the subway, resurface, and the viewer reconnects right where you left off.")}
@@ -372,10 +434,12 @@ defmodule OnlyttyWeb.Site.Page do
     """
     <section id="tools" class="section">
       <div class="wrap">
-        <p class="eyebrow center">Compatibility</p>
-        <h2 class="center">Pick your poison. There's a guide for each.</h2>
+        <div class="section-head">
+          <p class="eyebrow">Compatibility</p>
+          <h2>Pick your poison. There's a guide for each.</h2>
+        </div>
         <div class="chips">#{chips}</div>
-        <p class="center more"><a class="btn btn-ghost" href="/tools">Browse all #{length(Tools.all())} tools →</a></p>
+        <p class="more"><a class="btn btn-ghost" href="/tools">Browse all #{length(Tools.all())} tools →</a></p>
       </div>
     </section>
     """
@@ -385,8 +449,10 @@ defmodule OnlyttyWeb.Site.Page do
     """
     <section class="section alt">
       <div class="wrap">
-        <p class="eyebrow center">Use cases</p>
-        <h2 class="center">What you'll actually use it for.</h2>
+        <div class="section-head">
+          <p class="eyebrow">Use cases</p>
+          <h2>What you'll actually use it for.</h2>
+        </div>
         <div class="uses">
           #{feature("bot", "Drive your AI agent", "Kick off Claude, Codex, or aider at your desk, then approve its plans and answer its questions from your phone while it works.")}
           #{feature("bell", "On-call from anywhere", "Pager goes off at dinner? Tail the logs, bounce the service, kill the runaway process — no scramble for a laptop.")}
@@ -404,8 +470,10 @@ defmodule OnlyttyWeb.Site.Page do
     """
     <section id="faq" class="section">
       <div class="wrap narrow">
-        <p class="eyebrow center">FAQ</p>
-        <h2 class="center">Questions you're right to ask</h2>
+        <div class="section-head">
+          <p class="eyebrow">FAQ</p>
+          <h2>Questions you're right to ask</h2>
+        </div>
         <div class="faq">#{items}</div>
       </div>
     </section>
@@ -415,10 +483,12 @@ defmodule OnlyttyWeb.Site.Page do
   defp start_section do
     """
     <section id="start" class="section start">
-      <div class="wrap narrow center">
-        <p class="eyebrow center">Get started</p>
-        <h2 class="center">Your terminal is about to go public. To exactly one fan: you.</h2>
-        <p class="lede center">Install the open-source CLI, then share a command — or your whole shell. It prints a link and a QR; scan it and you're live.</p>
+      <div class="wrap narrow">
+        <div class="section-head">
+          <p class="eyebrow">Get started</p>
+          <h2>Your terminal is about to go public. To exactly one fan: you.</h2>
+          <p class="lede">Install the open-source CLI, then share a command — or your whole shell. It prints a link and a QR; scan it and you're live.</p>
+        </div>
         <div class="start-card">
           <div class="examples">
             #{example_row("Install", "curl -fsSL https://onlytty.com/install.sh | sh")}
@@ -427,7 +497,7 @@ defmodule OnlyttyWeb.Site.Page do
             #{example_row("Watch-only", "onlytty --control view-only -- htop")}
           </div>
         </div>
-        <div class="cta-row center"><a class="btn btn-primary" href="#{@github}" rel="noopener">Get the CLI on GitHub</a><a class="btn btn-ghost" href="/tools">See what you can control</a></div>
+        <div class="cta-row"><a class="btn btn-primary" href="#{@github}" rel="noopener">Get the CLI on GitHub</a><a class="btn btn-ghost" href="/tools">See what you can control</a></div>
       </div>
     </section>
     """
@@ -454,9 +524,9 @@ defmodule OnlyttyWeb.Site.Page do
           """
           <section class="section">
             <div class="wrap">
-              <h2 class="center">More #{h(String.downcase(t.category))} to run from your phone</h2>
+              <h2>More #{h(String.downcase(t.category))} to run from your phone</h2>
               <div class="chips">#{Enum.map_join(rs, "", &chip/1)}</div>
-              <p class="center more"><a class="btn btn-ghost" href="/tools">Browse all tools →</a></p>
+              <p class="more"><a class="btn btn-ghost" href="/tools">Browse all tools →</a></p>
             </div>
           </section>
           """
@@ -466,8 +536,8 @@ defmodule OnlyttyWeb.Site.Page do
 
     """
     <section class="hero tool-hero">
-      <div class="wrap hero-grid">
-        <div class="hero-copy">
+      <div class="wrap">
+        <div class="hero-deck">
           <nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a> <span aria-hidden="true">›</span> <a href="/tools">Tools</a> <span aria-hidden="true">›</span> <span>#{h(t.name)}</span></nav>
           <p class="eyebrow">#{h(t.category)}</p>
           <h1>Control <span class="hl">#{h(t.name)}</span> from your phone</h1>
@@ -475,7 +545,7 @@ defmodule OnlyttyWeb.Site.Page do
           #{snippet("onlytty -- #{t.cmd}")}
           <div class="cta-row"><a class="btn btn-primary" href="#start">Get started</a><a class="btn btn-ghost" href="/tools">All tools</a></div>
         </div>
-        <div class="hero-demo">#{term_demo(t.cmd, t.name)}</div>
+        <div class="hero-stage">#{term_demo(t.cmd, t.name)}</div>
       </div>
     </section>
 
@@ -495,17 +565,19 @@ defmodule OnlyttyWeb.Site.Page do
     #{related_html}
 
     <section id="start" class="section">
-      <div class="wrap narrow center">
-        <p class="eyebrow center">Get started</p>
-        <h2 class="center">Run #{h(t.name)} from your phone in about 30 seconds</h2>
+      <div class="wrap narrow">
+        <div class="section-head">
+          <p class="eyebrow">Get started</p>
+          <h2>Run #{h(t.name)} from your phone in about 30 seconds</h2>
+        </div>
         <div class="start-card">
           <div class="examples">
             #{example_row("Install the CLI", "curl -fsSL https://onlytty.com/install.sh | sh")}
             #{example_row("Share #{t.name}", "onlytty -- #{t.cmd}")}
           </div>
         </div>
-        <p class="muted center">It prints a link and a QR — scan it and you're live. <a href="/#start">More ways to run it →</a></p>
-        <div class="cta-row center"><a class="btn btn-primary" href="#{@github}" rel="noopener">Get the CLI on GitHub</a></div>
+        <p class="muted">It prints a link and a QR — scan it and you're live. <a href="/#start">More ways to run it →</a></p>
+        <div class="cta-row"><a class="btn btn-primary" href="#{@github}" rel="noopener">Get the CLI on GitHub</a></div>
       </div>
     </section>
     """

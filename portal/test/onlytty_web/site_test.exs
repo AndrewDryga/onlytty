@@ -18,6 +18,12 @@ defmodule OnlyttyWeb.SiteTest do
       assert body =~ "curl -fsSL https://onlytty.com/install.sh | sh"
     end
 
+    test "shows the end-to-end-encrypted ciphertext proof section", %{conn: conn} do
+      body = conn |> get(~p"/") |> html_response(200)
+      assert body =~ "The relay forwards bytes it can't read"
+      assert body =~ "opaque AEAD frames"
+    end
+
     test "the nav GitHub link has an accessible name (it goes icon-only on small phones)", %{
       conn: conn
     } do
