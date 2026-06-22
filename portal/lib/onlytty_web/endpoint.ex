@@ -1,19 +1,7 @@
 defmodule OnlyttyWeb.Endpoint do
   use Phoenix.Endpoint, otp_app: :onlytty
 
-  # The session will be stored in the cookie and signed,
-  # this means its contents can be read but not tampered with.
-  # Set :encryption_salt if you would also like to encrypt it.
-  @session_options [
-    store: :cookie,
-    key: "_relay_key",
-    signing_salt: "nPKh7BWO",
-    same_site: "Lax"
-  ]
-
-  # socket "/live", Phoenix.LiveView.Socket,
-  #   websocket: [connect_info: [session: @session_options]],
-  #   longpoll: [connect_info: [session: @session_options]]
+  # No Plug.Session: the relay has no accounts and nothing reads a session cookie.
 
   # Security hardening (CSP + friends) on every response, static assets included.
   plug OnlyttyWeb.SecurityHeaders
@@ -52,6 +40,5 @@ defmodule OnlyttyWeb.Endpoint do
 
   plug Plug.MethodOverride
   plug Plug.Head
-  plug Plug.Session, @session_options
   plug OnlyttyWeb.Router
 end
