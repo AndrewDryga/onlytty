@@ -493,10 +493,9 @@ p { margin: 0 0 1rem; }
   .footer-grid { grid-template-columns: 1fr 1fr; }
 }
 @media (max-width: 640px) {
-  /* On phones, stack the terminal (with its QR) and the phone viewer instead of
-     overlapping them — both stay visible. */
-  .hero .stage { display: flex; flex-direction: column; align-items: center; gap: 1.4rem; }
-  .hero .phone { position: static; right: auto; bottom: auto; width: min(214px, 62vw); }
+  /* Keep the phone viewer overlapping the terminal's corner (as on desktop), just
+     a touch smaller so it doesn't bury the QR on a narrow screen. */
+  .hero .phone { width: 132px; right: 2px; bottom: -18px; }
   .bento { grid-template-columns: 1fr; }
   .bento .b-md, .bento .b-sm { grid-column: auto; }
 }
