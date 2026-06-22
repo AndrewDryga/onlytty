@@ -5,8 +5,35 @@ import (
 	"testing"
 	"time"
 
+	"github.com/AndrewDryga/onlytty/runner/internal/relayclient"
 	"github.com/AndrewDryga/onlytty/runner/internal/runner"
 )
+
+// envOr resolves the relay default: unset/empty → the hosted relay; set → the env wins.
+func TestEnvOr(t *testing.T) {
+	const key = "ONLYTTY_TEST_ENVOR"
+
+	if got := envOr(key, defaultPublicRelay); got != defaultPublicRelay {
+		t.Errorf("unset: got %q, want the fallback %q", got, defaultPublicRelay)
+	}
+	t.Setenv(key, "") // an explicitly blank ONLYTTY_SERVER still falls back to the default
+	if got := envOr(key, defaultPublicRelay); got != defaultPublicRelay {
+		t.Errorf("empty: got %q, want the fallback %q", got, defaultPublicRelay)
+	}
+	t.Setenv(key, "https://relay.example.com")
+	if got := envOr(key, defaultPublicRelay); got != "https://relay.example.com" {
+		t.Errorf("set: got %q, want the env value to win", got)
+	}
+}
+
+// The zero-config default must satisfy the same validation as a user-supplied
+// --server (https, has a host), or every default `onlytty -- <cmd>` would fail at
+// startup. This guards against a fat-fingered constant breaking the headline flow.
+func TestDefaultPublicRelayIsValid(t *testing.T) {
+	if _, err := relayclient.New(defaultPublicRelay, false); err != nil {
+		t.Fatalf("defaultPublicRelay %q rejected by relayclient.New: %v", defaultPublicRelay, err)
+	}
+}
 
 // The banner must show the relay's assigned expiry (Session.ExpiresAt), not the
 // raw --ttl flag, since the server clamps the TTL to [60s, 24h].

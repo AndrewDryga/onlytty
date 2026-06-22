@@ -28,6 +28,12 @@ import (
 
 var version = "dev"
 
+// defaultPublicRelay is the hosted relay onlytty connects to when neither --server
+// nor ONLYTTY_SERVER is set, so a fresh `onlytty -- <cmd>` works with zero config.
+// The relay only ever sees ciphertext (everything is end-to-end encrypted), so a
+// shared default is safe; self-hosters override it with --server or ONLYTTY_SERVER.
+const defaultPublicRelay = "https://onlytty.com"
+
 // resolveVersion prefers the ldflags-injected version (Makefile builds). For a
 // plain `go install …@ref` / `go build`, which never runs the Makefile, it falls
 // back to the module version from the build info (resolved tag/pseudo-version, or
@@ -45,7 +51,7 @@ func resolveVersion() string {
 func main() { os.Exit(run()) }
 
 func run() int {
-	server := flag.String("server", os.Getenv("ONLYTTY_SERVER"), "relay server origin, e.g. https://relay.example.com (or set ONLYTTY_SERVER)")
+	server := flag.String("server", envOr("ONLYTTY_SERVER", defaultPublicRelay), "relay origin (or ONLYTTY_SERVER); e.g. a self-hosted https://relay.example.com")
 	control := flag.String("control", "ask", "viewer control policy: ask (auto-grant control to any viewer that requests it — no host prompt; revoke with SIGUSR1), view-only (never), once (auto-grant the first request only)")
 	readOnly := flag.Bool("read-only", false, "deprecated alias for --control view-only")
 	ttl := flag.Duration("ttl", 0, "session lifetime before the link expires; 0 (default) = no expiry — the session lives as long as onlytty runs and ends when the command exits (the relay may impose a maximum)")
@@ -63,7 +69,7 @@ func run() int {
 		return 0
 	}
 	if *server == "" {
-		fmt.Fprintln(os.Stderr, "onlytty: set --server or ONLYTTY_SERVER (e.g. https://relay.example.com)")
+		fmt.Fprintln(os.Stderr, "onlytty: --server is empty (unset it to use the default "+defaultPublicRelay+")")
 		return 2
 	}
 	if *ttl < 0 {
@@ -209,6 +215,14 @@ func resolveControl(controlFlag string, readOnly, controlSet bool) (runner.Contr
 	default:
 		return 0, fmt.Errorf("--control must be ask, view-only, or once (got %q)", controlFlag)
 	}
+}
+
+// envOr returns the named environment variable, or fallback when it is unset or empty.
+func envOr(key, fallback string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return fallback
 }
 
 // resolveCommand returns the user's command, or the login shell when none is given.
