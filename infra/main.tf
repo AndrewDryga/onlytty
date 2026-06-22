@@ -96,6 +96,9 @@ resource "google_compute_health_check" "app" {
   http_health_check {
     request_path = "/healthz"
     port         = var.app_port
+    # force_ssl 301-redirects non-localhost hosts to HTTPS (Plug.SSL exempts localhost),
+    # so the plain-HTTP probe must send Host: localhost or it gets a 301 (= unhealthy).
+    host = "localhost"
   }
 
   depends_on = [google_project_service.apis]

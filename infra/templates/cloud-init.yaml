@@ -72,5 +72,15 @@ write_files:
       WantedBy=multi-user.target
 
 runcmd:
+  # Container-Optimized OS ships an iptables INPUT policy of DROP that allows only lo,
+  # icmp, ESTABLISHED, and SSH — so the GCP VPC firewall is NOT sufficient on its own:
+  # inbound to the relay and cluster ports is dropped at the host. Open the relay port
+  # (LB health check + forwarded traffic) and the BEAM cluster ports (epmd + the pinned
+  # Erlang distribution range from rel/vm.args.eex, same ports as onlytty-allow-cluster
+  # in lb.tf); the VPC firewall already restricts the sources. Without this, the LB marks
+  # every backend UNHEALTHY (probes never arrive → 503) and nodes can't form a cluster.
+  - /sbin/iptables -A INPUT -p tcp --dport ${app_port} -j ACCEPT
+  - /sbin/iptables -A INPUT -p tcp --dport 4369 -j ACCEPT
+  - /sbin/iptables -A INPUT -p tcp --dport 9100:9105 -j ACCEPT
   - systemctl daemon-reload
   - systemctl enable --now onlytty.service
