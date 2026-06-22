@@ -238,6 +238,9 @@ p { margin: 0 0 1rem; }
 /* Both columns must shrink below their content's intrinsic width, or a long line
    (the install snippet) floors the 1fr track and the hero overflows on mobile. */
 .hero-copy, .hero-demo { min-width: 0; }
+/* The hero headline is calmer than the global display h1 — at full size it crowds the
+   split column and reads as overloaded. */
+.hero h1 { font-size: clamp(2.2rem, 4.2vw, 3.5rem); letter-spacing: -.03em; }
 .hero-copy h1 { margin-bottom: .65rem; }
 .hero-copy .lede { max-width: 42ch; }
 .hero-demo { display: block; }
