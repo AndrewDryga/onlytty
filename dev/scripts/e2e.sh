@@ -56,7 +56,7 @@ fi
 
 cd "$ROOT"
 echo "e2e: building the runner…"
-go build -o onlytty ./runner
+go build -o onlytty ./runner/cmd/onlytty
 echo "e2e: transport (Go viewer ↔ relay ↔ runner)…"
 ONLYTTY_SERVER="$BASE" go test -tags e2e -count=1 ./runner/e2e/
 echo "e2e: browser (headless Chromium drives the real viewer)…"

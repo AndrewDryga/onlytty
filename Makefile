@@ -5,10 +5,10 @@ VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 LDFLAGS := -s -w -X main.version=$(VERSION)
 
 build: ## Build the runner binary to ./onlytty
-	@go build -trimpath -ldflags "$(LDFLAGS)" -o onlytty ./runner
+	@go build -trimpath -ldflags "$(LDFLAGS)" -o onlytty ./runner/cmd/onlytty
 
 install: ## Build + install the runner to ~/.local/bin/onlytty
-	@go build -trimpath -ldflags "$(LDFLAGS)" -o "$(HOME)/.local/bin/onlytty" ./runner
+	@go build -trimpath -ldflags "$(LDFLAGS)" -o "$(HOME)/.local/bin/onlytty" ./runner/cmd/onlytty
 	@echo "installed $(HOME)/.local/bin/onlytty ($(VERSION))"
 
 runner-check: ## Runner: gofmt + vet + tests

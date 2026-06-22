@@ -70,7 +70,7 @@ pass "e2e green against the deployed artifact"
 
 step "Cross-compile the release binaries (the release.yml matrix)"
 for t in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64; do
-  CGO_ENABLED=0 GOOS="${t%/*}" GOARCH="${t#*/}" go build -trimpath -o "/tmp/onlytty-build-$$" ./runner && pass "go build $t"
+  CGO_ENABLED=0 GOOS="${t%/*}" GOARCH="${t#*/}" go build -trimpath -o "/tmp/onlytty-build-$$" ./runner/cmd/onlytty && pass "go build $t"
 done
 rm -f "/tmp/onlytty-build-$$"
 

@@ -76,8 +76,8 @@ gh attestation verify onlytty-<ver>-<os>-<arch>.tar.gz --repo AndrewDryga/onlytt
 With Go, or from a clone:
 
 ```bash
-make install                                                # from a clone → ~/.local/bin/onlytty
-go install github.com/AndrewDryga/onlytty/runner@latest     # with Go — note: this names the binary `runner`, not `onlytty`
+make install                                                       # from a clone → ~/.local/bin/onlytty
+go install github.com/AndrewDryga/onlytty/runner/cmd/onlytty@latest # with Go
 ```
 
 **Relay server** — by default `onlytty` connects through the hosted relay at
