@@ -24,6 +24,10 @@ defmodule OnlyttyWeb.SiteTest do
       assert body =~ "opaque AEAD frames"
     end
 
+    test "loads the Mixpanel analytics loader (marketing pages only)", %{conn: conn} do
+      assert conn |> get(~p"/") |> html_response(200) =~ "/assets/mixpanel.js"
+    end
+
     test "the nav GitHub link has an accessible name (it goes icon-only on small phones)", %{
       conn: conn
     } do
@@ -146,6 +150,8 @@ defmodule OnlyttyWeb.SiteTest do
       assert privacy =~ "8-character session-id"
       # states it does not log IPs or terminal content
       assert privacy =~ "IP addresses" and privacy =~ "terminal content"
+      # discloses Mixpanel analytics on the marketing site, but never in the viewer
+      assert privacy =~ "Mixpanel" and privacy =~ "Never in the viewer"
 
       aup = conn |> get(~p"/acceptable-use") |> html_response(200)
       assert aup =~ "Acceptable Use"

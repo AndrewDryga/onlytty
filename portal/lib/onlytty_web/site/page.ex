@@ -22,9 +22,11 @@ defmodule OnlyttyWeb.Site.Page do
   # both, computed at compile time; @external_resource makes an edit trigger a recompile.
   @css_path Path.join(__DIR__, "../../../priv/static/assets/site.css")
   @js_path Path.join(__DIR__, "../../../priv/static/assets/site.js")
+  @mixpanel_path Path.join(__DIR__, "../../../priv/static/assets/mixpanel.js")
   @external_resource @css_path
   @external_resource @js_path
-  @assets_vsn [@css_path, @js_path]
+  @external_resource @mixpanel_path
+  @assets_vsn [@css_path, @js_path, @mixpanel_path]
               |> Enum.map(fn p ->
                 case File.read(p) do
                   {:ok, c} -> c
@@ -126,8 +128,10 @@ defmodule OnlyttyWeb.Site.Page do
     <p>While a session is live the relay holds its id, a runner token, and an expiry — in RAM only. Nothing session-related is written to a database or disk, and it is discarded when the session ends or expires.</p>
     <h2>What we log</h2>
     <p>Operational logs carry metadata only: an 8-character session-id prefix, the role (runner or viewer), and a timestamp. We do <strong>not</strong> log IP addresses or any terminal content.</p>
-    <h2>No tracking</h2>
-    <p>No accounts, no advertising, and no third-party analytics or tracking beacons — on this site or in the viewer (a browser tracker could leak the fragment secret, so there is none).</p>
+    <h2>Analytics — on the marketing site only</h2>
+    <p>These public marketing pages load <a href="https://mixpanel.com/legal/privacy-policy/" rel="noopener">Mixpanel</a> for product analytics: which pages are viewed, the referring link, and coarse device and usage data, kept in your browser’s local storage. Like any web request, Mixpanel receives your IP address (used for approximate location). There is no advertising and no ad-network tracking, and it honors your browser’s “Do Not Track” setting.</p>
+    <h2>Never in the viewer</h2>
+    <p>The terminal viewer (the <code>/s/…</code> pages) loads no analytics and no third-party scripts at all. A tracker there could leak the link’s <code>#fragment</code> secret, so the viewer’s Content-Security-Policy forbids any off-origin script or connection — by design.</p>
     <h2>Contact</h2>
     <p>Privacy questions: <a href="mailto:andrew@dryga.com">andrew@dryga.com</a>.</p>
     """)
@@ -227,6 +231,7 @@ defmodule OnlyttyWeb.Site.Page do
     <main>#{body}</main>
     #{footer()}
     #{script()}
+    <script src="/assets/mixpanel.js?v=#{@assets_vsn}" defer></script>
     </body>
     </html>
     """

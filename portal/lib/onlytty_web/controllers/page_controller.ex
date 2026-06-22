@@ -9,6 +9,14 @@ defmodule OnlyttyWeb.PageController do
 
   alias OnlyttyWeb.Site.{Page, Tools}
 
+  # Marketing pages opt into the looser CSP that allows the Mixpanel analytics script
+  # (see OnlyttyWeb.SecurityHeaders). The terminal viewer and the API are served by
+  # other controllers, so they keep the strict same-origin CSP that stops a tracker
+  # from leaking the link's #fragment secret.
+  plug :allow_marketing_analytics
+
+  defp allow_marketing_analytics(conn, _opts), do: Plug.Conn.put_private(conn, :site_csp, true)
+
   @doc "`GET /` — the home page."
   def home(conn, _params), do: html(conn, Page.home())
 

@@ -189,4 +189,24 @@ defmodule OnlyttyWeb.HTTPTest do
       assert_security_headers(conn)
     end
   end
+
+  describe "marketing analytics is scoped to the public site, never the viewer" do
+    test "marketing pages allow the Mixpanel script + API host in the CSP", %{conn: conn} do
+      [csp] = conn |> get(~p"/") |> get_resp_header("content-security-policy")
+      assert csp =~ "script-src 'self' https://cdn.mxpnl.com"
+      assert csp =~ "connect-src 'self' https://api.mixpanel.com"
+    end
+
+    test "the terminal viewer keeps the strict CSP — no analytics host", %{conn: conn} do
+      [csp] = conn |> get(~p"/s/abc") |> get_resp_header("content-security-policy")
+      assert csp =~ "script-src 'self';"
+      refute csp =~ "mxpnl"
+      refute csp =~ "mixpanel"
+    end
+
+    test "the loader is served, and the viewer never references it", %{conn: conn} do
+      assert conn |> get("/assets/mixpanel.js") |> response(200) =~ "mixpanel.init"
+      refute conn |> get(~p"/s/abc") |> html_response(200) =~ "mixpanel"
+    end
+  end
 end
