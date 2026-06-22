@@ -558,7 +558,6 @@ defmodule OnlyttyWeb.Site.Page do
           <nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a> <span aria-hidden="true">›</span> <span>#{h(title)}</span></nav>
           <h1>#{h(title)}</h1>
           #{body}
-          <p class="muted">This is a plain-language summary, not formal legal advice; a service operator should have it reviewed before launch.</p>
         </div>
       </article>
       """
