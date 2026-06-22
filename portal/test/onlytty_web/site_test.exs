@@ -18,6 +18,13 @@ defmodule OnlyttyWeb.SiteTest do
       assert body =~ "curl -fsSL https://onlytty.com/install.sh | sh"
     end
 
+    test "the nav GitHub link has an accessible name (it goes icon-only on small phones)", %{
+      conn: conn
+    } do
+      body = conn |> get(~p"/") |> html_response(200)
+      assert body =~ ~s(class="btn btn-ghost btn-sm nav-gh") and body =~ ~s(aria-label="GitHub")
+    end
+
     test "includes the core SEO tags", %{conn: conn} do
       body = conn |> get(~p"/") |> html_response(200)
       assert body =~ ~s(rel="canonical")

@@ -243,7 +243,7 @@ defmodule OnlyttyWeb.Site.Page do
           <a href="/#faq">FAQ</a>
         </nav>
         <div class="nav-cta">
-          <a class="btn btn-ghost btn-sm nav-gh" href="#{@github}" rel="noopener">#{icon("github")}<span>GitHub</span></a>
+          <a class="btn btn-ghost btn-sm nav-gh" href="#{@github}" rel="noopener" aria-label="GitHub">#{icon("github")}<span>GitHub</span></a>
           <a class="btn btn-primary btn-sm" href="/#start">Get started</a>
         </div>
       </div>

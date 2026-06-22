@@ -483,6 +483,12 @@ p { margin: 0 0 1rem; }
   .term-body { font-size: .64rem; }
   .cta-row .btn { flex: 1 1 auto; }
 }
+@media (max-width: 400px) {
+  /* Brand + GitHub + Get started overflow very narrow phones. Make GitHub
+     icon-only (the link's aria-label keeps its name) and tighten the gap so they fit. */
+  .nav-gh span { display: none; }
+  .nav-inner { gap: .5rem; }
+}
 
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
