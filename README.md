@@ -51,7 +51,7 @@ between is ciphertext. See [PROTOCOL.md](PROTOCOL.md) for the exact wire format.
 **Runner** (the `onlytty` CLI) — a single Go binary. Quickest, no Go needed:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/AndrewDryga/onlytty/main/install.sh | sh
+curl -fsSL https://onlytty.com/install.sh | sh
 ```
 
 It detects your OS/arch, downloads the matching release binary **and its
@@ -76,32 +76,33 @@ gh attestation verify onlytty-<ver>-<os>-<arch>.tar.gz --repo AndrewDryga/onlytt
 With Go, or from a clone:
 
 ```bash
-go install github.com/AndrewDryga/onlytty/runner@latest     # with Go
 make install                                                # from a clone → ~/.local/bin/onlytty
+go install github.com/AndrewDryga/onlytty/runner@latest     # with Go — note: this names the binary `runner`, not `onlytty`
 ```
 
-**Relay server** — `onlytty` connects through a relay you run; see
-[Self-host the relay](#self-host-the-relay). Point the runner at it with `--server`
-or `ONLYTTY_SERVER`.
+**Relay server** — by default `onlytty` connects through the hosted relay at
+`onlytty.com`. To run your own instead, see [Self-host the relay](#self-host-the-relay)
+and point the runner at it with `--server` or `ONLYTTY_SERVER`.
 
 ## Quickstart
 
-OnlyTTY has two pieces: the `onlytty` runner you just installed, and a **relay** it
-connects through. Try it locally first, then [self-host a relay behind
-HTTPS](#self-host-the-relay) for real use.
-
 ```bash
-# 1. Start a local dev relay (from a clone; needs Elixir):
-cd portal && mix deps.get && mix phx.server     # dev relay on http://localhost:4000
-
-# 2. In another terminal, point the runner at it and share something:
-export ONLYTTY_SERVER=http://localhost:4000
 onlytty -- htop
-# → a link + QR is printed. Open it (same machine) or scan it (phone).
+# → shares through the hosted relay at onlytty.com; prints a link + QR.
+#   Open it (same machine) or scan it (phone) to watch htop live.
 ```
 
-For real use, point the runner at your deployed relay:
-`export ONLYTTY_SERVER=https://relay.example.com`.
+That's it — `onlytty` uses the hosted relay at `https://onlytty.com` by default, and
+the relay only ever sees ciphertext (everything is end-to-end encrypted). To use a
+different relay — your own, or a local dev one — set `--server` or `ONLYTTY_SERVER`:
+
+```bash
+export ONLYTTY_SERVER=https://relay.example.com   # your self-hosted relay
+
+# …or a local dev relay, from a clone (needs Elixir):
+cd portal && mix deps.get && mix phx.server        # dev relay on http://localhost:4000
+export ONLYTTY_SERVER=http://localhost:4000
+```
 
 ## CLI reference
 
@@ -109,7 +110,7 @@ For real use, point the runner at your deployed relay:
 onlytty [flags]              share your $SHELL
 onlytty [flags] -- <cmd>...  share one command
 
-  --server <url>     relay origin (or ONLYTTY_SERVER), e.g. https://relay.example.com
+  --server <url>     relay origin (or ONLYTTY_SERVER); default https://onlytty.com
   --control <mode>   viewer control policy: ask (default; auto-grants control to
                      any viewer that requests it — there is no host approval
                      prompt), view-only (never), or once (auto-grant the first

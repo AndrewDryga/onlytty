@@ -13,6 +13,11 @@ defmodule OnlyttyWeb.SiteTest do
       assert body =~ "onlytty -- claude"
     end
 
+    test "shows the one-line installer (curl onlytty.com/install.sh)", %{conn: conn} do
+      body = conn |> get(~p"/") |> html_response(200)
+      assert body =~ "curl -fsSL https://onlytty.com/install.sh | sh"
+    end
+
     test "includes the core SEO tags", %{conn: conn} do
       body = conn |> get(~p"/") |> html_response(200)
       assert body =~ ~s(rel="canonical")
@@ -56,6 +61,8 @@ defmodule OnlyttyWeb.SiteTest do
       assert body =~ "/control/claude"
       assert body =~ ~s("@type":"BreadcrumbList")
       assert body =~ ~s(name="robots" content="index,follow")
+      # the tool page converts: it offers the one-line installer
+      assert body =~ "curl -fsSL https://onlytty.com/install.sh | sh"
     end
 
     test "every catalog tool renders a 200 page", %{conn: conn} do

@@ -356,7 +356,7 @@ defmodule OnlyttyWeb.Site.Page do
             <div class="b-cipher" aria-hidden="true">#{cipher_lines()}</div>
           </div>
           #{bento_tile("md", "shield", "No inbound ports", "The CLI dials out over TLS. Nothing listens on your machine, so your firewall stays exactly as shut as it is now.")}
-          #{bento_tile("md", "trash", "Nothing persisted", "Live sessions live in memory and vanish on expiry. No accounts, no history, nothing written to disk, no logs of your bytes.")}
+          #{bento_tile("md", "trash", "Nothing persisted", "Live sessions live in memory and vanish when you exit the command. No accounts, no history, nothing written to disk, no logs of your bytes.")}
           #{bento_tile("sm", "wifi", "Survives bad Wi-Fi", "Your phone rides out dropouts, sleep, and dead zones — lose signal on the subway, resurface, and the viewer reconnects right where you left off.")}
           #{bento_tile("sm", "key", "The link is the key", "Anyone with the full link can watch and take control. Start it read-only, or add a passphrase the link alone can't decrypt.")}
           #{bento_tile("sm", "terminal", "Works with any CLI", "If it runs in a terminal, OnlyTTY shares it — agents, editors, REPLs, TUIs, or your whole shell.")}
@@ -421,7 +421,7 @@ defmodule OnlyttyWeb.Site.Page do
         <p class="lede center">Install the open-source CLI, then share a command — or your whole shell. It prints a link and a QR; scan it and you're live.</p>
         <div class="start-card">
           <div class="examples">
-            #{example_row("Install", "go install github.com/AndrewDryga/onlytty/runner@latest")}
+            #{example_row("Install", "curl -fsSL https://onlytty.com/install.sh | sh")}
             #{example_row("Your whole shell", "onlytty")}
             #{example_row("One command", "onlytty -- claude")}
             #{example_row("Watch-only", "onlytty --control view-only -- htop")}
@@ -486,7 +486,7 @@ defmodule OnlyttyWeb.Site.Page do
         <ul class="tool-points">
           #{point.("End-to-end encrypted — the relay only ever forwards ciphertext, never your keystrokes.")}
           #{point.(~s(View-only by default — but the link is the key: anyone with it can take control with a tap. Lock it to watching with <code>--control view-only</code>.))}
-          #{point.("Nothing stored — sessions are in-memory and expire; no account, no inbound ports.")}
+          #{point.("Nothing stored — sessions are in-memory and vanish when you exit; no account, no inbound ports.")}
         </ul>
         <p class="muted">New to OnlyTTY? <a href="/#how">See how it works</a> · <a href="/#faq">read the FAQ</a>.</p>
       </div>
@@ -500,7 +500,7 @@ defmodule OnlyttyWeb.Site.Page do
         <h2 class="center">Run #{h(t.name)} from your phone in about 30 seconds</h2>
         <div class="start-card">
           <div class="examples">
-            #{example_row("Install the CLI", "go install github.com/AndrewDryga/onlytty/runner@latest")}
+            #{example_row("Install the CLI", "curl -fsSL https://onlytty.com/install.sh | sh")}
             #{example_row("Share #{t.name}", "onlytty -- #{t.cmd}")}
           </div>
         </div>
@@ -684,7 +684,7 @@ defmodule OnlyttyWeb.Site.Page do
       :gap,
       qr(),
       ~s(Link  <span class="c-link">onlytty.com/s/7q2k</span><span class="c-frag">#…</span>),
-      ~s(Expires  12h · <span class="c-dim">read-only</span>),
+      ~s(Expires  never · <span class="c-dim">read-only</span>),
       :gap,
       ~s(<span class="c-dim">Scan it on your phone →</span>),
       :gap,
@@ -764,7 +764,7 @@ defmodule OnlyttyWeb.Site.Page do
           ~s(<span class="c-ok">●</span> <span class="c-dim">shared · read-only</span>),
           ~s(<span class="c-ok">●</span> <span class="c-dim">end-to-end encrypted</span>),
           ~s(<span class="c-ok">●</span> <span class="c-dim">1 viewer watching</span>),
-          ~s(<span class="c-ok">●</span> <span class="c-dim">expires in 12h</span>),
+          ~s(<span class="c-ok">●</span> <span class="c-dim">no expiry</span>),
           prompt_tail(opts)
         ]
       end
