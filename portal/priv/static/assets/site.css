@@ -144,7 +144,7 @@ p { margin: 0 0 1rem; }
   display: inline-flex; align-items: center; gap: .5rem; margin-bottom: 1.4rem;
   padding: .42rem .8rem .42rem .62rem; border-radius: var(--r-full);
   background: rgba(255, 255, 255, .035); border: 1px solid var(--line-2);
-  box-shadow: var(--ring); font-size: .8rem; font-weight: 550; color: var(--fg-2);
+  font-size: .8rem; font-weight: 550; color: var(--fg-2);
 }
 .badge .dot { width: .5rem; height: .5rem; border-radius: 50%; background: var(--ok);
   box-shadow: 0 0 0 0 rgba(52, 211, 153, .5); animation: pulse 2.4s var(--ease-out) infinite; }
@@ -216,54 +216,32 @@ p { margin: 0 0 1rem; }
 .section > .wrap > .eyebrow.center + h2 { margin-bottom: .5rem; }
 .section .lede.center { margin-top: .35rem; }
 
-/* shared card surface — layered fill + hairline + top sheen, lifts on hover */
+/* shared card surface — flat: a lighter fill + a hairline. On dark, elevation reads
+   from a lighter fill + border, not shadows (which look cheap here); hover brightens. */
 .feature, .step, .card, .chip, .start-card, .bento .b {
   position: relative;
-  background: linear-gradient(180deg, rgba(255, 255, 255, .05), rgba(255, 255, 255, .014)), var(--surface);
+  background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--r);
-  box-shadow: var(--ring);
-  transition: transform .16s var(--ease), border-color .2s ease, box-shadow .25s ease;
+  transition: transform .16s var(--ease), border-color .2s ease, background .2s ease;
 }
 .feature:hover, .card:hover, .chip:hover, .bento .b:hover {
-  transform: translateY(-3px); border-color: var(--accent-line);
-  box-shadow: var(--ring), 0 16px 42px rgba(0, 0, 0, .5);
+  transform: translateY(-2px); border-color: var(--line-3); background: var(--surface-2);
 }
 
 /* ── hero ── */
 .hero { position: relative; overflow-x: clip; padding: clamp(3rem, 7vw, 5.5rem) 0 clamp(2.5rem, 5vw, 4rem); }
 
-/* ── home hero: "standard output" — an editorial deck over a dominant real terminal.
-   Not the split-hero/centered template; the terminal is product proof, not decoration. */
-.hero-deck { max-width: 60ch; }
-.hero-deck h1 { margin-bottom: .7rem; }
-.hero-deck .lede { max-width: 52ch; }
-.hero-deck .snippet { max-width: 30rem; margin: 1.5rem 0 0; }
-.hero-stage { margin-top: clamp(2rem, 4.5vw, 3.5rem); }
-.term-wide { width: 100%; }
-.ht-body { font-size: .82rem; line-height: 1.55; }
-.ht-cmd { font-family: ui-monospace, monospace; color: var(--fg); }
-.ht-banner-h { margin: 1.05rem 0 1.1rem; font-family: ui-monospace, monospace; }
-/* banner = scannable QR (left) + the metadata lines (right) */
-.ht-out { display: flex; gap: clamp(1.1rem, 3vw, 2.4rem); align-items: center; }
-.ht-qr { flex: 0 0 auto; }
-.ht-qr .qr-art { font-size: 6.5px; margin: 0; }
-.ht-meta { display: flex; flex-direction: column; gap: .5rem; min-width: 0;
-  font-family: ui-monospace, monospace; }
-.ht-row { display: flex; gap: 1rem; align-items: baseline; }
-.ht-k { color: var(--dim); flex: 0 0 6.25rem; }
-/* the distinctive trust detail: the #fragment secret is highlighted + annotated */
-.frag-note { color: var(--accent-2); font-size: .76rem; padding-left: 7.25rem; }
-.ht-live { font-family: ui-monospace, monospace; margin-top: 1.2rem; padding-top: 1.05rem;
-  border-top: 1px solid var(--line); }
-/* On phones the banner stacks: QR on top, metadata below (the side-by-side row
-   can't fit, and the phone overlay is hidden < 640px anyway). */
-@media (max-width: 640px) {
-  .ht-out { flex-direction: column; align-items: stretch; gap: 1.15rem; }
-  .ht-qr { align-self: flex-start; }
-  .ht-k { flex-basis: 5rem; }
-  .frag-note { padding-left: 0; }
-}
+/* Editorial split: copy left, the real onlytty terminal (product proof) right.
+   On phones it collapses to one column (see the responsive block), terminal below. */
+.hero-grid { display: grid; grid-template-columns: 1fr 1.08fr; gap: clamp(1.5rem, 4vw, 3.25rem); align-items: center; }
+/* Both columns must shrink below their content's intrinsic width, or a long line
+   (the install snippet) floors the 1fr track and the hero overflows on mobile. */
+.hero-copy, .hero-demo { min-width: 0; }
+.hero-copy h1 { margin-bottom: .65rem; }
+.hero-copy .lede { max-width: 42ch; }
+.hero-demo { display: block; }
+.hero-snippet { max-width: 27rem; }
 
 /* breadcrumbs (tool/legal pages) */
 .crumbs { font-size: .82rem; color: var(--dim); margin-bottom: 1.1rem; }
@@ -274,7 +252,7 @@ p { margin: 0 0 1rem; }
 /* ── snippet ── */
 .snippet { display: flex; align-items: center; gap: .5rem; background: #090c14;
   border: 1px solid var(--line-2); border-radius: var(--r-sm); padding: .3rem .3rem .3rem .9rem;
-  max-width: 100%; overflow: hidden; margin: 1.2rem 0; box-shadow: var(--ring); }
+  max-width: 100%; overflow: hidden; margin: 1.2rem 0; }
 .snippet code { font-size: .9rem; color: var(--fg); overflow-x: auto; white-space: nowrap;
   flex: 1 1 auto; min-width: 0; padding: .45rem 0; scrollbar-width: none; }
 .snippet code::-webkit-scrollbar { display: none; }
@@ -368,7 +346,7 @@ p { margin: 0 0 1rem; }
   width: 2.3rem; height: 2.3rem; border-radius: var(--r-sm);
   background: linear-gradient(180deg, var(--accent-soft), transparent), var(--surface-2);
   color: var(--accent-2); font-family: ui-monospace, monospace; font-weight: 800; font-size: .95rem;
-  margin-bottom: 1.1rem; border: 1px solid var(--accent-line); box-shadow: var(--ring); }
+  margin-bottom: 1.1rem; border: 1px solid var(--accent-line); }
 .step h3 { margin-bottom: .4rem; }
 .step p { margin: 0; color: var(--fg-2); font-size: .95rem; }
 .step code, .step em { color: var(--accent-2); font-style: normal; }
@@ -384,7 +362,7 @@ p { margin: 0 0 1rem; }
 .feature-icon { display: inline-flex; align-items: center; justify-content: center;
   width: 2.6rem; height: 2.6rem; border-radius: var(--r-sm); margin-bottom: 1.1rem;
   background: linear-gradient(180deg, var(--accent-soft), transparent), var(--surface-2);
-  border: 1px solid var(--accent-line); color: var(--accent); box-shadow: var(--ring); flex: 0 0 auto; }
+  border: 1px solid var(--accent-line); color: var(--accent); flex: 0 0 auto; }
 .feature-icon svg { width: 22px; height: 22px; }
 
 /* legacy 3-up features (kept for reuse) */
@@ -402,7 +380,7 @@ p { margin: 0 0 1rem; }
 .cipher-flow { display: flex; align-items: stretch; gap: .85rem; margin-top: clamp(2rem, 4vw, 2.75rem); }
 .cipher-panel { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: .7rem;
   margin: 0; background: var(--surface); border: 1px solid var(--line-2); border-radius: var(--r);
-  padding: 1.1rem 1.2rem; box-shadow: var(--ring); }
+  padding: 1.1rem 1.2rem; }
 .cipher-panel figcaption { display: inline-flex; align-items: center; gap: .45rem; font-size: .82rem;
   color: var(--fg-2); font-weight: 600; }
 .cp-dot { width: .5rem; height: .5rem; border-radius: 50%; flex: 0 0 auto; background: var(--dim); }

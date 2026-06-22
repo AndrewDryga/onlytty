@@ -297,48 +297,21 @@ defmodule OnlyttyWeb.Site.Page do
 
     """
     <section class="hero">
-      <div class="wrap">
-        <div class="hero-deck" data-reveal>
-          <span class="badge"><span class="dot"></span>End-to-end encrypted · open source · no accounts</span>
+      <div class="wrap hero-grid">
+        <div class="hero-copy" data-reveal>
+          <span class="badge"><span class="dot"></span>End-to-end encrypted</span>
           <h1>Want to control your <span class="hl" data-rotate='#{rotate}'>claude</span> while sitting on the toilet?</h1>
           <p class="lede">Run any command on your machine, scan the link it prints, and drive it from your phone. The relay in the middle only ever forwards ciphertext — your keystrokes stay yours.</p>
           <div class="cta-row">
             <a class="btn btn-primary" href="#start">Get started — it's free</a>
             <a class="btn btn-ghost" href="#how">See how it works</a>
           </div>
-          #{snippet("curl -fsSL https://onlytty.com/install.sh | sh")}
+          <div class="hero-snippet">#{snippet("curl -fsSL https://onlytty.com/install.sh | sh")}</div>
         </div>
-        <div class="hero-stage" data-reveal>#{hero_term()}</div>
+        <div class="hero-demo" data-reveal>#{term_demo("claude", "Claude Code", agent: true)}</div>
       </div>
     </section>
     """
-  end
-
-  # The hero centerpiece: the real onlytty banner rendered as the page's own
-  # "standard output" — the command, the link with the #fragment secret called out
-  # as never reaching the server, a scannable QR, the fingerprint, and the live agent
-  # line. Mirrors printBanner in runner/cmd/onlytty/main.go; only the QR is canned.
-  defp hero_term do
-    ~s(<div class="stage" role="img" aria-label="A terminal running 'onlytty -- claude' prints a private, end-to-end-encrypted link and a QR code; a phone shows the same Claude Code session live.">) <>
-      ~s(<div class="term term-wide">) <>
-      ~s(<div class="term-bar"><span class="tdot r"></span><span class="tdot y"></span><span class="tdot g"></span><span class="term-title">claude — onlytty</span><span class="term-live"><i></i>shared</span></div>) <>
-      ~s(<div class="term-body ht-body">) <>
-      ~s(<div class="ht-cmd"><span class="c-p">$</span> onlytty -- claude</div>) <>
-      ~s(<div class="c-b ht-banner-h">onlytty — shared, end-to-end encrypted</div>) <>
-      ~s(<div class="ht-out"><div class="ht-qr">) <>
-      qr() <>
-      ~s(</div><div class="ht-meta">) <>
-      ~s(<div class="ht-row"><span class="ht-k">Link</span><span><span class="c-link">onlytty.com/s/7q2k</span><span class="c-frag">#kFn2…</span></span></div>) <>
-      ~s(<div class="frag-note">↳ the <span class="c-frag">#…</span> never reaches the server</div>) <>
-      ~s(<div class="ht-row"><span class="ht-k">Fingerprint</span><span class="c-dim">9F2A-7C41-3D8E</span></div>) <>
-      ~s(<div class="ht-row"><span class="ht-k">Expires</span><span class="c-dim">never · single viewer</span></div>) <>
-      ~s(</div></div>) <>
-      ~s(<div class="ht-live"><span class="c-ok">✻</span> <span class="c-b">Claude Code</span> ) <>
-      thinking() <>
-      ~s(</div>) <>
-      ~s(</div></div>) <>
-      phone("Claude Code", agent: true) <>
-      ~s(</div>)
   end
 
   defp trust_bar do
@@ -536,8 +509,8 @@ defmodule OnlyttyWeb.Site.Page do
 
     """
     <section class="hero tool-hero">
-      <div class="wrap">
-        <div class="hero-deck">
+      <div class="wrap hero-grid">
+        <div class="hero-copy">
           <nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a> <span aria-hidden="true">›</span> <a href="/tools">Tools</a> <span aria-hidden="true">›</span> <span>#{h(t.name)}</span></nav>
           <p class="eyebrow">#{h(t.category)}</p>
           <h1>Control <span class="hl">#{h(t.name)}</span> from your phone</h1>
@@ -545,7 +518,7 @@ defmodule OnlyttyWeb.Site.Page do
           #{snippet("onlytty -- #{t.cmd}")}
           <div class="cta-row"><a class="btn btn-primary" href="#start">Get started</a><a class="btn btn-ghost" href="/tools">All tools</a></div>
         </div>
-        <div class="hero-stage">#{term_demo(t.cmd, t.name)}</div>
+        <div class="hero-demo">#{term_demo(t.cmd, t.name)}</div>
       </div>
     </section>
 
