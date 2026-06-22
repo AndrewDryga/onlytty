@@ -1,0 +1,73 @@
+<!doctype html>
+<!-- OnlyTTY Open Graph card source (1200×630). Generated, reproducible replacement
+     for the hand-exported og.png (which baked in a stale `$ relay -- claude`).
+     Regenerate: node dev/brand/og-render.mjs  (renders this at 2× → sips → optimize). -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<style>
+  :root {
+    --bg: #07080c; --accent: #22d3ee; --accent-2: #7de9f7;
+    --fg: #f0f3f9; --fg-2: #a8b3c5; --dim: #6c7689;
+    --line-2: rgba(255,255,255,.11);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1200px; height: 630px; }
+  body {
+    background: var(--bg);
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--fg); overflow: hidden; position: relative;
+    /* calm brand depth: two soft cyan glows, like the site */
+    background-image:
+      radial-gradient(60% 75% at 88% 28%, rgba(34,211,238,.18), transparent 70%),
+      radial-gradient(50% 60% at 6% 6%, rgba(34,211,238,.08), transparent 70%);
+  }
+  /* cyan top edge */
+  .topbar { position: absolute; top: 0; left: 0; right: 0; height: 7px;
+    background: linear-gradient(90deg, transparent, var(--accent) 18%, var(--accent-2) 50%, var(--accent) 82%, transparent); }
+  .card { position: absolute; inset: 0; padding: 66px 76px; display: flex; flex-direction: column; }
+  .body { display: flex; flex: 1; min-height: 0; }
+  .left { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+  .eyebrow { color: var(--accent); font-weight: 700; font-size: 23px; letter-spacing: .08em;
+    text-transform: uppercase; white-space: nowrap; }
+  .eyebrow .sep { color: var(--dim); margin: 0 14px; }
+  .wordmark { font-weight: 800; font-size: 154px; line-height: .98; letter-spacing: -.045em; margin-top: 26px; }
+  .wordmark .only { color: var(--fg); }
+  .wordmark .tty {
+    background: linear-gradient(100deg, var(--accent), var(--accent-2));
+    -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .rule { width: 250px; height: 7px; border-radius: 6px; background: var(--accent); margin: 36px 0 34px; }
+  .tag1 { font-size: 50px; font-weight: 500; color: var(--fg-2); letter-spacing: -.01em; }
+  .tag2 { font-size: 50px; font-weight: 800; color: var(--fg); letter-spacing: -.015em; margin-top: 4px; }
+  .snippet { margin-top: auto; align-self: flex-start; background: #090c14; border: 1px solid var(--line-2);
+    border-radius: 16px; padding: 24px 34px; box-shadow: inset 0 1px 0 rgba(255,255,255,.06);
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 34px; font-weight: 600; }
+  .snippet .p { color: var(--accent); margin-right: 14px; }
+  .snippet .cmd { color: var(--accent-2); }
+  .right { display: flex; align-items: center; justify-content: flex-end; padding-left: 40px; }
+  .icon { width: 300px; height: 300px; border-radius: 64px;
+    filter: drop-shadow(0 30px 60px rgba(0,0,0,.55)) drop-shadow(0 0 60px rgba(34,211,238,.18)); }
+  .domain { position: absolute; right: 76px; bottom: 60px; font-size: 32px; font-weight: 500; color: var(--fg-2); }
+</style>
+</head>
+<body>
+  <div class="topbar"></div>
+  <div class="card">
+    <div class="eyebrow">End-to-end encrypted<span class="sep">·</span>Open source<span class="sep">·</span>No accounts</div>
+    <div class="body">
+      <div class="left">
+        <div class="wordmark"><span class="only">Only</span><span class="tty">TTY</span></div>
+        <div class="rule"></div>
+        <div class="tag1">Your terminal, on your phone.</div>
+        <div class="tag2">Yes, even on the toilet.</div>
+        <div class="snippet"><span class="p">$</span><span class="cmd">onlytty -- claude</span></div>
+      </div>
+      <div class="right">
+        <img class="icon" src="../../portal/priv/static/assets/icon-512.png" alt="">
+      </div>
+    </div>
+  </div>
+  <div class="domain">onlytty.com</div>
+</body>
+</html>
