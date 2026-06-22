@@ -460,7 +460,7 @@ defmodule OnlyttyWeb.Site.Page do
         <div class="section-head">
           <p class="eyebrow">Get started</p>
           <h2>Your terminal is about to go public. To exactly one fan: you.</h2>
-          <p class="lede">Install the open-source CLI, then share a command — or your whole shell. It prints a link and a QR; scan it and you're live.</p>
+          <p class="lede"><b>Try it, it takes less than a minute.</b> Install the open-source CLI, then share a command — or your whole shell. It prints a link and a QR; scan it and you're live.</p>
         </div>
         <div class="start-card">
           <div class="examples">
