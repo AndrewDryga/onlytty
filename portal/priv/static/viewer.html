@@ -8,7 +8,7 @@
 <title>OnlyTTY</title>
 <link rel="stylesheet" href="/assets/vendor/xterm.ba8e6985.css" integrity="sha384-8Xk9wy/gzEDUKrXtrmCFa2bBuK3BpjpDuL/p0SeKQX19Khl/M+lHOgD/CyYf7efP">
 <style>
-  :root { color-scheme: dark; --bg:#0b0e14; --bar:#11151f; --fg:#c8d3e0; --dim:#6b7689; --accent:#3b82f6; --ok:#22c55e; --warn:#f59e0b; }
+  :root { color-scheme: dark; --bg:#0b0e14; --bar:#11151f; --fg:#c8d3e0; --dim:#6b7689; --accent:#3b82f6; --ok:#22c55e; --warn:#f59e0b; --err:#ef4444; }
   * { box-sizing: border-box; }
   html, body { margin:0; height:100%; background:var(--bg); color:var(--fg);
     font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif; -webkit-text-size-adjust:100%; }
@@ -22,7 +22,12 @@
   #status { display:inline-flex; align-items:center; gap:.4rem; color:var(--dim); min-width:0; }
   #status-text { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   #dot { width:.5rem; height:.5rem; border-radius:50%; background:var(--dim); flex:0 0 auto; }
-  #dot.ok { background:var(--ok); } #dot.warn { background:var(--warn); }
+  #dot.ok { background:var(--ok); } #dot.warn { background:var(--warn); } #dot.dead { background:var(--err); }
+  /* Persistent session-fingerprint chip (a trust signal); tap to re-open Verify. */
+  #fp { font-family: ui-monospace, monospace; font-size:.7rem; color:var(--dim); flex:0 1 auto;
+    min-width:0; max-width:7rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+    cursor:pointer; border:1px solid #2a3346; border-radius:.4rem; padding:.15rem .35rem; }
+  #fp:hover, #fp:focus-visible { color:var(--fg); border-color:#3c465f; }
   #ttl { color:var(--dim); font-size:.72rem; flex:0 0 auto; white-space:nowrap; font-variant-numeric:tabular-nums; }
   #ttl.soon { color:var(--warn); }
   #disconnect { color:var(--warn); }
@@ -83,12 +88,12 @@
 </head>
 <body>
   <div id="bar">
-    <span id="status"><span id="dot"></span><span id="status-text">connecting…</span></span>
-    <span id="fp" hidden></span>
+    <span id="status" role="status" aria-live="polite"><span id="dot"></span><span id="status-text">connecting…</span></span>
+    <span id="fp" role="button" tabindex="0" hidden></span>
     <span id="ttl" hidden title="Time until this session expires"></span>
     <span class="spacer"></span>
     <button id="control">Take control</button>
-    <button id="menu-btn" title="More controls" aria-label="More controls" aria-haspopup="true">⋯</button>
+    <button id="menu-btn" title="More controls" aria-label="More controls" aria-haspopup="true" aria-expanded="false" aria-controls="menu">⋯</button>
     <div id="menu" hidden role="menu">
       <button id="kbd" class="item" role="menuitem">Open keyboard</button>
       <button id="paste" class="item" role="menuitem">Paste</button>
@@ -102,7 +107,7 @@
   <div id="keys">
     <button data-key="esc">Esc</button>
     <button data-key="tab">Tab</button>
-    <button id="ctrl">Ctrl</button>
+    <button id="ctrl" aria-pressed="false">Ctrl</button>
     <button data-key="up">↑</button>
     <button data-key="down">↓</button>
     <button data-key="left">←</button>
@@ -113,7 +118,7 @@
     <button data-key="ctrld">^D</button>
     <button id="keys-edit" title="Edit shortcuts" aria-label="Edit shortcuts">＋</button>
   </div>
-  <div id="overlay" hidden><div class="card" id="overlay-card"></div></div>
+  <div id="overlay" hidden role="dialog" aria-modal="true"><div class="card" id="overlay-card"></div></div>
 
   <script src="/assets/vendor/xterm.1f991ac3.js" integrity="sha384-M169f14mRZOXm3hD/v2Ti0ThIT/RnAQagXA9nlE15yHAtrW19gdePJh/HaTzUOe/"></script>
   <script src="/assets/vendor/addon-fit.bdaefa37.js" integrity="sha384-iF+jqbuti4XlB64clWgFWYEscb+UnSRv3VgVikGYZu+otNFnSHr7y7NcKfBnGizn"></script>

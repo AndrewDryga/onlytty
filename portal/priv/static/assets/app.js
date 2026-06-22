@@ -17,8 +17,9 @@ if (frag.endsWith(".p")) { needPass = true; frag = frag.slice(0, -2); }
 
 // --- terminal ----------------------------------------------------------------
 let fontSize = 14;
+const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const term = new Terminal({
-  cursorBlink: true,
+  cursorBlink: !reduceMotion,
   fontFamily: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
   fontSize,
   scrollback: 5000,
@@ -117,10 +118,14 @@ function showVerify() {
     term.focus();
   };
   $("fp-nomatch").onclick = () => {
+    // Enforce the warning rather than only narrating it: a mismatch means the keys
+    // are wrong (wrong link or a tampered session), so disconnect now — the terminal
+    // underneath must not stay live and typeable.
+    leave("unverified — fingerprint mismatch", "not trusted");
     $("overlay-card").innerHTML =
       "<h1>Don't trust this session</h1>" +
-      "<p>The fingerprint here doesn't match your terminal, so the keys differ — this may be the wrong link or a tampered session. Don't type anything secret: close this tab and re-open the original link printed by your terminal.</p>" +
-      "<button data-dismiss>OK</button>";
+      "<p>The fingerprint here doesn't match your terminal, so the keys differ — this may be the wrong link or a tampered session. The session has been disconnected. Close this tab and re-open the original link printed by your terminal.</p>" +
+      "<button data-dismiss>Close</button>";
     o.querySelectorAll("[data-dismiss]").forEach((b) => b.addEventListener("click", () => { o.hidden = true; }));
   };
   o.hidden = false;
@@ -162,7 +167,12 @@ async function start(passphrase) {
   openC = await newCipher(keys.r2v, enc.encode(id));
   sealC = await newCipher(keys.v2r, enc.encode(id));
   $("fp").textContent = groupFingerprint(keys.fingerprint);
-  $("fp").title = "Confirm this matches the fingerprint shown in the terminal";
+  $("fp").title = "Session fingerprint — tap to verify it matches your terminal";
+  $("fp").hidden = false; // persistent trust signal; tap/Enter re-opens the verify dialog
+  $("fp").onclick = showVerify;
+  $("fp").onkeydown = (e) => {
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); showVerify(); }
+  };
   // First load of this session (or keys we haven't confirmed): prompt to verify.
   if (!isVerified($("fp").textContent)) showVerify();
   connect();
@@ -295,7 +305,7 @@ function dispatch({ kind, payload }) {
       term.write(`\r\n\x1b[2m── command exited (${code}) ──\x1b[0m\r\n`);
       ended = true; noReconnect = true; exitSeen = true; hasControl = false;
       clearControlPending();
-      setStatus(`ended (exit ${code})`, "warn");
+      setStatus(`ended (exit ${code})`, "dead");
       updateControlUI();
       break;
     }
@@ -323,9 +333,9 @@ function onControlText(data) {
         const reason = m.reason || "closed";
         if (reason === "ended") {
           term.write("\r\n\x1b[2m── session ended ──\x1b[0m\r\n");
-          setStatus("ended", "warn");
+          setStatus("ended", "dead");
         } else {
-          setStatus(`session closed (${reason})`, "warn");
+          setStatus(`session closed (${reason})`, "dead");
         }
       }
       updateControlUI();
@@ -428,7 +438,7 @@ function leave(line, status) {
   stopTtl();
   try { if (ws) { ws.onclose = null; ws.close(); ws = null; } } catch {}
   term.write(`\r\n\x1b[2m── ${line} ──\x1b[0m\r\n`);
-  setStatus(status, "warn");
+  setStatus(status, "dead");
   updateControlUI();
 }
 
@@ -494,6 +504,32 @@ for (const b of document.querySelectorAll("#keys button[data-key]")) {
   b.onclick = () => touchKey(b.dataset.key);
 }
 $("ctrl").onclick = () => { ctrlArmed = !ctrlArmed; $("ctrl").classList.toggle("on", ctrlArmed); term.focus(); };
+
+// Keep ARIA in sync with the visual state wherever it's toggled, and make the
+// overlay a real modal dialog: the menu's expanded state, the sticky-Ctrl pressed
+// state, and (for the verify/passphrase/fatal dialogs) inert the rest of the page +
+// move focus in on open and restore it on close, so keyboard/screen-reader users
+// can't tab past a trust gate into the live terminal.
+new MutationObserver(() => $("menu-btn").setAttribute("aria-expanded", String(!menu.hidden)))
+  .observe(menu, { attributes: true, attributeFilter: ["hidden"] });
+new MutationObserver(() => $("ctrl").setAttribute("aria-pressed", String($("ctrl").classList.contains("on"))))
+  .observe($("ctrl"), { attributes: true, attributeFilter: ["class"] });
+{
+  const overlay = $("overlay");
+  const bg = ["bar", "terminal", "keys"].map($);
+  let restoreFocus = null;
+  new MutationObserver(() => {
+    const open = !overlay.hidden;
+    bg.forEach((el) => el && el.toggleAttribute("inert", open));
+    if (open) {
+      restoreFocus = document.activeElement;
+      (overlay.querySelector("button, input, [tabindex]") || overlay).focus();
+    } else if (restoreFocus) {
+      try { restoreFocus.focus(); } catch {}
+      restoreFocus = null;
+    }
+  }).observe(overlay, { attributes: true, attributeFilter: ["hidden"] });
+}
 
 // --- pinnable shortcuts (device-local, persisted) ----------------------------
 // Users pin their own labeled keys (Ctrl-R, a `|` pipe, a short snippet) without
