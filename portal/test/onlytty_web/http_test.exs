@@ -56,6 +56,23 @@ defmodule OnlyttyWeb.HTTPTest do
       assert body["expires_at"] > now + 999_999_999 - 5
     end
 
+    test "clamps an absurd ttl_seconds to the hard ceiling instead of crashing", %{conn: conn} do
+      # A multi-millennium ttl would overflow the BEAM timer (ArgumentError in
+      # Process.send_after) and 500; it must be clamped to the ~100-year hard max.
+      now = System.system_time(:second)
+
+      conn =
+        post(conn, ~p"/api/sessions", %{
+          id: tok(),
+          runner_token: tok(),
+          ttl_seconds: 1_000_000_000_000_000
+        })
+
+      body = json_response(conn, 201)
+      assert body["expires_at"] > now
+      assert body["expires_at"] <= now + 3_153_600_000 + 5
+    end
+
     test "clamps a too-small ttl_seconds up to the 60s min", %{conn: conn} do
       now = System.system_time(:second)
       conn = post(conn, ~p"/api/sessions", %{id: tok(), runner_token: tok(), ttl_seconds: 1})

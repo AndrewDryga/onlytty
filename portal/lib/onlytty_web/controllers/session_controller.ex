@@ -62,6 +62,12 @@ defmodule OnlyttyWeb.SessionController do
         conn
         |> put_status(:service_unavailable)
         |> json(%{error: "relay at capacity, try again later"})
+
+      {:error, :unavailable} ->
+        # A live session with this id was racing teardown; the runner retries.
+        conn
+        |> put_status(:service_unavailable)
+        |> json(%{error: "session is settling, try again"})
     end
   end
 

@@ -25,6 +25,11 @@ defmodule Onlytty.SessionStore do
   @default_ttl 0
   @min_ttl 60
   @max_ttl :infinity
+  # Absolute ceiling regardless of @max_ttl: a multi-century ttl makes ttl*1000 overflow
+  # the BEAM timer range (a ~1000-year ttl raises in Process.send_after, session.ex).
+  # 100 years is "effectively never" for a terminal session and is verified to be within
+  # the timer's accepted range, with an order of magnitude of margin under the limit.
+  @hard_max_ttl 3_153_600_000
 
   @doc "The cluster-wide `:global` name a session process is registered under."
   def name(id), do: {:global, gname(id)}
@@ -67,10 +72,16 @@ defmodule Onlytty.SessionStore do
       {:error, {:already_started, pid}} ->
         # Same id already live (here or on a peer via :global): re-claim iff the
         # presented token matches — the original session keeps its expiry.
-        if Session.valid_runner_token?(pid, runner_token) do
-          {:ok, %{id: id, runner_token: runner_token, expires_at: Session.expires_at(pid)}}
-        else
-          {:error, :unauthorized}
+        try do
+          if Session.valid_runner_token?(pid, runner_token) do
+            {:ok, %{id: id, runner_token: runner_token, expires_at: Session.expires_at(pid)}}
+          else
+            {:error, :unauthorized}
+          end
+        catch
+          # The session died (TTL/idle/runner-bye) between start_child and these calls;
+          # its :global name clears shortly, so tell the caller to retry, not 500.
+          :exit, _ -> {:error, :unavailable}
         end
 
       {:error, :max_children} ->
@@ -106,8 +117,12 @@ defmodule Onlytty.SessionStore do
   defp clamp_ttl(ttl) when is_integer(ttl), do: cap(max(ttl, @min_ttl))
   defp clamp_ttl(_), do: cap(0)
 
-  defp cap(ttl) when ttl <= 0, do: if(max_ttl() == :infinity, do: 0, else: max_ttl())
-  defp cap(ttl), do: if(max_ttl() == :infinity, do: ttl, else: min(ttl, max_ttl()))
+  defp cap(ttl) when ttl <= 0, do: if(max_ttl() == :infinity, do: 0, else: ceiling())
+  defp cap(ttl), do: min(ttl, ceiling())
+
+  # The operator ceiling (ONLYTTY_MAX_TTL) if set, but never above @hard_max_ttl.
+  defp ceiling,
+    do: if(max_ttl() == :infinity, do: @hard_max_ttl, else: min(max_ttl(), @hard_max_ttl))
 
   # 0 ttl = no expiry → expires_at 0, a sentinel the runner banner and viewer render as
   # "no expiry"; a positive ttl yields an absolute unix-second deadline.
