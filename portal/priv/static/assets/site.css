@@ -493,10 +493,9 @@ p { margin: 0 0 1rem; }
   .footer-grid { grid-template-columns: 1fr 1fr; }
 }
 @media (max-width: 640px) {
-  /* On phones, swap the desktop terminal window for the phone viewer — it's the
-     product on the device you're actually holding. */
-  .hero .term { display: none; }
-  .hero .stage { display: flex; justify-content: center; }
+  /* On phones, stack the terminal (with its QR) and the phone viewer instead of
+     overlapping them — both stay visible. */
+  .hero .stage { display: flex; flex-direction: column; align-items: center; gap: 1.4rem; }
   .hero .phone { position: static; right: auto; bottom: auto; width: min(214px, 62vw); }
   .bento { grid-template-columns: 1fr; }
   .bento .b-md, .bento .b-sm { grid-column: auto; }
