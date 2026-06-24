@@ -23,6 +23,9 @@ defmodule OnlyttyWeb.PageController do
   @doc "`GET /tools` — the full, browse-by-category tool index."
   def tools(conn, _params), do: html(conn, Page.tools_index())
 
+  @doc "`GET /self-hosting` — the self-hosting landing page (run your own relay)."
+  def self_hosting(conn, _params), do: html(conn, Page.self_hosting())
+
   @doc "`GET /terms` — Terms of Service."
   def terms(conn, _params), do: html(conn, Page.terms())
 

@@ -83,6 +83,18 @@ defmodule OnlyttyWeb.Site.Page do
     )
   end
 
+  @doc "The self-hosting landing page — run your own relay."
+  def self_hosting do
+    layout(
+      title: "Self-host OnlyTTY — run your own terminal-sharing relay",
+      description:
+        "Run your own OnlyTTY relay with one docker compose up: automatic HTTPS, no database, end-to-end encrypted. Self-host for your own domain, your own limits, or a network you control.",
+      path: "/self-hosting",
+      json_ld: [breadcrumb_simple_ld("Self-hosting", "/self-hosting"), selfhost_faq_ld()],
+      body: selfhost_body()
+    )
+  end
+
   @doc "The branded 404 body (the controller sets the 404 status)."
   def not_found do
     layout(
@@ -163,7 +175,7 @@ defmodule OnlyttyWeb.Site.Page do
     # No <priority>/<changefreq> — major engines ignore them — and no <lastmod>
     # since there's no real per-URL timestamp source to back it (faking it is worse).
     urls =
-      ["/", "/tools", "/terms", "/privacy", "/acceptable-use"] ++
+      ["/", "/tools", "/self-hosting", "/terms", "/privacy", "/acceptable-use"] ++
         Enum.map(Tools.all(), &"/control/#{&1.slug}")
 
     entries =
@@ -276,6 +288,7 @@ defmodule OnlyttyWeb.Site.Page do
         </nav>
         <nav aria-label="Trust">
           <h3>Trust &amp; security</h3>
+          <a href="/self-hosting">Self-hosting</a>
           <a href="#{@github}/blob/main/PROTOCOL.md" rel="noopener">Protocol</a>
           <a href="#{@github}/blob/main/SECURITY.md" rel="noopener">Security model</a>
           <a href="#{@github}" rel="noopener">Source on GitHub</a>
@@ -483,6 +496,113 @@ defmodule OnlyttyWeb.Site.Page do
 
   defp example_row(label, cmd) do
     ~s(<div class="example"><span class="example-label">#{h(label)}</span>#{snippet(cmd)}</div>)
+  end
+
+  # ── Self-hosting page ───────────────────────────────────────────────────────
+
+  defp selfhost_body do
+    """
+    <section class="section">
+      <div class="wrap narrow">
+        <nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a> <span aria-hidden="true">›</span> <span>Self-hosting</span></nav>
+        <p class="eyebrow">Self-hosting</p>
+        <h1>Run your own OnlyTTY relay</h1>
+        <p class="lede">One <code>docker compose up</code> brings up a relay on your domain, with automatic HTTPS. The relay is already end-to-end encrypted — it only ever forwards ciphertext — so you self-host for your <strong>own domain, your own limits, or a network you control</strong>, not for more privacy than the encryption already gives you.</p>
+        <div class="cta-row"><a class="btn btn-primary" href="#{@github}/blob/main/SELF_HOSTING.md" rel="noopener">Read the self-hosting guide</a><a class="btn btn-ghost" href="#{@github}" rel="noopener">View source</a></div>
+      </div>
+    </section>
+
+    <section class="section alt">
+      <div class="wrap narrow">
+        <div class="section-head">
+          <p class="eyebrow">One command</p>
+          <h2>Copy two files, set two values, bring it up</h2>
+          <p class="lede">The <a href="#{@github}/tree/main/selfhost" rel="noopener"><code>selfhost/</code></a> bundle is a Compose file and a Caddyfile. Caddy fetches and renews a Let's Encrypt certificate for your domain on its own — no certbot, no cron.</p>
+        </div>
+        <div class="start-card">
+          <div class="examples">
+            #{example_row("Configure your domain + a secret", "cp .env.example .env")}
+            #{example_row("Start — automatic HTTPS", "docker compose up -d")}
+            #{example_row("Point your runner at it", "onlytty --server https://relay.example.com")}
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="wrap">
+        <div class="section-head">
+          <p class="eyebrow">Why self-host</p>
+          <h2>Reasons that hold up</h2>
+        </div>
+        <div class="bento" data-reveal>
+          #{bento_tile("md", "key", "Your own domain", "Links read https://relay.example.com/s/… instead of onlytty.com — your brand, your URL, in every link and QR the runner prints.")}
+          #{bento_tile("md", "shield", "Your own limits", "Cap session lifetime, concurrency, frame size, and create-rate to your policy with a handful of environment variables.")}
+          #{bento_tile("md", "wifi", "A network you control", "Keep the relay inside a VPC, behind a VPN, or air-gapped, so links only ever resolve where you want them to.")}
+          #{bento_tile("md", "lock", "You serve the viewer", "The browser viewer is code the relay host serves. Self-host and that code-delivery trust is yours, not a third party's.")}
+        </div>
+      </div>
+    </section>
+
+    <section class="section alt">
+      <div class="wrap narrow">
+        <div class="section-head">
+          <p class="eyebrow">What you run</p>
+          <h2>One stateless container, behind TLS</h2>
+        </div>
+        <p>The relay is a single Elixir container with <strong>no database</strong> — every session lives in memory, and nothing terminal-related is ever persisted, so there is nothing to back up. It needs exactly one thing in front of it: a TLS-terminating proxy. The bundle ships Caddy; bring your own nginx, Cloudflare, or Fly if you'd rather. The browser viewer uses the Web Crypto API, which only runs over HTTPS — so TLS isn't optional.</p>
+        <p>Outgrow one node and it clusters: every session is registered cluster-wide, so a runner and a viewer that land on different instances still pair. Keep your <code>SECRET_KEY_BASE</code> safe; everything else is reproducible from the image.</p>
+      </div>
+    </section>
+
+    <section id="faq" class="section">
+      <div class="wrap narrow">
+        <div class="section-head">
+          <p class="eyebrow">FAQ</p>
+          <h2>Before you run it</h2>
+        </div>
+        <div class="faq">#{Enum.map_join(selfhost_faqs(), "", fn {q, a} -> faq_item(q, a) end)}</div>
+      </div>
+    </section>
+
+    <section class="section start">
+      <div class="wrap narrow">
+        <div class="section-head">
+          <h2>From a fresh host to a working relay</h2>
+          <p class="lede">The guide walks the whole path — the breeze setup, a bring-your-own-proxy config, the full configuration reference, and the security posture when you serve the viewer yourself.</p>
+        </div>
+        <div class="cta-row"><a class="btn btn-primary" href="#{@github}/blob/main/SELF_HOSTING.md" rel="noopener">Read the self-hosting guide</a><a class="btn btn-ghost" href="/">Back to OnlyTTY</a></div>
+      </div>
+    </section>
+    """
+  end
+
+  defp selfhost_faqs do
+    [
+      {"Is it hard to run?",
+       ~s(No. It's one container behind Caddy — <code>docker compose up -d</code> and Caddy fetches a TLS certificate for your domain on its own. There's no database to manage and nothing to back up.)},
+      {"Does self-hosting change the security model?",
+       ~s(End-to-end encryption is identical — the relay only ever forwards ciphertext. What changes is <em>code-delivery trust</em>: the browser viewer is JavaScript your relay serves, so your browser trusts your relay at load time. Pin a release tag and check the published viewer hashes against it. The full model is in the <a href="#{@github}/blob/main/SECURITY.md" rel="noopener">security model</a>.)},
+      {"Do I need a database or backups?",
+       ~s(No. Sessions live in memory only; nothing terminal-related is persisted. Keep your <code>SECRET_KEY_BASE</code> and the deployment is fully reproducible from the image.)},
+      {"Can I run more than one node?",
+       ~s(Yes. Every session is registered cluster-wide, so a runner and a viewer on different instances still pair. The production multi-node setup on GCP is in <a href="#{@github}/tree/main/infra" rel="noopener"><code>infra/</code></a>.)}
+    ]
+  end
+
+  defp selfhost_faq_ld do
+    %{
+      "@context" => "https://schema.org",
+      "@type" => "FAQPage",
+      "mainEntity" =>
+        Enum.map(selfhost_faqs(), fn {q, a} ->
+          %{
+            "@type" => "Question",
+            "name" => q,
+            "acceptedAnswer" => %{"@type" => "Answer", "text" => strip_tags(a)}
+          }
+        end)
+    }
   end
 
   # ── Tool page ─────────────────────────────────────────────────────────────
@@ -878,7 +998,7 @@ defmodule OnlyttyWeb.Site.Page do
       {"What can I actually control?",
        ~s(Anything that runs in a terminal: AI coding agents, editors, REPLs, database shells, ops TUIs, or your whole <code>\$SHELL</code>. Browse the <a href="/tools">full list</a> for ready-made guides.)},
       {"Is it really free and open source?",
-       ~s(Yes. The relay server and the CLI are open source — host your own relay or audit the code on <a href="#{@github}" rel="noopener">GitHub</a>. No accounts, no tracking.)},
+       ~s(Yes. The relay and the CLI are open source — <a href="#{@github}" rel="noopener">audit the code</a> or <a href="/self-hosting">run your own relay</a> with one <code>docker compose up</code> and automatic HTTPS. No accounts, no tracking.)},
       {"How long does a session last, and what if my connection drops?",
        ~s(As long as you keep it running — there's no expiry by default. Your phone or laptop rides out flaky networks, sleep, and dead zones, reconnecting on its own, so you can drop off Wi-Fi and pick right back up. Want it to self-destruct on a clock? Set <code>--ttl</code>. When you exit the command, it's gone — the relay stores nothing.)}
     ]

@@ -26,6 +26,7 @@ defmodule OnlyttyWeb.Router do
     get "/", PageController, :home
     get "/tools", PageController, :tools
     get "/control/:slug", PageController, :tool
+    get "/self-hosting", PageController, :self_hosting
     get "/terms", PageController, :terms
     get "/privacy", PageController, :privacy
     get "/acceptable-use", PageController, :acceptable_use

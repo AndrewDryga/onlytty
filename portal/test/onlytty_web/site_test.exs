@@ -120,6 +120,29 @@ defmodule OnlyttyWeb.SiteTest do
     end
   end
 
+  describe "GET /self-hosting" do
+    test "renders an indexable page that links the guide and the one-command path", %{
+      conn: conn
+    } do
+      body = conn |> get(~p"/self-hosting") |> html_response(200)
+      assert body =~ "Run your own OnlyTTY relay"
+      assert body =~ "docker compose up -d"
+      # links out to the in-repo guide + bundle, and is indexable with its own canonical
+      assert body =~ "/blob/main/SELF_HOSTING.md"
+      assert body =~ ~s(rel="canonical")
+      assert body =~ "/self-hosting"
+      assert body =~ ~s(name="robots" content="index,follow")
+      assert body =~ ~s("@type":"FAQPage")
+      # honest framing: the relay is already E2E, so self-host for control, not privacy
+      assert body =~ "already end-to-end encrypted"
+    end
+
+    test "every page footer links the self-hosting page", %{conn: conn} do
+      body = conn |> get(~p"/") |> html_response(200)
+      assert body =~ ~s(href="/self-hosting")
+    end
+  end
+
   describe "GET /sitemap.xml" do
     test "lists the home page, the index and every tool", %{conn: conn} do
       conn = get(conn, ~p"/sitemap.xml")
@@ -132,9 +155,9 @@ defmodule OnlyttyWeb.SiteTest do
       assert body =~ "/tools</loc>"
       assert body =~ "/privacy</loc>"
 
-      # one <loc> per tool, plus home, the index, and the 3 legal pages.
+      # one <loc> per tool, plus home, the index, self-hosting, and the 3 legal pages.
       loc_count = body |> String.split("<loc>") |> length() |> Kernel.-(1)
-      assert loc_count == length(Tools.all()) + 5
+      assert loc_count == length(Tools.all()) + 6
     end
   end
 
