@@ -1,0 +1,48 @@
+# OnlyTTY relay — self-hosted, with automatic HTTPS.
+#
+# Caddy terminates TLS (a free Let's Encrypt certificate for $ONLYTTY_DOMAIN, renewed
+# on its own) and reverse-proxies to the relay over the private compose network. The
+# relay is never published to the host — only Caddy's :80/:443 are public.
+#
+#   1. cp .env.example .env   # then set ONLYTTY_DOMAIN and SECRET_KEY_BASE
+#   2. point ONLYTTY_DOMAIN's DNS A/AAAA record at this host
+#   3. docker compose up -d
+#
+# Full guide: ../SELF_HOSTING.md
+services:
+  onlytty:
+    image: ${ONLYTTY_IMAGE:-ghcr.io/andrewdryga/onlytty:latest} # pin a tag in .env for repeatable deploys
+    # build: ../portal                                          # …or build from source instead of pulling
+    restart: unless-stopped
+    environment:
+      PHX_SERVER: "true"
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE:?set SECRET_KEY_BASE in .env — openssl rand -base64 64}
+      PHX_HOST: ${ONLYTTY_DOMAIN:?set ONLYTTY_DOMAIN in .env}
+      PORT: "4000"
+      # Optional tuning (see SELF_HOSTING.md → Configuration). Defaults are sensible;
+      # uncomment only what you change:
+      # ONLYTTY_MAX_TTL: "604800"       # cap session lifetime at 7 days (default: no cap)
+      # ONLYTTY_MAX_SESSIONS: "2000"    # concurrent in-memory sessions
+      # ONLYTTY_METRICS_TOKEN: "..."    # let a remote scraper read GET /metrics
+    expose:
+      - "4000" # internal-only; Caddy reaches it as onlytty:4000, the host cannot
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on:
+      - onlytty
+    ports:
+      - "80:80" # ACME HTTP challenge + http→https redirect
+      - "443:443" # public HTTPS
+      - "443:443/udp" # HTTP/3
+    environment:
+      ONLYTTY_DOMAIN: ${ONLYTTY_DOMAIN:?set ONLYTTY_DOMAIN in .env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data # persists the issued certificate + ACME account across restarts
+      - caddy_config:/config
+
+volumes:
+  caddy_data:
+  caddy_config:

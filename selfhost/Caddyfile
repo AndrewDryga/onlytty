@@ -1,0 +1,15 @@
+# OnlyTTY relay — automatic HTTPS.
+#
+# Caddy fetches and renews a Let's Encrypt certificate for $ONLYTTY_DOMAIN, terminates
+# TLS, and reverse-proxies to the relay. Out of the box it also:
+#   - sets X-Forwarded-Proto: https  → the relay's force_ssl trusts it and serves the
+#     request instead of redirecting (no proxy ↔ app redirect loop),
+#   - preserves the Host header        → the viewer's WebSocket Origin matches the host,
+#   - upgrades WebSocket connections    → /ws/runner/:id and /ws/viewer/:id just work,
+#   - redirects :80 → :443.
+#
+# Set ONLYTTY_DOMAIN to "localhost" and Caddy serves https with its own local CA — handy
+# for a smoke test before you have DNS pointed at the host.
+{$ONLYTTY_DOMAIN} {
+	reverse_proxy onlytty:4000
+}

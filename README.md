@@ -179,42 +179,30 @@ Found a vulnerability? See [SECURITY.md](SECURITY.md).
 ## Self-host the relay
 
 The relay is an Elixir release container. Sessions are **in memory only** — nothing
-terminal-related is ever persisted, so there is no database. It **scales horizontally**:
-run several instances behind the load balancer and they form one BEAM cluster, so a
-runner and a viewer that hit different instances still pair (sessions are registered
-cluster-wide via `:global`). See [`infra/`](infra/README.md) for the multi-instance setup.
+terminal-related is ever persisted, so there is no database (nothing to back up). It
+**scales horizontally**: run several instances behind the load balancer and they form one
+BEAM cluster, so a runner and a viewer that hit different instances still pair (sessions
+are registered cluster-wide via `:global`).
+
+The fastest path is the Docker Compose + Caddy bundle in [`selfhost/`](selfhost/) —
+Caddy fetches and renews a TLS certificate for your domain on its own:
 
 ```bash
-docker build -t onlytty-server ./portal      # or pull ghcr.io/andrewdryga/onlytty
-docker run -p 4000:4000 \
-  -e PHX_SERVER=true \
-  -e SECRET_KEY_BASE="$(openssl rand -base64 64)" \
-  -e PHX_HOST=relay.example.com \
-  -e PORT=4000 \
-  onlytty-server
+cd selfhost
+cp .env.example .env      # set ONLYTTY_DOMAIN + SECRET_KEY_BASE
+docker compose up -d      # → https://relay.example.com, point your runner at it with --server
 ```
 
-Put it behind a TLS-terminating proxy (Cloudflare, Fly, Render, Caddy, nginx) that
-forwards `x-forwarded-proto`. **TLS is required**: in production the relay redirects
-http→https and sets HSTS, and the browser's Web Crypto API only works in a secure
-context — without HTTPS the viewer refuses to run.
+**[→ Full self-hosting guide: SELF_HOSTING.md](SELF_HOSTING.md)** — the breeze path, a
+bring-your-own-proxy setup (nginx/Cloudflare/Fly), the complete configuration reference,
+operating notes, and the security posture when you serve the viewer yourself.
+[`infra/`](infra/README.md) covers the production multi-instance setup on GCP.
 
-| Env | Default | Meaning |
-|-----|---------|---------|
-| `PHX_SERVER` | — | set `true` to start the HTTP server |
-| `SECRET_KEY_BASE` | — | required in prod (`mix phx.gen.secret`) |
-| `PHX_HOST` | `example.com` | public hostname (URLs + the http→https redirect) |
-| `PORT` | `4000` | listen port |
-| `ONLYTTY_DEFAULT_TTL` | `0` | TTL (s) for a request that omits one; `0` = no expiry |
-| `ONLYTTY_MAX_TTL` | _(unset)_ | optional hard TTL ceiling (s); unset = no ceiling |
-| `ONLYTTY_MAX_SESSIONS` | `2000` | cap on concurrent sessions |
-
-Further tuning — `ONLYTTY_IDLE_TIMEOUT`, `ONLYTTY_MAX_FRAME_BYTES`,
-`ONLYTTY_ALLOWED_ORIGINS`, `ONLYTTY_RATELIMIT_MAX`/`_WINDOW`, `ONLYTTY_METRICS_TOKEN`,
-and `SENTRY_DSN` — is documented in
-[`portal/config/runtime.exs`](portal/config/runtime.exs). The relay exposes aggregate,
-label-free operator counters at `GET /metrics` (Prometheus text; loopback-only unless
-you set `ONLYTTY_METRICS_TOKEN`).
+Already have a TLS-terminating proxy? Point it at the relay container's `:4000` and forward
+`x-forwarded-proto`. **TLS is required**: the relay redirects http→https and sets HSTS, and
+the browser's Web Crypto API only runs in a secure context — without HTTPS the viewer
+refuses to start. The only required env is `PHX_SERVER=true`, `SECRET_KEY_BASE`
+(`openssl rand -base64 64`), and `PHX_HOST`; everything else is in the guide.
 
 ## Contributing
 

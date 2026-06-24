@@ -61,6 +61,9 @@ soak: ## Soak N full runner↔viewer pairs through reconnect storms (ONLYTTY_SER
 deploy-check: ## Pre-deploy: build+boot the prod image behind a local TLS proxy (Caddy stand-in for the prod LB), smoke + e2e + cross-build (needs Docker)
 	@bash dev/scripts/deploy-check.sh
 
+selfhost-check: ## Verify the shipped selfhost/ bundle end-to-end over real HTTPS (needs Docker + Go)
+	@bash dev/scripts/selfhost-check.sh
+
 doctor: ## Check required toolchains; print install hints for anything missing
 	@missing=0; \
 	for t in go gofmt elixir mix node npm; do \
@@ -78,4 +81,4 @@ clean: ## Remove build artifacts
 help: ## List targets
 	@grep -hE '^[a-z0-9-]+:.*##' $(MAKEFILE_LIST) | sed -E 's/:.*## / — /' | sort
 
-.PHONY: build install runner-check web-check server-check check e2e deploy-check audit audit-go audit-web audit-server viewer-hash fuzz load doctor clean help
+.PHONY: build install runner-check web-check server-check check e2e deploy-check selfhost-check audit audit-go audit-web audit-server viewer-hash fuzz load doctor clean help

@@ -18,6 +18,9 @@ infra/*.tfstate.*
 infra/terraform.tfvars
 infra/crash*.log
 
+# Self-host bundle: the example ships; a real .env holds SECRET_KEY_BASE — never commit it
+selfhost/.env
+
 # Node test deps
 node_modules/
 

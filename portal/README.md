@@ -41,8 +41,8 @@ timing/size, but never read or forge terminal IO.
 | `SECRET_KEY_BASE` | — | **required in prod** (`mix phx.gen.secret`) |
 | `PHX_HOST` | `example.com` | public hostname (URLs + the https redirect) |
 | `PORT` | `4000` | listen port |
-| `ONLYTTY_DEFAULT_TTL` | `1800` | default session TTL (s); every TTL is clamped to **60s–`ONLYTTY_MAX_TTL`** |
-| `ONLYTTY_MAX_TTL` | `604800` | hard ceiling on session TTL (s) — **7 days**; requested TTLs clamp to it |
+| `ONLYTTY_DEFAULT_TTL` | `0` (no expiry) | TTL (s) for a session that requests none; `0` = no expiry (lives as long as the runner) |
+| `ONLYTTY_MAX_TTL` | _(unset = no ceiling)_ | optional hard ceiling on session TTL (s); a positive request is floored at 60s and clamped to this |
 | `ONLYTTY_IDLE_TIMEOUT` | `600` | close a session after this many seconds with no runner traffic |
 | `ONLYTTY_MAX_SESSIONS` | `2000` | cap on concurrent in-memory sessions (bounds create-spam) |
 | `ONLYTTY_MAX_FRAME_BYTES` | `1048576` | max size of a single WebSocket frame (1 MiB); over-cap closes 1009 |
