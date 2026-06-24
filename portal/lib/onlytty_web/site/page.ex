@@ -516,12 +516,13 @@ defmodule OnlyttyWeb.Site.Page do
     <section class="section alt">
       <div class="wrap narrow">
         <div class="section-head">
-          <p class="eyebrow">One command</p>
-          <h2>Copy two files, set two values, bring it up</h2>
+          <p class="eyebrow">Quick start</p>
+          <h2>Clone the bundle, set two values, bring it up</h2>
           <p class="lede">The <a href="#{@github}/tree/main/selfhost" rel="noopener"><code>selfhost/</code></a> bundle is a Compose file and a Caddyfile. Caddy fetches and renews a Let's Encrypt certificate for your domain on its own — no certbot, no cron.</p>
         </div>
         <div class="start-card">
           <div class="examples">
+            #{example_row("Get the bundle", "git clone #{@github} && cd onlytty/selfhost")}
             #{example_row("Configure your domain + a secret", "cp .env.example .env")}
             #{example_row("Start — automatic HTTPS", "docker compose up -d")}
             #{example_row("Point your runner at it", "onlytty --server https://relay.example.com")}
