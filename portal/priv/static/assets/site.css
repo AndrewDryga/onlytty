@@ -195,14 +195,17 @@ p { margin: 0 0 1rem; }
 }
 .btn-primary { color: var(--ink); background: linear-gradient(180deg, #46e0f5, #15bdd8);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, .45), 0 6px 22px rgba(34, 211, 238, .28); }
-.btn-primary:hover { box-shadow: inset 0 1px 0 rgba(255, 255, 255, .5), 0 12px 38px rgba(34, 211, 238, .45); }
+/* keep the dark ink text on hover: these buttons are <a>, and the global a:hover
+   color (0,1,1) would otherwise beat .btn-primary (0,1,0) → light text on the light
+   cyan fill, unreadable. .btn-primary:hover (0,2,0) wins it back. */
+.btn-primary:hover { color: var(--ink); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .5), 0 12px 38px rgba(34, 211, 238, .45); }
 /* a soft sheen that wipes across on hover */
 .btn-primary::after { content: ""; position: absolute; inset: 0; border-radius: inherit;
   background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, .35), transparent 70%);
   transform: translateX(-120%); transition: transform .6s var(--ease); }
 .btn-primary:hover::after { transform: translateX(120%); }
 .btn-ghost { background: rgba(255, 255, 255, .035); color: var(--fg); border-color: var(--line-2); }
-.btn-ghost:hover { background: rgba(255, 255, 255, .07); border-color: var(--accent-line); }
+.btn-ghost:hover { background: rgba(255, 255, 255, .07); border-color: var(--accent-line); color: var(--fg); }
 
 .cta-row { display: flex; flex-wrap: wrap; gap: .75rem; margin: 1.85rem 0; }
 .cta-row.center { justify-content: center; }
