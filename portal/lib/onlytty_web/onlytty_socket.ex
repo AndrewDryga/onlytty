@@ -19,7 +19,10 @@ defmodule OnlyttyWeb.OnlyttySocket do
   (for runners) the token has matched. `init/1` only does the join, which can
   still return `:busy` for a second viewer under the single-viewer lock.
 
-  State: `%{session, id, role, peer}` — `peer` is the peer socket pid or nil.
+  State: `%{session, id, role, peers}` — `peers` is a `MapSet` of the peer socket
+  pids we relay binary to. A viewer's set holds the runner (0 or 1); the runner's
+  set holds every attached viewer, so its output broadcasts to all of them. The
+  `Onlytty.Session` process maintains it via `{:add_peer, pid}` / `{:del_peer, pid}`.
   """
 
   @behaviour WebSock
@@ -34,14 +37,14 @@ defmodule OnlyttyWeb.OnlyttySocket do
   @impl true
   def init(%{session: session, id: id, role: :runner}) do
     {:ok, snap} = Session.join_runner(session)
-    state = %{session: session, id: id, role: :runner, peer: nil}
+    state = %{session: session, id: id, role: :runner, peers: MapSet.new()}
     {:push, [{:text, hello(:runner, snap)}], state}
   end
 
   def init(%{session: session, id: id, role: :viewer}) do
     case Session.join_viewer(session) do
       {:ok, snap} ->
-        state = %{session: session, id: id, role: :viewer, peer: nil}
+        state = %{session: session, id: id, role: :viewer, peers: MapSet.new()}
         frames = [{:text, hello(:viewer, snap)}]
         # If the runner is already here, tell the viewer its peer is present.
         frames =
@@ -53,15 +56,17 @@ defmodule OnlyttyWeb.OnlyttySocket do
         # Single-viewer lock held: report busy, then close. The runner and the
         # existing viewer are untouched.
         {:stop, :normal, {@close_busy, "busy"}, [{:text, control(:busy)}],
-         %{session: session, id: id, role: :viewer, peer: nil}}
+         %{session: session, id: id, role: :viewer, peers: MapSet.new()}}
     end
   end
 
   @impl true
-  # Binary = opaque E2E payload: forward verbatim to the peer, never inspect it.
+  # Binary = opaque E2E payload: forward verbatim to every peer, never inspect it.
+  # A runner's peer set is all viewers (so output broadcasts); a viewer's is the
+  # runner. An empty set drops the frame (the runner buffers; that is its job).
   def handle_in({data, opcode: :binary}, state) do
     if state.role == :runner, do: Session.runner_active(state.session)
-    if is_pid(state.peer), do: send(state.peer, {:onlytty_binary, data})
+    Enum.each(state.peers, &send(&1, {:onlytty_binary, data}))
     {:ok, state}
   end
 
@@ -92,14 +97,14 @@ defmodule OnlyttyWeb.OnlyttySocket do
     {:push, [{:text, json}], state}
   end
 
-  # Our peer arrived; relay binary directly to it from now on.
-  def handle_info({:set_peer, pid}, state) do
-    {:ok, %{state | peer: pid}}
+  # A peer arrived; relay binary to it from now on.
+  def handle_info({:add_peer, pid}, state) do
+    {:ok, %{state | peers: MapSet.put(state.peers, pid)}}
   end
 
-  # Our peer left; drop binary until a new peer arrives.
-  def handle_info(:peer_left, state) do
-    {:ok, %{state | peer: nil}}
+  # A peer left; stop relaying binary to it.
+  def handle_info({:del_peer, pid}, state) do
+    {:ok, %{state | peers: MapSet.delete(state.peers, pid)}}
   end
 
   # The Session is closing us (TTL / idle): send {"t":"bye",reason} then close.

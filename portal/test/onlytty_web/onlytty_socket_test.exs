@@ -328,6 +328,81 @@ defmodule OnlyttyWeb.OnlyttySocketTest do
     end
   end
 
+  describe "multiple viewers (unlocked)" do
+    test "runner output broadcasts to every viewer, and each viewer's input reaches the runner",
+         %{port: port} do
+      s = new_session(locked: false)
+
+      runner = WSClient.open(port)
+      r_ref = WSClient.connect!(runner, "/ws/runner/#{s.id}", runner_headers(s.runner_token))
+      assert WSClient.recv_json(runner, r_ref)["t"] == "hello"
+
+      v1 = WSClient.open(port)
+      v1_ref = WSClient.connect!(v1, "/ws/viewer/#{s.id}", [])
+      assert WSClient.recv_json(v1, v1_ref)["t"] == "hello"
+      assert WSClient.recv_json(v1, v1_ref)["t"] == "peer_join"
+      assert WSClient.recv_json(runner, r_ref)["t"] == "peer_join"
+
+      # A second viewer attaches to the SAME unlocked session (no busy).
+      v2 = WSClient.open(port)
+      v2_ref = WSClient.connect!(v2, "/ws/viewer/#{s.id}", [])
+      assert WSClient.recv_json(v2, v2_ref)["t"] == "hello"
+      assert WSClient.recv_json(v2, v2_ref)["t"] == "peer_join"
+      assert WSClient.recv_json(runner, r_ref)["t"] == "peer_join"
+
+      # Runner output reaches BOTH viewers byte-identically.
+      payload = <<0, 1, 2, 255, "broadcast", 0>>
+      WSClient.send_binary(runner, r_ref, payload)
+      assert WSClient.recv_binary(v1, v1_ref) == payload
+      assert WSClient.recv_binary(v2, v2_ref) == payload
+
+      # Each viewer's input reaches the runner (arbitration is a runner/E2E concern).
+      WSClient.send_binary(v1, v1_ref, <<1, 1, 1>>)
+      assert WSClient.recv_binary(runner, r_ref) == <<1, 1, 1>>
+      WSClient.send_binary(v2, v2_ref, <<2, 2, 2>>)
+      assert WSClient.recv_binary(runner, r_ref) == <<2, 2, 2>>
+
+      WSClient.close(runner)
+      WSClient.close(v1)
+      WSClient.close(v2)
+    end
+
+    test "one viewer leaving removes only it; the rest keep receiving; last leaving → peer_left",
+         %{port: port} do
+      s = new_session(locked: false)
+
+      runner = WSClient.open(port)
+      r_ref = WSClient.connect!(runner, "/ws/runner/#{s.id}", runner_headers(s.runner_token))
+      assert WSClient.recv_json(runner, r_ref)["t"] == "hello"
+
+      v1 = WSClient.open(port)
+      v1_ref = WSClient.connect!(v1, "/ws/viewer/#{s.id}", [])
+      assert WSClient.recv_json(v1, v1_ref)["t"] == "hello"
+      assert WSClient.recv_json(v1, v1_ref)["t"] == "peer_join"
+      assert WSClient.recv_json(runner, r_ref)["t"] == "peer_join"
+
+      v2 = WSClient.open(port)
+      v2_ref = WSClient.connect!(v2, "/ws/viewer/#{s.id}", [])
+      assert WSClient.recv_json(v2, v2_ref)["t"] == "hello"
+      assert WSClient.recv_json(v2, v2_ref)["t"] == "peer_join"
+      assert WSClient.recv_json(runner, r_ref)["t"] == "peer_join"
+
+      # v1 leaves. The runner is NOT told peer_left — v2 is still attached — so it must
+      # keep streaming to v2.
+      WSClient.close(v1)
+      WSClient.refute_frame(runner, r_ref)
+
+      WSClient.send_binary(runner, r_ref, <<7, 7, 7>>)
+      assert WSClient.recv_binary(v2, v2_ref) == <<7, 7, 7>>
+
+      # v2 (the last viewer) leaves: now the runner learns its channel is empty.
+      WSClient.close(v2)
+      assert WSClient.recv_json(runner, r_ref)["t"] == "peer_left"
+
+      WSClient.close(runner)
+    end
+  end
+
   describe "frame-size cap" do
     # Bandit logs the oversize close at :error level; capture it so the suite stays quiet.
     @describetag :capture_log

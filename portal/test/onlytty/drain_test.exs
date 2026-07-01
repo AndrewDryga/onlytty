@@ -29,13 +29,18 @@ defmodule Onlytty.DrainTest do
   test "Session.drain nudges the connected sockets with a going_away frame" do
     {:ok, %{id: id}} = SessionStore.create_or_attach(tok(), tok(), [])
     {:ok, pid} = SessionStore.lookup(id)
-    # Stand in as both the runner and viewer sockets. The replace_state fun runs IN the
-    # session process, so capture the test pid first (self() there is not self() here).
+    # Stand in as both the runner and the (single) viewer socket. The replace_state fun
+    # runs IN the session process, so capture the test pid first (self() there is not
+    # self() here). Viewers are a `%{pid => monitor_ref}` map; the ref is unused by drain.
     test_pid = self()
-    :sys.replace_state(pid, fn s -> %{s | runner: test_pid, viewer: test_pid} end)
+
+    :sys.replace_state(pid, fn s ->
+      %{s | runner: test_pid, viewers: %{test_pid => make_ref()}}
+    end)
 
     assert :ok = Session.drain(pid)
 
+    # Two going_away frames: one for the runner, one for the viewer (both this process).
     assert_receive {:onlytty_control, j1}
     assert_receive {:onlytty_control, j2}
     assert Jason.decode!(j1)["t"] == "going_away"
