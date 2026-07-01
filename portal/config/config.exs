@@ -38,7 +38,9 @@ config :phoenix, :json_library, Jason
 # SENTRY_RELEASE / SENTRY_ENVIRONMENT. We capture crashes via Sentry.LoggerHandler
 # only (see Onlytty.Application) and attach no request context — so events never
 # carry IPs, request bodies, or other PII; terminal IO is E2E and never on the server.
+# Sentry 13 defaults to Finch; keep the existing Hackney transport, pinned by our deps.
 config :sentry,
+  client: Sentry.HackneyClient,
   environment_name: config_env(),
   enable_source_code_context: false
 

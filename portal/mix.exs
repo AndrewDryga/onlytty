@@ -4,7 +4,7 @@ defmodule Onlytty.MixProject do
   def project do
     [
       app: :onlytty,
-      version: "0.3.0",
+      version: "0.4.0",
       elixir: "~> 1.18",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
@@ -38,12 +38,10 @@ defmodule Onlytty.MixProject do
       {:jason, "~> 1.2"},
       {:libcluster, "~> 3.5"},
       {:bandit, "~> 1.5"},
-      # Backend-only error reporting; no-ops unless SENTRY_DSN is set (hackney is
-      # Sentry's default HTTP transport).
-      {:sentry, "~> 10.0"},
-      {:hackney, "~> 1.20"},
-      # WebSocket client used only to drive the relay end-to-end in tests.
-      {:gun, "~> 2.1", only: :test}
+      # Backend-only error reporting; no-ops unless SENTRY_DSN is set. The config
+      # pins Sentry to Hackney instead of Finch to keep one HTTP client dependency.
+      {:sentry, "~> 13.2"},
+      {:hackney, "~> 4.4"}
     ]
   end
 
