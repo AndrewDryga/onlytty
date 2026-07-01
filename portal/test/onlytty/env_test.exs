@@ -16,4 +16,17 @@ defmodule Onlytty.EnvTest do
       end
     end
   end
+
+  test "non_neg_int! parses zero and positives" do
+    assert Env.non_neg_int!("ONLYTTY_TRUSTED_PROXY_HOPS", "0") == 0
+    assert Env.non_neg_int!("ONLYTTY_TRUSTED_PROXY_HOPS", "2") == 2
+  end
+
+  test "non_neg_int! raises a clear, named error on negatives and non-numeric values" do
+    for bad <- ["-1", "abc", "", " ", "1.5", "2x"] do
+      assert_raise ArgumentError,
+                   ~r/ONLYTTY_TRUSTED_PROXY_HOPS must be a non-negative integer/,
+                   fn -> Env.non_neg_int!("ONLYTTY_TRUSTED_PROXY_HOPS", bad) end
+    end
+  end
 end

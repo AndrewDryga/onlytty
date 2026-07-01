@@ -76,6 +76,23 @@ if win = System.get_env("ONLYTTY_RATELIMIT_WINDOW") do
          Onlytty.Env.pos_int!("ONLYTTY_RATELIMIT_WINDOW", win) * 1000
 end
 
+# ONLYTTY_TRUSTED_PROXY_HOPS — number of trusted reverse proxies in front of the relay,
+# used to pick the real client IP for the POST /api/sessions rate-limit key.
+#   0 (default) — no proxy: key on the direct TCP peer (conn.remote_ip) and ignore
+#                 X-Forwarded-For. This is the self-host / bare deployment behavior.
+#   1           — the Google HTTPS LB shape: it appends `<client>, <GFE>`, so the client
+#                 is the second-to-last X-Forwarded-For entry (one trusted hop).
+#   N           — for a chain of N proxies you control (e.g. Cloudflare -> nginx).
+# The client IP is read as a FIXED offset from the RIGHT (infra-appended) end of
+# X-Forwarded-For, so a client can't shift the read position by spoofing extra left-hand
+# entries; a short/malformed header falls back to the peer. See OnlyttyWeb.ClientIP. This
+# only affects the rate-limit key — GET /metrics loopback auth still uses the real peer.
+if hops = System.get_env("ONLYTTY_TRUSTED_PROXY_HOPS") do
+  config :onlytty,
+         :trusted_proxy_hops,
+         Onlytty.Env.non_neg_int!("ONLYTTY_TRUSTED_PROXY_HOPS", hops)
+end
+
 # ONLYTTY_METRICS_TOKEN — bearer token that lets a remote scraper (e.g. Prometheus
 # behind the LB) read GET /metrics. Without it, /metrics is loopback-only; with it,
 # a request carrying `Authorization: Bearer <token>` is allowed from any IP. See

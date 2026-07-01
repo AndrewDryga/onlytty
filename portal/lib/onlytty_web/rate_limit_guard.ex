@@ -6,8 +6,11 @@ defmodule OnlyttyWeb.RateLimitGuard do
   passes straight through untouched.
 
   Reuses `Onlytty.RateLimit` (the same fixed-window limiter the controller used to
-  call) and `conn.remote_ip`, the direct peer — see the README's proxy note for
-  deployments where that is the reverse proxy.
+  call). The throttle key is `OnlyttyWeb.ClientIP.resolve/1`: the direct peer
+  (`conn.remote_ip`) by default, or — when `ONLYTTY_TRUSTED_PROXY_HOPS` is set for a
+  reverse-proxied deployment — the real client IP pulled from `X-Forwarded-For` without
+  trusting a spoofed header. Behind the Google HTTPS LB that keeps "N creates/min per
+  IP" per-client instead of collapsing into one global bucket.
   """
   @behaviour Plug
   import Plug.Conn
@@ -17,7 +20,7 @@ defmodule OnlyttyWeb.RateLimitGuard do
 
   @impl true
   def call(%Plug.Conn{method: "POST", path_info: ["api", "sessions"]} = conn, _opts) do
-    case Onlytty.RateLimit.check(conn.remote_ip) do
+    case Onlytty.RateLimit.check(OnlyttyWeb.ClientIP.resolve(conn)) do
       :ok ->
         conn
 

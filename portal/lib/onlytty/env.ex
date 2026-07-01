@@ -25,4 +25,20 @@ defmodule Onlytty.Env do
         raise ArgumentError, "#{name} must be a positive integer, got: #{inspect(value)}"
     end
   end
+
+  @doc """
+  Parse `value` as a non-negative integer (0 allowed), or raise `ArgumentError` naming
+  the variable. Used where 0 is a meaningful "off"/"none" setting, such as
+  `ONLYTTY_TRUSTED_PROXY_HOPS=0` (no reverse proxy).
+  """
+  @spec non_neg_int!(String.t(), String.t()) :: non_neg_integer()
+  def non_neg_int!(name, value) when is_binary(value) do
+    case Integer.parse(value) do
+      {n, ""} when n >= 0 ->
+        n
+
+      _ ->
+        raise ArgumentError, "#{name} must be a non-negative integer, got: #{inspect(value)}"
+    end
+  end
 end
