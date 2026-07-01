@@ -317,7 +317,7 @@ defmodule OnlyttyWeb.Site.Page do
     """
     <section class="hero">
       <div class="wrap hero-grid">
-        <div class="hero-copy" data-reveal>
+        <div class="hero-copy">
           <span class="badge"><span class="dot"></span>End-to-end encrypted</span>
           <h1>Want to control your <span class="hl" data-rotate='#{rotate}'>claude</span> while sitting on the toilet?</h1>
           <p class="lede">Run any command on your machine, scan the link it prints, and drive it from your phone. The relay in the middle only ever forwards ciphertext — your keystrokes stay yours.</p>
@@ -327,7 +327,7 @@ defmodule OnlyttyWeb.Site.Page do
           </div>
           <div class="hero-snippet">#{snippet("curl -fsSL https://onlytty.com/install.sh | sh")}</div>
         </div>
-        <div class="hero-demo" data-reveal>#{term_demo("claude", "Claude Code", agent: true)}</div>
+        <div class="hero-demo">#{term_demo("claude", "Claude Code", agent: true)}</div>
       </div>
     </section>
     """

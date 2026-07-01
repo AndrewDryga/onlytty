@@ -53,3 +53,39 @@ test("home page: inline JSON-LD renders with no CSP violation", async (t) => {
     if (browser) await browser.close();
   }
 });
+
+test("home page: mobile hero paints without first-viewport reveal animation", async (t) => {
+  let chromium;
+  try { ({ chromium } = await import("playwright")); } catch { t.skip("playwright not installed"); return; }
+  if (!(await healthy())) { t.skip("relay not reachable at " + base); return; }
+
+  let browser;
+  try {
+    browser = await chromium.launch();
+    const page = await browser.newPage({
+      viewport: { width: 390, height: 844 },
+      isMobile: true,
+      hasTouch: true,
+      deviceScaleFactor: 3
+    });
+
+    await page.goto(base + "/", { waitUntil: "networkidle" });
+
+    assert.equal(await page.locator(".hero [data-reveal]").count(), 0);
+
+    for (const selector of [".hero-copy h1", ".hero-snippet", ".hero-demo"]) {
+      const box = await page.locator(selector).boundingBox();
+      assert.ok(box, `${selector} has a rendered box`);
+      assert.ok(box.y < 844, `${selector} starts in the initial mobile viewport`);
+    }
+
+    const styles = await page.locator(".hero-demo").evaluate((el) => {
+      const cs = getComputedStyle(el);
+      return { opacity: cs.opacity, transform: cs.transform };
+    });
+    assert.deepEqual(styles, { opacity: "1", transform: "none" });
+    assert.equal(await page.evaluate(() => getComputedStyle(document.body, "::after").display), "none");
+  } finally {
+    if (browser) await browser.close();
+  }
+});
