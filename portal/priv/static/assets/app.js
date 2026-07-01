@@ -158,7 +158,19 @@ function keybarVisible() {
 }
 function applyKeybar() {
   document.body.classList.toggle("touch", keybarVisible());
+  updateKeysFade();
 }
+// The touch key bar scrolls horizontally with a hidden scrollbar; fade whichever edge
+// still has keys off-screen so ^C and pinned shortcuts stay discoverable (a phone-width
+// bar can't show them all at once). Recomputed on scroll, resize, keybar toggle, and
+// after (re)rendering shortcuts.
+const keysBar = $("keys");
+function updateKeysFade() {
+  const max = keysBar.scrollWidth - keysBar.clientWidth;
+  keysBar.classList.toggle("of-l", keysBar.scrollLeft > 1);
+  keysBar.classList.toggle("of-r", keysBar.scrollLeft < max - 1);
+}
+keysBar.addEventListener("scroll", updateKeysFade, { passive: true });
 touchMedia.addEventListener?.("change", applyKeybar);
 applyKeybar();
 
@@ -593,6 +605,7 @@ function renderShortcuts() {
     b.onclick = () => { term.focus(); sendInput(parsePayload(sc.payload)); };
     bar.insertBefore(b, edit);
   }
+  updateKeysFade();
 }
 
 function escapeHtml(s) {
@@ -679,7 +692,7 @@ function setFont(n) {
 let resizeTimer;
 addEventListener("resize", () => {
   clearTimeout(resizeTimer);
-  resizeTimer = setTimeout(applySize, 150);
+  resizeTimer = setTimeout(() => { applySize(); updateKeysFade(); }, 150);
 });
 
 // --- wake lock (best effort) -------------------------------------------------

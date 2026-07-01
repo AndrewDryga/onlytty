@@ -332,6 +332,29 @@ test("browser viewer: mobile layout — Take control stays on-screen at 360px; ^
     const keyBox = await page.locator('#keys button[data-key="ctrlc"]').boundingBox();
     assert.ok(keyBox && keyBox.height >= 44, `key tap target ≥44px (got ${keyBox && keyBox.height})`);
 
+    // The keys overflow 360px, so the bar must signal there's more to scroll (a hidden
+    // scrollbar would otherwise leave ^C undiscoverable): the right edge fades at rest,
+    // and scrolling to the end flips the fade to the left edge.
+    assert.ok(
+      await page.evaluate(() => {
+        const k = document.getElementById("keys");
+        return k.scrollWidth > k.clientWidth && k.classList.contains("of-r") && !k.classList.contains("of-l");
+      }),
+      "keys bar fades its right edge when more keys are off-screen",
+    );
+    await page.evaluate(() => {
+      const k = document.getElementById("keys");
+      k.scrollLeft = k.scrollWidth;
+      k.dispatchEvent(new Event("scroll"));
+    });
+    assert.ok(
+      await page.evaluate(() => {
+        const k = document.getElementById("keys");
+        return k.classList.contains("of-l") && !k.classList.contains("of-r");
+      }),
+      "scrolled to the end, the fade moves to the left edge",
+    );
+
     // Take control, then the ^C *button* interrupts a running command.
     await page.click("#control");
     await page.waitForFunction(

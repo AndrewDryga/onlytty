@@ -56,6 +56,15 @@
   #keys { display:none; gap:.3rem; padding:.4rem; padding-bottom: calc(.4rem + env(safe-area-inset-bottom));
     background:var(--bar); border-top:1px solid #1c2333; overflow-x:auto; scrollbar-width:none; }
   #keys::-webkit-scrollbar { display:none; }
+  /* The row scrolls horizontally with a hidden scrollbar; fade whichever edge still has
+     keys off-screen so ^C and pinned shortcuts read as "more here", not a hard clip.
+     Paint-only (mask) — it never changes layout or blocks a tap. */
+  #keys.of-r { -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 1.8rem), transparent);
+               mask-image: linear-gradient(90deg, #000 calc(100% - 1.8rem), transparent); }
+  #keys.of-l { -webkit-mask-image: linear-gradient(90deg, transparent, #000 1.8rem);
+               mask-image: linear-gradient(90deg, transparent, #000 1.8rem); }
+  #keys.of-l.of-r { -webkit-mask-image: linear-gradient(90deg, transparent, #000 1.8rem, #000 calc(100% - 1.8rem), transparent);
+                    mask-image: linear-gradient(90deg, transparent, #000 1.8rem, #000 calc(100% - 1.8rem), transparent); }
   #keys button { flex:0 0 auto; min-width:2.6rem; font-family: ui-monospace, monospace; }
   #keys button.user-key { background:#2c3650; font-family: inherit; }
   body.touch #keys { display:flex; }
