@@ -424,7 +424,7 @@ defmodule OnlyttyWeb.Site.Page do
     chips = Enum.map_join(Tools.featured(), "", &chip/1)
 
     """
-    <section id="tools" class="section">
+    <section class="section">
       <div class="wrap">
         <div class="section-head">
           <p class="eyebrow">Compatibility</p>

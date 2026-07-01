@@ -92,31 +92,31 @@
     <span id="fp" role="button" tabindex="0" hidden></span>
     <span id="ttl" hidden title="Time until this session expires"></span>
     <span class="spacer"></span>
-    <button id="control">Take control</button>
-    <button id="menu-btn" title="More controls" aria-label="More controls" aria-haspopup="true" aria-expanded="false" aria-controls="menu">⋯</button>
+    <button type="button" id="control">Take control</button>
+    <button type="button" id="menu-btn" title="More controls" aria-label="More controls" aria-haspopup="true" aria-expanded="false" aria-controls="menu">⋯</button>
     <div id="menu" hidden role="menu">
-      <button id="kbd" class="item" role="menuitem">Open keyboard</button>
-      <button id="paste" class="item" role="menuitem">Paste</button>
-      <button id="keys-toggle" class="item" role="menuitem">Show / hide keys</button>
-      <button id="menu-verify" class="item" role="menuitem">Verify fingerprint</button>
-      <div class="item">Text size<span class="seg"><button id="font-dec" title="Smaller">A−</button><button id="font-inc" title="Larger">A+</button></span></div>
-      <button id="disconnect" class="item" role="menuitem">Disconnect</button>
+      <button type="button" id="kbd" class="item" role="menuitem">Open keyboard</button>
+      <button type="button" id="paste" class="item" role="menuitem">Paste</button>
+      <button type="button" id="keys-toggle" class="item" role="menuitem">Show / hide keys</button>
+      <button type="button" id="menu-verify" class="item" role="menuitem">Verify fingerprint</button>
+      <div class="item">Text size<span class="seg"><button type="button" id="font-dec" title="Smaller">A−</button><button type="button" id="font-inc" title="Larger">A+</button></span></div>
+      <button type="button" id="disconnect" class="item" role="menuitem">Disconnect</button>
     </div>
   </div>
   <div id="terminal"></div>
   <div id="keys">
-    <button data-key="esc">Esc</button>
-    <button data-key="tab">Tab</button>
-    <button id="ctrl" aria-pressed="false">Ctrl</button>
-    <button data-key="up">↑</button>
-    <button data-key="down">↓</button>
-    <button data-key="left">←</button>
-    <button data-key="right">→</button>
-    <button data-key="bksp" aria-label="Backspace">⌫</button>
-    <button data-key="enter" aria-label="Enter">⏎</button>
-    <button data-key="ctrlc">^C</button>
-    <button data-key="ctrld">^D</button>
-    <button id="keys-edit" title="Edit shortcuts" aria-label="Edit shortcuts">＋</button>
+    <button type="button" data-key="esc">Esc</button>
+    <button type="button" data-key="tab">Tab</button>
+    <button type="button" id="ctrl" aria-pressed="false">Ctrl</button>
+    <button type="button" data-key="up">↑</button>
+    <button type="button" data-key="down">↓</button>
+    <button type="button" data-key="left">←</button>
+    <button type="button" data-key="right">→</button>
+    <button type="button" data-key="bksp" aria-label="Backspace">⌫</button>
+    <button type="button" data-key="enter" aria-label="Enter">⏎</button>
+    <button type="button" data-key="ctrlc">^C</button>
+    <button type="button" data-key="ctrld">^D</button>
+    <button type="button" id="keys-edit" title="Edit shortcuts" aria-label="Edit shortcuts">＋</button>
   </div>
   <div id="overlay" hidden role="dialog" aria-modal="true"><div class="card" id="overlay-card"></div></div>
 

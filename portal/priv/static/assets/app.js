@@ -109,8 +109,8 @@ function showVerify() {
     "<p>Compare this with the fingerprint shown in your terminal. If they match, the connection is end-to-end encrypted with no one in the middle — confirm once and this browser won't ask again for this session.</p>" +
     `<p><code>${fp}</code></p>` +
     '<div class="verify-actions">' +
-      '<button id="fp-match">They match</button>' +
-      '<button id="fp-nomatch" class="ghost">They don’t match</button>' +
+      '<button type="button" id="fp-match">They match</button>' +
+      '<button type="button" id="fp-nomatch" class="ghost">They don’t match</button>' +
     "</div>";
   $("fp-match").onclick = () => {
     try { localStorage.setItem(VERIFIED_KEY, fp); } catch {}
@@ -125,7 +125,7 @@ function showVerify() {
     $("overlay-card").innerHTML =
       "<h1>Don't trust this session</h1>" +
       "<p>The fingerprint here doesn't match your terminal, so the keys differ — this may be the wrong link or a tampered session. The session has been disconnected. Close this tab and re-open the original link printed by your terminal.</p>" +
-      "<button data-dismiss>Close</button>";
+      "<button type='button' data-dismiss>Close</button>";
     o.querySelectorAll("[data-dismiss]").forEach((b) => b.addEventListener("click", () => { o.hidden = true; }));
   };
   o.hidden = false;
@@ -223,7 +223,7 @@ function showKeyMismatch() {
     html +=
       "<p>This is almost always a wrong passphrase. Re-enter it to try again — no reload needed:</p>" +
       '<input id="pass-retry" type="password" autocomplete="off" placeholder="Passphrase" autofocus>' +
-      '<button id="pass-retry-go">Retry</button>';
+      '<button type="button" id="pass-retry-go">Retry</button>';
   } else {
     html +=
       "<p>The secret in this link doesn't match the session. Open the original link from the terminal — the secret never reaches the server, so it can't be recovered here.</p>";
@@ -583,9 +583,9 @@ function openEditor() {
       `<span class="sc-label">${escapeHtml(sc.label)}</span>` +
       `<code class="sc-payload">${escapeHtml(sc.payload)}</code>` +
       `<span class="sc-act">` +
-        `<button data-act="up" title="Move up" aria-label="Move up">↑</button>` +
-        `<button data-act="down" title="Move down" aria-label="Move down">↓</button>` +
-        `<button data-act="rm" title="Remove" aria-label="Remove">✕</button>` +
+        `<button type="button" data-act="up" title="Move up" aria-label="Move up">↑</button>` +
+        `<button type="button" data-act="down" title="Move down" aria-label="Move down">↓</button>` +
+        `<button type="button" data-act="rm" title="Remove" aria-label="Remove">✕</button>` +
       `</span></div>`).join("");
   $("overlay-card").innerHTML =
     "<h1>Shortcuts</h1>" +
@@ -595,9 +595,9 @@ function openEditor() {
     '<div id="sc-add">' +
       '<input id="sc-label" placeholder="Label" maxlength="16" autocomplete="off">' +
       '<input id="sc-payload" placeholder="Payload, e.g. ^L" autocomplete="off">' +
-      '<button id="sc-add-btn">Add</button>' +
+      '<button type="button" id="sc-add-btn">Add</button>' +
     "</div>" +
-    '<button id="sc-done">Done</button>';
+    '<button type="button" id="sc-done">Done</button>';
   $("overlay").hidden = false;
 
   for (const row of $("overlay-card").querySelectorAll(".sc-row")) {
@@ -627,7 +627,7 @@ $("paste").onclick = async () => {
     if (text) await sendInput(text);
     term.focus();
   } catch {
-    fatal("<h1>Paste blocked</h1><p>The browser denied clipboard access. Long-press the terminal to paste instead.</p><button data-dismiss>OK</button>");
+    fatal("<h1>Paste blocked</h1><p>The browser denied clipboard access. Long-press the terminal to paste instead.</p><button type='button' data-dismiss>OK</button>");
   }
 };
 
@@ -685,7 +685,7 @@ if (needPass) {
   $("overlay-card").innerHTML =
     "<h1>Passphrase required</h1><p>This session is protected by a passphrase shared with you out-of-band. The link alone cannot decrypt it.</p>" +
     '<input id="pass" type="password" autocomplete="off" placeholder="Passphrase" autofocus>' +
-    '<button id="pass-go">Connect</button>';
+    '<button type="button" id="pass-go">Connect</button>';
   $("overlay").hidden = false;
   const go = () => { const v = $("pass").value; if (v) { $("overlay").hidden = true; start(v); } };
   $("pass-go").onclick = go;

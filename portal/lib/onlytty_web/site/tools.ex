@@ -148,8 +148,9 @@ defmodule OnlyttyWeb.Site.Tools do
       name: "GitHub Copilot CLI",
       cmd: "copilot",
       category: "AI on the command line",
-      what: "GitHub's AI assistant for the terminal that explains and suggests commands.",
-      why: "Get unstuck on a gnarly command from anywhere you happen to be sitting."
+      what:
+        "GitHub's agentic AI assistant for the terminal that fixes bugs, builds features, and runs tasks on your code.",
+      why: "Start a task at your desk, then approve its steps from your phone."
     },
 
     # ── Editors ─────────────────────────────────────────────────────────────
