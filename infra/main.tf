@@ -206,6 +206,10 @@ resource "google_compute_region_instance_group_manager" "onlytty" {
   base_instance_name = "onlytty"
   region             = var.region
   target_size        = var.instance_count
+  # EVEN can block a rollout when one selected zone is temporarily out of small VM
+  # capacity. BALANCED still preserves zone diversity for the serving fleet, but lets
+  # GCE prioritize zones that can actually allocate the replacement instances.
+  distribution_policy_target_shape = "BALANCED"
 
   # Block `terraform apply` until the rollout finishes and every instance is on the new
   # version and stable — so a broken deploy (instances that never come up healthy) FAILS
@@ -246,5 +250,17 @@ resource "google_compute_region_instance_group_manager" "onlytty" {
     delete = "15m"
   }
 
-  depends_on = [google_project_service.apis]
+  # These are runtime boot prerequisites, not direct template fields. Without explicit
+  # edges, Terraform can create the MIG while NAT, firewall, or IAM grants are still
+  # converging; the COS instances then fail to pull the image, read SECRET_KEY_BASE,
+  # or pass /healthz, and wait_for_instances can time out on create.
+  depends_on = [
+    google_project_service.apis,
+    google_compute_router_nat.onlytty,
+    google_compute_firewall.lb_to_app,
+    google_compute_firewall.cluster_dist,
+    google_secret_manager_secret_iam_member.vm_reads_secret,
+    google_project_iam_member.vm_writes_logs,
+    google_project_iam_member.vm_reads_compute,
+  ]
 }
