@@ -264,6 +264,43 @@ func TestRevokeTakesControlBack(t *testing.T) {
 	}
 }
 
+// On a 404 re-claim the runner must not hand a lost TTL session a fresh full lifetime:
+// it re-creates with only the time LEFT until the original deadline, and refuses to
+// resurrect a session whose deadline has already passed. A no-expiry session keeps
+// re-claiming with its original (0) ttl.
+func TestReclaimTTL(t *testing.T) {
+	now := time.Unix(1_000_000, 0)
+
+	cases := []struct {
+		name      string
+		expiresAt int64
+		ttl       time.Duration
+		at        time.Time
+		wantTTL   time.Duration
+		wantOK    bool
+	}{
+		{"no-expiry keeps re-claiming with ttl 0", 0, 0, now, 0, true},
+		{"time left: send the remaining, not the original ttl", now.Unix() + 300, 1800 * time.Second, now, 300 * time.Second, true},
+		{"remaining below the server min is sent as-is (relay floors it)", now.Unix() + 30, 1800 * time.Second, now, 30 * time.Second, true},
+		{"sub-second remainder rounds up to 1s (a truncated 0 = no expiry)", now.Unix() + 1, 60 * time.Second, now.Add(500 * time.Millisecond), 1 * time.Second, true},
+		{"at the deadline: do not resurrect", now.Unix(), 60 * time.Second, now, 0, false},
+		{"past the deadline: do not resurrect", now.Unix() - 10, 60 * time.Second, now, 0, false},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			o := &Orchestrator{expiresAt: tc.expiresAt, ttl: tc.ttl}
+			got, ok := o.reclaimTTL(tc.at)
+			if ok != tc.wantOK {
+				t.Fatalf("ok = %v, want %v", ok, tc.wantOK)
+			}
+			if ok && got != tc.wantTTL {
+				t.Fatalf("ttl = %v, want %v", got, tc.wantTTL)
+			}
+		})
+	}
+}
+
 // runOrch builds an Orchestrator over argv with a client pointed at an unreachable
 // relay (so connectLoop just backs off) and runs it; returns a channel of the exit code.
 func runOrch(t *testing.T, ctx context.Context, argv []string) (*ptysession.Session, <-chan int) {

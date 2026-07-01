@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"math"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -46,12 +47,16 @@ const (
 )
 
 type Config struct {
-	Client      *relayclient.Client
-	Session     *ptysession.Session
-	Keys        protocol.Keys
-	SessionID   string
-	Token       string
-	TTL         time.Duration
+	Client    *relayclient.Client
+	Session   *ptysession.Session
+	Keys      protocol.Keys
+	SessionID string
+	Token     string
+	TTL       time.Duration
+	// ExpiresAt is the relay-assigned absolute deadline (unix seconds) from the first
+	// create/attach; 0 means no expiry. On a 404 re-claim it bounds the resurrected
+	// session to the ORIGINAL deadline instead of granting a fresh full TTL.
+	ExpiresAt   int64
 	Control     ControlMode
 	LocalIn     io.Reader
 	LocalOut    io.Writer
@@ -61,17 +66,18 @@ type Config struct {
 
 // Orchestrator runs the relay side of a session for the life of the command.
 type Orchestrator struct {
-	client   *relayclient.Client
-	sess     *ptysession.Session
-	id, tok  string
-	ttl      time.Duration
-	control  ControlMode
-	r2v, v2r *protocol.Cipher
-	ring     *ptysession.Ring
-	localIn  io.Reader
-	localOut io.Writer
-	notify   func(string, bool)
-	fp       string
+	client    *relayclient.Client
+	sess      *ptysession.Session
+	id, tok   string
+	ttl       time.Duration
+	expiresAt int64 // relay-assigned deadline (unix s); 0 = no expiry. Fixed at first create.
+	control   ControlMode
+	r2v, v2r  *protocol.Cipher
+	ring      *ptysession.Ring
+	localIn   io.Reader
+	localOut  io.Writer
+	notify    func(string, bool)
+	fp        string
 
 	sendMu sync.Mutex // serializes outSeq + seal
 	outSeq uint64
@@ -124,7 +130,8 @@ func New(cfg Config) (*Orchestrator, error) {
 	}
 	return &Orchestrator{
 		client: cfg.Client, sess: cfg.Session, id: cfg.SessionID, tok: cfg.Token, ttl: cfg.TTL,
-		control: cfg.Control, r2v: r2v, v2r: v2r,
+		expiresAt: cfg.ExpiresAt,
+		control:   cfg.Control, r2v: r2v, v2r: v2r,
 		ring:     ptysession.NewRing(ringBytes),
 		localIn:  cfg.LocalIn,
 		localOut: cfg.LocalOut,
@@ -297,7 +304,17 @@ func (o *Orchestrator) connectLoop(ctx context.Context) {
 					// deploy, or it restarted. Re-claim the SAME id+token on whatever
 					// node we now reach, then re-dial; the viewer reconnects and we
 					// repaint from the ring. (A 401 below is a real auth failure.)
-					if _, rerr := o.client.CreateSession(ctx, o.id, o.tok, o.ttl); rerr != nil {
+					//
+					// For a TTL session, re-create with only the time LEFT until the
+					// original deadline, not a fresh full TTL — otherwise a full-cluster
+					// loss would silently extend the user's intended lifetime. If the
+					// deadline has already passed, don't resurrect it at all.
+					ttl, ok := o.reclaimTTL(time.Now())
+					if !ok {
+						o.note("onlytty: session reached its expiry while the relay was gone — sharing stopped (command still running locally)")
+						return
+					}
+					if _, rerr := o.client.CreateSession(ctx, o.id, o.tok, ttl); rerr != nil {
 						if ctx.Err() != nil {
 							return
 						}
@@ -331,6 +348,25 @@ func (o *Orchestrator) connectLoop(ctx context.Context) {
 		backoff = 500 * time.Millisecond
 		o.serveConn(ctx, conn)
 	}
+}
+
+// reclaimTTL computes the ttl_seconds to send when re-creating a session the relay
+// lost, so a resurrected session honors the ORIGINAL deadline rather than getting a
+// fresh full lifetime. For a no-expiry session it returns the original ttl (0) and ok.
+// For a TTL session it returns the time left until the deadline; ok is false — telling
+// the caller to stop, not resurrect — once that deadline has passed. Sub-second remainders
+// round UP to a whole second: the relay truncates fractional seconds and a truncated 0
+// would read as "no expiry", so we never send that for a bounded session. The relay still
+// applies its own minimum-TTL floor to whatever positive value we send.
+func (o *Orchestrator) reclaimTTL(now time.Time) (time.Duration, bool) {
+	if o.expiresAt == 0 {
+		return o.ttl, true
+	}
+	remaining := time.Unix(o.expiresAt, 0).Sub(now)
+	if remaining <= 0 {
+		return 0, false
+	}
+	return time.Duration(math.Ceil(remaining.Seconds())) * time.Second, true
 }
 
 // serveConn runs one WebSocket connection: a reader and a sender, with the

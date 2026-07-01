@@ -177,7 +177,8 @@ func run() int {
 
 	orch, err := runner.New(runner.Config{
 		Client: client, Session: psess, Keys: keys, SessionID: id, Token: tok, TTL: *ttl,
-		Control: controlMode, LocalIn: os.Stdin, LocalOut: os.Stdout,
+		ExpiresAt: sess.ExpiresAt,
+		Control:   controlMode, LocalIn: os.Stdin, LocalOut: os.Stdout,
 		Notify: notifier(*verbose), Fingerprint: formatFingerprint(keys.Fingerprint),
 	})
 	if err != nil {
