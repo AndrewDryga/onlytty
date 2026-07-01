@@ -41,4 +41,52 @@ defmodule Onlytty.Env do
         raise ArgumentError, "#{name} must be a non-negative integer, got: #{inspect(value)}"
     end
   end
+
+  @doc """
+  Runtime application config derived from operational environment variables.
+
+  `config/runtime.exs` applies these at boot. Tests can also use this function after
+  setting process env overrides, which keeps them on the same parsing/validation path
+  operators use instead of mutating app env directly.
+  """
+  @spec runtime_overrides((String.t() -> String.t() | nil)) :: keyword()
+  def runtime_overrides(get_env \\ &System.get_env/1) when is_function(get_env, 1) do
+    []
+    |> put_if_present(:default_ttl, get_env.("ONLYTTY_DEFAULT_TTL"), fn value ->
+      pos_int!("ONLYTTY_DEFAULT_TTL", value)
+    end)
+    |> put_if_present(:max_ttl, get_env.("ONLYTTY_MAX_TTL"), fn value ->
+      pos_int!("ONLYTTY_MAX_TTL", value)
+    end)
+    |> put_if_present(:idle_timeout_ms, get_env.("ONLYTTY_IDLE_TIMEOUT"), fn value ->
+      pos_int!("ONLYTTY_IDLE_TIMEOUT", value) * 1000
+    end)
+    |> put_if_present(:max_sessions, get_env.("ONLYTTY_MAX_SESSIONS"), fn value ->
+      pos_int!("ONLYTTY_MAX_SESSIONS", value)
+    end)
+    |> put_if_present(:max_frame_bytes, get_env.("ONLYTTY_MAX_FRAME_BYTES"), fn value ->
+      pos_int!("ONLYTTY_MAX_FRAME_BYTES", value)
+    end)
+    |> put_if_present(:allowed_origins, get_env.("ONLYTTY_ALLOWED_ORIGINS"), fn value ->
+      String.split(value, ",", trim: true)
+    end)
+    |> put_if_present(:rate_limit_max, get_env.("ONLYTTY_RATELIMIT_MAX"), fn
+      "0" -> :infinity
+      value -> pos_int!("ONLYTTY_RATELIMIT_MAX", value)
+    end)
+    |> put_if_present(:rate_limit_window_ms, get_env.("ONLYTTY_RATELIMIT_WINDOW"), fn value ->
+      pos_int!("ONLYTTY_RATELIMIT_WINDOW", value) * 1000
+    end)
+    |> put_if_present(:trusted_proxy_hops, get_env.("ONLYTTY_TRUSTED_PROXY_HOPS"), fn value ->
+      non_neg_int!("ONLYTTY_TRUSTED_PROXY_HOPS", value)
+    end)
+    |> put_if_present(:metrics_token, get_env.("ONLYTTY_METRICS_TOKEN"), & &1)
+    |> Enum.reverse()
+  end
+
+  defp put_if_present(config, _key, nil, _parse), do: config
+
+  defp put_if_present(config, key, value, parse) do
+    [{key, parse.(value)} | config]
+  end
 end

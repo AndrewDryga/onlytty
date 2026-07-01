@@ -7,6 +7,7 @@ defmodule OnlyttyWeb.OnlyttySocketTest do
   use ExUnit.Case, async: false
 
   alias Onlytty.{SessionStore, WSClient}
+  import Onlytty.Test.RuntimeEnv, only: [with_runtime_env: 2]
 
   setup do
     port = Application.get_env(:onlytty, OnlyttyWeb.Endpoint)[:http][:port]
@@ -102,51 +103,52 @@ defmodule OnlyttyWeb.OnlyttySocketTest do
     end
 
     test "the allowlist is additive to same-host; runner WS is never gated", %{port: port} do
-      Application.put_env(:onlytty, :allowed_origins, ["https://allowed.example"])
-      on_exit(fn -> Application.delete_env(:onlytty, :allowed_origins) end)
+      with_runtime_env(%{"ONLYTTY_ALLOWED_ORIGINS" => "https://allowed.example"}, fn ->
+        s = new_session()
 
-      s = new_session()
+        # The configured origin is allowed for the viewer…
+        v = WSClient.open(port)
 
-      # The configured origin is allowed for the viewer…
-      v = WSClient.open(port)
+        assert {:ok, vref} =
+                 WSClient.upgrade(v, "/ws/viewer/#{s.id}", [
+                   {"origin", "https://allowed.example"}
+                 ])
 
-      assert {:ok, vref} =
-               WSClient.upgrade(v, "/ws/viewer/#{s.id}", [{"origin", "https://allowed.example"}])
+        assert WSClient.recv_json(v, vref)["t"] == "hello"
+        WSClient.close(v)
 
-      assert WSClient.recv_json(v, vref)["t"] == "hello"
-      WSClient.close(v)
+        # …and the same-host viewer STILL connects (the allowlist is a union, not a
+        # replacement) — setting ONLYTTY_ALLOWED_ORIGINS must not lock out same-host.
+        same = WSClient.open(port)
 
-      # …and the same-host viewer STILL connects (the allowlist is a union, not a
-      # replacement) — setting ONLYTTY_ALLOWED_ORIGINS must not lock out same-host.
-      same = WSClient.open(port)
+        assert {:ok, sref} =
+                 WSClient.upgrade(same, "/ws/viewer/#{s.id}", [
+                   {"origin", "http://127.0.0.1:#{port}"}
+                 ])
 
-      assert {:ok, sref} =
-               WSClient.upgrade(same, "/ws/viewer/#{s.id}", [
-                 {"origin", "http://127.0.0.1:#{port}"}
-               ])
+        assert WSClient.recv_json(same, sref)["t"] == "hello"
+        WSClient.close(same)
 
-      assert WSClient.recv_json(same, sref)["t"] == "hello"
-      WSClient.close(same)
+        # …while a foreign, unlisted Origin is still rejected.
+        bad = WSClient.open(port)
 
-      # …while a foreign, unlisted Origin is still rejected.
-      bad = WSClient.open(port)
+        assert {:error, 403} =
+                 WSClient.upgrade(bad, "/ws/viewer/#{s.id}", [{"origin", "https://evil.example"}])
 
-      assert {:error, 403} =
-               WSClient.upgrade(bad, "/ws/viewer/#{s.id}", [{"origin", "https://evil.example"}])
+        WSClient.close(bad)
 
-      WSClient.close(bad)
+        # …but the runner (non-browser) connects regardless of a foreign Origin.
+        r = WSClient.open(port)
 
-      # …but the runner (non-browser) connects regardless of a foreign Origin.
-      r = WSClient.open(port)
+        assert {:ok, rref} =
+                 WSClient.upgrade(r, "/ws/runner/#{s.id}", [
+                   {"authorization", "Bearer " <> s.runner_token},
+                   {"origin", "https://evil.example"}
+                 ])
 
-      assert {:ok, rref} =
-               WSClient.upgrade(r, "/ws/runner/#{s.id}", [
-                 {"authorization", "Bearer " <> s.runner_token},
-                 {"origin", "https://evil.example"}
-               ])
-
-      assert WSClient.recv_json(r, rref)["t"] == "hello"
-      WSClient.close(r)
+        assert WSClient.recv_json(r, rref)["t"] == "hello"
+        WSClient.close(r)
+      end)
     end
   end
 
@@ -440,19 +442,17 @@ defmodule OnlyttyWeb.OnlyttySocketTest do
     end
 
     test "the cap is runtime-configurable", %{port: port} do
-      # Lower the cap; the upgrade reads it, so connect AFTER setting it.
-      Application.put_env(:onlytty, :max_frame_bytes, 1024)
-      on_exit(fn -> Application.delete_env(:onlytty, :max_frame_bytes) end)
+      with_runtime_env(%{"ONLYTTY_MAX_FRAME_BYTES" => "1024"}, fn ->
+        s = new_session()
+        runner = WSClient.open(port)
+        r_ref = WSClient.connect!(runner, "/ws/runner/#{s.id}", runner_headers(s.runner_token))
+        assert WSClient.recv_json(runner, r_ref)["t"] == "hello"
 
-      s = new_session()
-      runner = WSClient.open(port)
-      r_ref = WSClient.connect!(runner, "/ws/runner/#{s.id}", runner_headers(s.runner_token))
-      assert WSClient.recv_json(runner, r_ref)["t"] == "hello"
-
-      # 2 KiB > the 1 KiB cap → rejected; a small frame would have passed. The reject
-      # surfaces as a 1009 close frame, or an abrupt drop under load.
-      WSClient.send_binary(runner, r_ref, :binary.copy(<<0>>, 2048))
-      assert WSClient.recv_close_or_down(runner, r_ref) in [1009, :down]
+        # 2 KiB > the 1 KiB cap → rejected; a small frame would have passed. The reject
+        # surfaces as a 1009 close frame, or an abrupt drop under load.
+        WSClient.send_binary(runner, r_ref, :binary.copy(<<0>>, 2048))
+        assert WSClient.recv_close_or_down(runner, r_ref) in [1009, :down]
+      end)
     end
   end
 

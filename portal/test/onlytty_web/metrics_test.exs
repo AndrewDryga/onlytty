@@ -9,6 +9,7 @@ defmodule OnlyttyWeb.MetricsTest do
   use OnlyttyWeb.ConnCase, async: false
 
   alias Onlytty.{Metrics, SessionStore, WSClient}
+  import Onlytty.Test.RuntimeEnv, only: [with_runtime_env: 2]
 
   defp delta(name, fun) do
     before = Metrics.value(name)
@@ -70,23 +71,22 @@ defmodule OnlyttyWeb.MetricsTest do
   end
 
   test "a non-loopback client with the right bearer token gets 200", %{conn: conn} do
-    Application.put_env(:onlytty, :metrics_token, "s3cret")
-    on_exit(fn -> Application.delete_env(:onlytty, :metrics_token) end)
+    with_runtime_env(%{"ONLYTTY_METRICS_TOKEN" => "s3cret"}, fn ->
+      remote = %{conn | remote_ip: {203, 0, 113, 5}}
 
-    remote = %{conn | remote_ip: {203, 0, 113, 5}}
+      # Wrong / missing token is still rejected.
+      assert get(remote, ~p"/metrics").status == 404
 
-    # Wrong / missing token is still rejected.
-    assert get(remote, ~p"/metrics").status == 404
+      assert remote
+             |> put_req_header("authorization", "Bearer wrong")
+             |> get(~p"/metrics")
+             |> Map.fetch!(:status) == 404
 
-    assert remote
-           |> put_req_header("authorization", "Bearer wrong")
-           |> get(~p"/metrics")
-           |> Map.fetch!(:status) == 404
-
-    # Correct token is allowed from any IP.
-    ok = remote |> put_req_header("authorization", "Bearer s3cret") |> get(~p"/metrics")
-    assert ok.status == 200
-    assert ok.resp_body =~ "onlytty_sessions_created_total"
+      # Correct token is allowed from any IP.
+      ok = remote |> put_req_header("authorization", "Bearer s3cret") |> get(~p"/metrics")
+      assert ok.status == 200
+      assert ok.resp_body =~ "onlytty_sessions_created_total"
+    end)
   end
 
   test "the exposition contains no session id", %{conn: conn} do

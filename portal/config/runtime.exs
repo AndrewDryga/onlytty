@@ -20,60 +20,14 @@ if System.get_env("PHX_SERVER") do
   config :onlytty, OnlyttyWeb.Endpoint, server: true
 end
 
-# Onlytty session limits, tunable at runtime in every environment.
-#   ONLYTTY_DEFAULT_TTL   — TTL (s) for a request that omits one; default 0 = no expiry
-#   ONLYTTY_MAX_TTL       — optional hard ceiling on session TTL (s); unset = no ceiling
-#   ONLYTTY_IDLE_TIMEOUT  — close a session after this many seconds with no runner
-#                         traffic (default 600)
-if ttl = System.get_env("ONLYTTY_DEFAULT_TTL") do
-  config :onlytty, :default_ttl, Onlytty.Env.pos_int!("ONLYTTY_DEFAULT_TTL", ttl)
-end
-
-if max_ttl = System.get_env("ONLYTTY_MAX_TTL") do
-  config :onlytty, :max_ttl, Onlytty.Env.pos_int!("ONLYTTY_MAX_TTL", max_ttl)
-end
-
-if idle = System.get_env("ONLYTTY_IDLE_TIMEOUT") do
-  config :onlytty, :idle_timeout_ms, Onlytty.Env.pos_int!("ONLYTTY_IDLE_TIMEOUT", idle) * 1000
-end
-
-# ONLYTTY_MAX_SESSIONS — cap on concurrent in-memory sessions (default 2000). Bounds
-# the impact of unauthenticated session creation. Read by the DynamicSupervisor.
-if max = System.get_env("ONLYTTY_MAX_SESSIONS") do
-  config :onlytty, :max_sessions, Onlytty.Env.pos_int!("ONLYTTY_MAX_SESSIONS", max)
-end
-
-# ONLYTTY_MAX_FRAME_BYTES — max size of a single WebSocket frame (default 1048576 = 1
-# MiB). Bandit closes the socket with 1009 on violation, before the payload is buffered
-# or forwarded — bounds memory use and covert-tunnel abuse. Keep it generous enough for
-# a large paste / full-screen redraw (~256KB–1MB).
-if bytes = System.get_env("ONLYTTY_MAX_FRAME_BYTES") do
-  config :onlytty, :max_frame_bytes, Onlytty.Env.pos_int!("ONLYTTY_MAX_FRAME_BYTES", bytes)
-end
-
-# ONLYTTY_ALLOWED_ORIGINS — comma-separated *extra* origins allowed to open a
-# *browser viewer* WebSocket (defense-in-depth; the runner WS is never gated). The
-# same-host Origin is ALWAYS allowed; this list is additive, so set it only to add
-# other hosts, e.g. "https://onlytty.com,https://www.onlytty.com".
-if origins = System.get_env("ONLYTTY_ALLOWED_ORIGINS") do
-  config :onlytty, :allowed_origins, String.split(origins, ",", trim: true)
-end
-
-# Per-IP throttle for POST /api/sessions (defaults: 30 requests / 60s).
-#   ONLYTTY_RATELIMIT_MAX     — max creates per window per IP ("0" disables)
-#   ONLYTTY_RATELIMIT_WINDOW  — window length in seconds (must be > 0)
-if max = System.get_env("ONLYTTY_RATELIMIT_MAX") do
-  # "0" intentionally disables the limiter (:infinity); any other value is a positive int.
-  rate_max =
-    if max == "0", do: :infinity, else: Onlytty.Env.pos_int!("ONLYTTY_RATELIMIT_MAX", max)
-
-  config :onlytty, :rate_limit_max, rate_max
-end
-
-if win = System.get_env("ONLYTTY_RATELIMIT_WINDOW") do
-  config :onlytty,
-         :rate_limit_window_ms,
-         Onlytty.Env.pos_int!("ONLYTTY_RATELIMIT_WINDOW", win) * 1000
+# Runtime operational settings are parsed in `Onlytty.Env.runtime_overrides/1` so tests can
+# exercise the same process-env path that deployments use:
+#   ONLYTTY_DEFAULT_TTL, ONLYTTY_MAX_TTL, ONLYTTY_IDLE_TIMEOUT
+#   ONLYTTY_MAX_SESSIONS, ONLYTTY_MAX_FRAME_BYTES, ONLYTTY_ALLOWED_ORIGINS
+#   ONLYTTY_RATELIMIT_MAX, ONLYTTY_RATELIMIT_WINDOW
+#   ONLYTTY_TRUSTED_PROXY_HOPS, ONLYTTY_METRICS_TOKEN
+for {key, value} <- Onlytty.Env.runtime_overrides() do
+  config :onlytty, key, value
 end
 
 # ONLYTTY_TRUSTED_PROXY_HOPS — number of trusted reverse proxies in front of the relay,
@@ -87,19 +41,11 @@ end
 # X-Forwarded-For, so a client can't shift the read position by spoofing extra left-hand
 # entries; a short/malformed header falls back to the peer. See OnlyttyWeb.ClientIP. This
 # only affects the rate-limit key — GET /metrics loopback auth still uses the real peer.
-if hops = System.get_env("ONLYTTY_TRUSTED_PROXY_HOPS") do
-  config :onlytty,
-         :trusted_proxy_hops,
-         Onlytty.Env.non_neg_int!("ONLYTTY_TRUSTED_PROXY_HOPS", hops)
-end
-
+#
 # ONLYTTY_METRICS_TOKEN — bearer token that lets a remote scraper (e.g. Prometheus
 # behind the LB) read GET /metrics. Without it, /metrics is loopback-only; with it,
 # a request carrying `Authorization: Bearer <token>` is allowed from any IP. See
 # OnlyttyWeb.MetricsAccess. Aggregate counters only — still never expose it broadly.
-if token = System.get_env("ONLYTTY_METRICS_TOKEN") do
-  config :onlytty, :metrics_token, token
-end
 
 if config_env() == :prod do
   # The secret key base is used to sign/encrypt cookies and other secrets.

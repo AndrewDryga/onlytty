@@ -29,4 +29,28 @@ defmodule Onlytty.EnvTest do
                    fn -> Env.non_neg_int!("ONLYTTY_TRUSTED_PROXY_HOPS", bad) end
     end
   end
+
+  test "runtime_overrides parses operational process env into app config" do
+    env = %{
+      "ONLYTTY_RATELIMIT_MAX" => "1",
+      "ONLYTTY_RATELIMIT_WINDOW" => "60",
+      "ONLYTTY_TRUSTED_PROXY_HOPS" => "1",
+      "ONLYTTY_ALLOWED_ORIGINS" => "https://a.example,https://b.example",
+      "ONLYTTY_METRICS_TOKEN" => "secret"
+    }
+
+    assert Env.runtime_overrides(&Map.get(env, &1)) == [
+             allowed_origins: ["https://a.example", "https://b.example"],
+             rate_limit_max: 1,
+             rate_limit_window_ms: 60_000,
+             trusted_proxy_hops: 1,
+             metrics_token: "secret"
+           ]
+  end
+
+  test "runtime_overrides preserves the rate-limit disable sentinel" do
+    assert Env.runtime_overrides(&Map.get(%{"ONLYTTY_RATELIMIT_MAX" => "0"}, &1)) == [
+             rate_limit_max: :infinity
+           ]
+  end
 end
