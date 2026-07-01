@@ -59,6 +59,17 @@ let ended = false, noReconnect = false, exitSeen = false;
 let backoff = 500;
 let ctrlArmed = false;
 let everConnected = false, failCount = 0;
+
+// Give-up budgets for consecutive failed handshakes — closes with no successful open in
+// between (onopen resets failCount, so a reconnect that works clears the streak). A
+// never-connected viewer bails fast: 3 quick tries is a strong "bad or expired link"
+// signal. One that HAS connected reconnects through deploys and runner reclaims, so it
+// only bails after a much longer budget of consecutive missing-session handshakes —
+// otherwise a hard-crashed relay node whose runner never reclaims would retry forever,
+// draining battery behind a stale-looking screen. The larger budget (~2 min with the
+// capped backoff) is overridable in tests via window.__onlyttyReconnectBudget.
+const NEVER_CONNECTED_FAILS = 3;
+const MISSING_SESSION_FAILS = (window.__onlyttyReconnectBudget | 0) || 20;
 let everDecoded = false, mismatchTimer = null; // wrong-keys (bad passphrase) detection
 
 // --- UI helpers --------------------------------------------------------------
@@ -188,21 +199,38 @@ function connect() {
   // A .catch keeps the chain alive: without it, one throwing frame leaves `queue`
   // permanently rejected and every later frame is silently skipped until reconnect.
   ws.onmessage = (ev) => {
+    // A frame arriving proves the session is truly here (a live relay sends HELLO on join),
+    // which a bare socket open does not — so the reconnect give-up streak resets here, not
+    // in onopen. That keeps a socket that opens but never delivers a frame counting toward
+    // the missing-session budget instead of resetting every cycle.
+    everConnected = true;
+    failCount = 0;
     queue = queue.then(() => onMessage(ev)).catch((e) => {
       console.error("dropped a frame that failed to process:", e);
       if (!ended) setStatus("a frame couldn't be processed", "warn");
     });
   };
-  ws.onopen = () => { everConnected = true; failCount = 0; setStatus("waiting for runner…", "warn"); backoff = 500; requestWakeLock(); };
+  ws.onopen = () => { setStatus("waiting for runner…", "warn"); backoff = 500; requestWakeLock(); };
   ws.onclose = () => {
     if (ended || noReconnect) return;
-    // Browsers can't expose the handshake status, so a session that never
-    // connects (404 from an unknown/expired id) looks like repeated failures.
-    // Three quick tries (~1.5s with the 500ms/1000ms backoff) is a strong signal
-    // it's gone, while still riding out a one-off blip on the very first connect.
-    if (!everConnected && ++failCount >= 3) {
+    // Browsers can't expose the handshake status, so a missing session (404 from an
+    // unknown/expired id) just looks like a close with no preceding open. We give up
+    // after a budget of consecutive such closes: fast before the first connect (a bad
+    // link), but generous once connected so deploys and runner reclaims still ride out.
+    if (++failCount >= (everConnected ? MISSING_SESSION_FAILS : NEVER_CONNECTED_FAILS)) {
       noReconnect = true;
-      fatal("<h1>Session not found</h1><p>This session is unknown or has expired. Start a new one with <code>onlytty</code> and open the fresh link.</p>");
+
+      if (everConnected) {
+        // Connected once, then vanished for good: settle into a dead terminal state —
+        // stop the countdown and mark ended — so nothing looks live behind the overlay.
+        ended = true;
+        stopTtl();
+        setStatus("session lost", "dead");
+        fatal("<h1>Session lost</h1><p>The connection kept dropping and the session never came back — the relay may be gone and the terminal running <code>onlytty</code> is no longer reachable. Start a new session and open the fresh link.</p>");
+      } else {
+        fatal("<h1>Session not found</h1><p>This session is unknown or has expired. Start a new one with <code>onlytty</code> and open the fresh link.</p>");
+      }
+
       return;
     }
     setStatus("reconnecting…", "warn");

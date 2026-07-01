@@ -559,6 +559,107 @@ test("browser viewer: an unknown session id shows 'Session not found' quickly", 
   }
 });
 
+test("browser viewer: an already-connected viewer gives up after a run of missing-session handshakes", async (t) => {
+  let chromium;
+  try { ({ chromium } = await import("playwright")); } catch { t.skip("playwright not installed"); return; }
+  if (!(await healthy())) { t.skip("relay not reachable at " + base); return; }
+
+  let browser, proc;
+  try {
+    browser = await chromium.launch();
+    const page = await browser.newPage();
+    // Shrink the post-connect missing-session budget so this doesn't take ~2 minutes.
+    await page.addInitScript(() => { window.__onlyttyReconnectBudget = 3; });
+
+    // First viewer socket is proxied to the real relay so it truly connects; after that
+    // the session "goes missing" (relay node crashed, runner never reclaims) and every
+    // reconnect handshake fails — a close with no frame delivered.
+    let sessionUp = true;
+    const opened = [];
+    await page.routeWebSocket(/\/ws\/viewer\//, (ws) => {
+      if (sessionUp) { opened.push(ws); ws.connectToServer(); } else ws.close();
+    });
+
+    const r = await startRunner(["--", "bash", "--norc", "--noprofile", "-i"]);
+    proc = r.proc;
+    await page.goto(r.link);
+    // Reaching "connected" proves relay frames actually flowed (everConnected), which the
+    // locally-derived fingerprint alone would not.
+    await page.waitForFunction(
+      () => document.getElementById("status-text").textContent === "connected",
+      null, { timeout: 10000 },
+    );
+
+    // The session is gone for good: fail future handshakes, then drop the live socket.
+    sessionUp = false;
+    proc.kill("SIGKILL");
+    for (const w of opened) { try { await w.close(); } catch {} }
+
+    // After the (shortened) budget of consecutive failed handshakes it gives up with a
+    // clear terminal state instead of reconnecting forever.
+    await page.waitForFunction(
+      () => document.getElementById("overlay-card").textContent.includes("Session lost"),
+      null, { timeout: 15000 },
+    );
+    // Reconnect stopped and it settled into the dead terminal state.
+    assert.equal(await page.locator("#status-text").textContent(), "session lost");
+  } finally {
+    if (browser) await browser.close();
+    if (proc) proc.kill("SIGKILL");
+  }
+});
+
+test("browser viewer: an already-connected viewer rides out transient closes and recovers", async (t) => {
+  let chromium;
+  try { ({ chromium } = await import("playwright")); } catch { t.skip("playwright not installed"); return; }
+  if (!(await healthy())) { t.skip("relay not reachable at " + base); return; }
+
+  let browser, proc;
+  try {
+    browser = await chromium.launch();
+    const page = await browser.newPage();
+    // A generous budget so a short burst of failures stays well under it (no give-up).
+    await page.addInitScript(() => { window.__onlyttyReconnectBudget = 20; });
+
+    // Toggle: proxy to the real relay when "up", fail the handshake when "down".
+    let sessionUp = true;
+    const opened = [];
+    await page.routeWebSocket(/\/ws\/viewer\//, (ws) => {
+      if (sessionUp) { opened.push(ws); ws.connectToServer(); } else ws.close();
+    });
+
+    const r = await startRunner(["--", "bash", "--norc", "--noprofile", "-i"]);
+    proc = r.proc;
+    await page.goto(r.link);
+    await page.waitForFunction(
+      () => document.getElementById("status-text").textContent === "connected",
+      null, { timeout: 10000 },
+    );
+
+    // A burst of failing handshakes — well below the budget. The session stays alive (the
+    // runner keeps running), modelling a deploy / brief node loss. Drop the live socket so
+    // the viewer starts reconnecting, and let a couple of attempts fail.
+    sessionUp = false;
+    for (const w of opened) { try { await w.close(); } catch {} }
+    await page.waitForFunction(
+      () => document.getElementById("status-text").textContent === "reconnecting…",
+      null, { timeout: 10000 },
+    );
+
+    // Relay back: it reconnects to the still-live session rather than having given up.
+    sessionUp = true;
+    await page.waitForFunction(
+      () => ["connected", "waiting for runner…"].includes(document.getElementById("status-text").textContent),
+      null, { timeout: 15000 },
+    );
+    const card = await page.locator("#overlay-card").textContent();
+    assert.doesNotMatch(card, /Session lost/, "must not give up on transient closes below the budget");
+  } finally {
+    if (browser) await browser.close();
+    if (proc) proc.kill("SIGKILL");
+  }
+});
+
 test("browser viewer: session fingerprint is verified once, then remembered per session", async (t) => {
   let chromium;
   try { ({ chromium } = await import("playwright")); } catch { t.skip("playwright not installed"); return; }
