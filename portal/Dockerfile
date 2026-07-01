@@ -9,9 +9,9 @@
 # OS picks up security updates — see SECURITY.md "Base-image refresh". Dependabot
 # (.github/dependabot.yml) opens PRs for the resolvable image refs; the bare version ARGs
 # are bumped by hand, in lockstep with .tool-versions / CI.
-ARG ELIXIR_VERSION=1.20.1
+ARG ELIXIR_VERSION=1.20.2
 ARG OTP_VERSION=29.0.2
-ARG DEBIAN_VERSION=bookworm-20260610-slim
+ARG DEBIAN_VERSION=bookworm-20260623-slim
 
 ARG BUILDER_IMAGE="hexpm/elixir:${ELIXIR_VERSION}-erlang-${OTP_VERSION}-debian-${DEBIAN_VERSION}"
 ARG RUNNER_IMAGE="debian:${DEBIAN_VERSION}"
@@ -69,7 +69,7 @@ USER 1001
 # supervised — no curl in the image. (In prod the GCP load balancer runs the real
 # GET /healthz check; this HEALTHCHECK is for `docker run`/compose.)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \
-  CMD ["/app/bin/onlytty", "rpc", "Process.whereis(OnlyttyWeb.Endpoint) || raise \"endpoint not running\""]
+  CMD ["/app/bin/onlytty", "rpc", "Process.whereis(OnlyTTYWeb.Endpoint) || raise \"endpoint not running\""]
 
 ENTRYPOINT ["/usr/bin/tini", "--"]
 CMD ["/app/bin/server"]

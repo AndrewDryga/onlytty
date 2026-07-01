@@ -1,4 +1,4 @@
-defmodule Onlytty.Metrics do
+defmodule OnlyTTY.Metrics do
   @moduledoc """
   Low-cardinality operator counters, exposed at `GET /metrics` in Prometheus text
   exposition format. Backed by an OTP `:counters` array — lock-free and cheap to
@@ -33,7 +33,7 @@ defmodule Onlytty.Metrics do
      "Sessions closed by TTL expiry (includes reaping a session whose runner never connected)."},
     {:sessions_idle_expired, "Sessions closed by the idle timeout."},
     {:rate_limit_rejects, "Session-create requests refused by the per-IP rate limiter."},
-    # Counted in OnlyttySocket.terminate/2 when Bandit closes a socket (1009) for an
+    # Counted in OnlyTTYSocket.terminate/2 when Bandit closes a socket (1009) for an
     # over-cap frame (ONLYTTY_MAX_FRAME_BYTES).
     {:frame_size_rejects, "Frames rejected for exceeding the maximum frame size."}
   ]
@@ -96,6 +96,6 @@ defmodule Onlytty.Metrics do
 
   defp ref do
     :persistent_term.get(@pt_key, nil) ||
-      raise "Onlytty.Metrics not set up; call Onlytty.Metrics.setup/0 at application start"
+      raise "OnlyTTY.Metrics not set up; call OnlyTTY.Metrics.setup/0 at application start"
   end
 end

@@ -1,5 +1,5 @@
-defmodule OnlyttyWeb.Router do
-  use OnlyttyWeb, :router
+defmodule OnlyTTYWeb.Router do
+  use OnlyTTYWeb, :router
 
   pipeline :api do
     plug :accepts, ["json"]
@@ -11,7 +11,7 @@ defmodule OnlyttyWeb.Router do
   pipeline :raw do
   end
 
-  scope "/api", OnlyttyWeb do
+  scope "/api", OnlyTTYWeb do
     pipe_through :api
 
     post "/sessions", SessionController, :create
@@ -19,7 +19,7 @@ defmodule OnlyttyWeb.Router do
     match :*, "/sessions", SessionController, :method_not_allowed
   end
 
-  scope "/", OnlyttyWeb do
+  scope "/", OnlyTTYWeb do
     pipe_through :raw
 
     # OnlyTTY marketing site (server-rendered, indexable).
@@ -34,7 +34,7 @@ defmodule OnlyttyWeb.Router do
 
     get "/healthz", SessionController, :healthz
     # Aggregate operator metrics (Prometheus text). Access-gated by
-    # OnlyttyWeb.MetricsAccess: loopback-only unless ONLYTTY_METRICS_TOKEN is set.
+    # OnlyTTYWeb.MetricsAccess: loopback-only unless ONLYTTY_METRICS_TOKEN is set.
     get "/metrics", MetricsController, :index
     get "/s/:id", SessionController, :viewer
 

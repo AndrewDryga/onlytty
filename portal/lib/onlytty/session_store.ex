@@ -1,7 +1,7 @@
-defmodule Onlytty.SessionStore do
+defmodule OnlyTTY.SessionStore do
   @moduledoc """
   Creates sessions and looks them up by id. Sessions are in-memory only — a
-  `Onlytty.Session` GenServer per session, started under a per-node
+  `OnlyTTY.Session` GenServer per session, started under a per-node
   `DynamicSupervisor` but registered CLUSTER-WIDE under `:global` by id, so a runner
   and a viewer that land on different relay nodes still resolve the same session
   (the whole point of running more than one VM). Nothing is ever persisted.
@@ -10,9 +10,9 @@ defmodule Onlytty.SessionStore do
   handlers never touch `:global` or the supervisor directly.
   """
 
-  alias Onlytty.Session
+  alias OnlyTTY.Session
 
-  @supervisor Onlytty.SessionSupervisor
+  @supervisor OnlyTTY.SessionSupervisor
 
   # TTL is opt-in. By default a session has NO expiry (0) and lives as long as the
   # runner runs — it ends when the command exits or the runner disconnects, not on a
@@ -66,7 +66,7 @@ defmodule Onlytty.SessionStore do
 
     case DynamicSupervisor.start_child(@supervisor, child) do
       {:ok, _pid} ->
-        Onlytty.Metrics.inc(:sessions_created)
+        OnlyTTY.Metrics.inc(:sessions_created)
         {:ok, %{id: id, runner_token: runner_token, expires_at: expiry_at(ttl)}}
 
       {:error, {:already_started, pid}} ->
@@ -86,7 +86,7 @@ defmodule Onlytty.SessionStore do
 
       {:error, :max_children} ->
         # The cap is hit: refuse rather than grow unbounded.
-        Onlytty.Metrics.inc(:sessions_at_capacity)
+        OnlyTTY.Metrics.inc(:sessions_at_capacity)
         {:error, :at_capacity}
     end
   end

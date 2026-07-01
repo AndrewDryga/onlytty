@@ -1,4 +1,4 @@
-defmodule OnlyttyWeb.ConnCase do
+defmodule OnlyTTYWeb.ConnCase do
   @moduledoc """
   This module defines the test case to be used by
   tests that require setting up a connection.
@@ -11,7 +11,7 @@ defmodule OnlyttyWeb.ConnCase do
   we enable the SQL sandbox, so changes done to the database
   are reverted at the end of every test. If you are using
   PostgreSQL, you can even run database tests asynchronously
-  by setting `use OnlyttyWeb.ConnCase, async: true`, although
+  by setting `use OnlyTTYWeb.ConnCase, async: true`, although
   this option is not recommended for other databases.
   """
 
@@ -20,14 +20,14 @@ defmodule OnlyttyWeb.ConnCase do
   using do
     quote do
       # The default endpoint for testing
-      @endpoint OnlyttyWeb.Endpoint
+      @endpoint OnlyTTYWeb.Endpoint
 
-      use OnlyttyWeb, :verified_routes
+      use OnlyTTYWeb, :verified_routes
 
       # Import conveniences for testing with connections
       import Plug.Conn
       import Phoenix.ConnTest
-      import OnlyttyWeb.ConnCase
+      import OnlyTTYWeb.ConnCase
     end
   end
 

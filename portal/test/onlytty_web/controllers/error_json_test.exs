@@ -1,12 +1,12 @@
-defmodule OnlyttyWeb.ErrorJSONTest do
-  use OnlyttyWeb.ConnCase, async: true
+defmodule OnlyTTYWeb.ErrorJSONTest do
+  use OnlyTTYWeb.ConnCase, async: true
 
   test "renders 404" do
-    assert OnlyttyWeb.ErrorJSON.render("404.json", %{}) == %{errors: %{detail: "Not Found"}}
+    assert OnlyTTYWeb.ErrorJSON.render("404.json", %{}) == %{errors: %{detail: "Not Found"}}
   end
 
   test "renders 500" do
-    assert OnlyttyWeb.ErrorJSON.render("500.json", %{}) ==
+    assert OnlyTTYWeb.ErrorJSON.render("500.json", %{}) ==
              %{errors: %{detail: "Internal Server Error"}}
   end
 end

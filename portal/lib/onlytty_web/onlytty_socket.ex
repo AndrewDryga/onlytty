@@ -1,4 +1,4 @@
-defmodule OnlyttyWeb.OnlyttySocket do
+defmodule OnlyTTYWeb.OnlyTTYSocket do
   @moduledoc """
   The `WebSock` handler shared by both ends of a relay. One instance runs per
   connected socket (it *is* the Bandit connection process). Runner and viewer
@@ -14,7 +14,7 @@ defmodule OnlyttyWeb.OnlyttySocket do
       send `{"t":"hello",...}`. A viewer `{"t":"bye"}` closes that socket; a
       runner `{"t":"bye","reason":"ended"}` closes the whole session.
 
-  Auth and session existence are checked in `OnlyttyWeb.SocketController` *before*
+  Auth and session existence are checked in `OnlyTTYWeb.SocketController` *before*
   the upgrade, so by the time `init/1` runs the session is known to exist and
   (for runners) the token has matched. `init/1` only does the join, which can
   still return `:busy` for a second viewer under the single-viewer lock.
@@ -22,14 +22,14 @@ defmodule OnlyttyWeb.OnlyttySocket do
   State: `%{session, id, role, peers}` — `peers` is a `MapSet` of the peer socket
   pids we relay binary to. A viewer's set holds the runner (0 or 1); the runner's
   set holds every attached viewer, so its output broadcasts to all of them. The
-  `Onlytty.Session` process maintains it via `{:add_peer, pid}` / `{:del_peer, pid}`.
+  `OnlyTTY.Session` process maintains it via `{:add_peer, pid}` / `{:del_peer, pid}`.
   """
 
   @behaviour WebSock
 
   require Logger
 
-  alias Onlytty.Session
+  alias OnlyTTY.Session
 
   @close_normal 1000
   @close_busy 4002
@@ -119,7 +119,7 @@ defmodule OnlyttyWeb.OnlyttySocket do
   # forwarded to the peer) and terminates us with this reason. Count it so operators
   # can see frame-cap hits; the close code on the wire is 1009 (message too big).
   def terminate({:error, :max_frame_size_exceeded}, state) do
-    Onlytty.Metrics.inc(:frame_size_rejects)
+    OnlyTTY.Metrics.inc(:frame_size_rejects)
 
     Logger.info(
       "relay session #{String.slice(state.id, 0, 8)}: #{state.role} frame over cap — closed"

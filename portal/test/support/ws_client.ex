@@ -1,4 +1,4 @@
-defmodule Onlytty.WSClient do
+defmodule OnlyTTY.WSClient do
   @moduledoc """
   A tiny raw WebSocket test client. It drives the relay over real HTTP/1.1
   WebSockets so tests exercise the actual Bandit + WebSock path, not a mock.

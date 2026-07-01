@@ -1,4 +1,4 @@
-defmodule Onlytty.ClusterTest do
+defmodule OnlyTTY.ClusterTest do
   # Proves the scaling property: a session created on one relay node is registered
   # CLUSTER-WIDE (via :global) and is both discoverable and reachable from another
   # node — so a runner and a viewer that land on different MIG instances still pair.
@@ -8,7 +8,7 @@ defmodule Onlytty.ClusterTest do
   # (no epmd), the test logs and soft-skips rather than failing the gate.
   use ExUnit.Case, async: false
 
-  alias Onlytty.SessionStore
+  alias OnlyTTY.SessionStore
 
   @moduletag :cluster
 
@@ -25,7 +25,7 @@ defmodule Onlytty.ClusterTest do
       # modules so the peer can load them — ExUnit test modules aren't on the code path.)
       assert {:ok, _peer_pid} =
                :peer.call(peer, GenServer, :start, [
-                 Onlytty.Session,
+                 OnlyTTY.Session,
                  opts,
                  [name: SessionStore.name(id)]
                ])
@@ -63,7 +63,7 @@ defmodule Onlytty.ClusterTest do
       # The session lives on the PEER node (as if the runner first landed there).
       assert {:ok, _pid} =
                :peer.call(peer, GenServer, :start, [
-                 Onlytty.Session,
+                 OnlyTTY.Session,
                  opts,
                  [name: SessionStore.name(id)]
                ])

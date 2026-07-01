@@ -1,13 +1,13 @@
-defmodule Onlytty.SessionTest do
+defmodule OnlyTTY.SessionTest do
   @moduledoc """
-  Lifecycle tests for `Onlytty.Session`: the unconnected reap (which bounds how long an
+  Lifecycle tests for `OnlyTTY.Session`: the unconnected reap (which bounds how long an
   empty session can hold a process and the single-session/lock budget), and the viewer
   set — locked admits one viewer, unlocked holds several without overwriting or leaking a
   monitor, and each viewer is wired to / unwired from the runner independently.
   """
   use ExUnit.Case, async: true
 
-  alias Onlytty.Session
+  alias OnlyTTY.Session
 
   # Start a Session directly with a tiny unconnected-reap window and a long TTL, so a
   # reap can only be the unconnected path (never the TTL). Returns the session pid.

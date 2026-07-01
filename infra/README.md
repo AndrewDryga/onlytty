@@ -24,7 +24,7 @@ is registered **cluster-wide via `:global`**, so a runner and a viewer that land
 different instances resolve the same session over Erlang distribution. To run more than
 one node, just set `instance_count` > 1 — clustering needs **no operator-supplied DNS**.
 
-The nodes find each other through **libcluster's GCE strategy** (`Onlytty.Cluster.GCE`):
+The nodes find each other through **libcluster's GCE strategy** (`OnlyTTY.Cluster.GCE`):
 each instance polls the Compute API for the project's RUNNING instances carrying the
 `cluster_name=onlytty` label (set on the instance template) and connects to them as
 `onlytty@<internal-ip>`. The `aggregatedList` query spans every zone, so it covers the
@@ -104,7 +104,7 @@ state. `terraform.tfvars` and `*.tfstate*` are git-ignored.
   release) sets the `container_image` Terraform variable in the TFC workspace to that
   pinned tag and **queues a run** via the TFC API; a human approves it in TFC
   ("Confirm & Apply"). Terraform's `update_policy` then rolls the MIG, draining each old
-  instance gracefully (see `Onlytty.Drain`). Needs the `TF_API_TOKEN` repo secret.
+  instance gracefully (see `OnlyTTY.Drain`). Needs the `TF_API_TOKEN` repo secret.
 - **No external IP:** instances have no public IP. Egress (GHCR pull, Secret Manager,
   Cloud Logging) goes through **Cloud NAT** scoped only to the dedicated OnlyTTY subnet;
   ingress arrives from the LB over the internal network.

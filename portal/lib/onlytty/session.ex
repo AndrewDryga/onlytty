@@ -1,10 +1,10 @@
-defmodule Onlytty.Session do
+defmodule OnlyTTY.Session do
   @moduledoc """
   One GenServer per live session. It owns the session's lifecycle and the
   control plane only: who the runner is, which viewers are attached, the
   single-viewer lock, and the TTL / idle timers. It deliberately never sees
   terminal IO — binary frames are relayed socket-to-socket directly (see
-  `OnlyttyWeb.OnlyttySocket`), so this process is off the hot path and could not
+  `OnlyTTYWeb.OnlyTTYSocket`), so this process is off the hot path and could not
   read frame contents if it tried.
 
   State per session:
@@ -60,7 +60,7 @@ defmodule Onlytty.Session do
 
   def start_link(opts) do
     id = Keyword.fetch!(opts, :id)
-    GenServer.start_link(__MODULE__, opts, name: Onlytty.SessionStore.name(id))
+    GenServer.start_link(__MODULE__, opts, name: OnlyTTY.SessionStore.name(id))
   end
 
   @doc "Register the calling process as the runner. Returns the hello snapshot."
@@ -193,7 +193,7 @@ defmodule Onlytty.Session do
       send(viewer, {:onlytty_control, control(:peer_join)})
     end
 
-    Onlytty.Metrics.inc(:runners_connected)
+    OnlyTTY.Metrics.inc(:runners_connected)
     Logger.info("relay session #{short(state.id)}: runner joined")
     {:reply, {:ok, hello_snapshot(state)}, state}
   end
@@ -202,7 +202,7 @@ defmodule Onlytty.Session do
     cond do
       state.locked and map_size(state.viewers) > 0 ->
         # Single-viewer lock held: caller will send {"t":"busy"} and close.
-        Onlytty.Metrics.inc(:viewer_busy_rejects)
+        OnlyTTY.Metrics.inc(:viewer_busy_rejects)
         {:reply, :busy, state}
 
       true ->
@@ -216,7 +216,7 @@ defmodule Onlytty.Session do
           send(state.runner, {:onlytty_control, control(:peer_join)})
         end
 
-        Onlytty.Metrics.inc(:viewers_connected)
+        OnlyTTY.Metrics.inc(:viewers_connected)
         Logger.info("relay session #{short(state.id)}: viewer joined")
 
         snapshot =
@@ -249,19 +249,19 @@ defmodule Onlytty.Session do
 
   @impl true
   def handle_info(:ttl_expired, state) do
-    Onlytty.Metrics.inc(:sessions_ttl_expired)
+    OnlyTTY.Metrics.inc(:sessions_ttl_expired)
     close_all(state, @close_bye, "expired")
     {:stop, :normal, state}
   end
 
   def handle_info(:idle_expired, state) do
-    Onlytty.Metrics.inc(:sessions_idle_expired)
+    OnlyTTY.Metrics.inc(:sessions_idle_expired)
     close_all(state, @close_bye, "idle")
     {:stop, :normal, state}
   end
 
   def handle_info(:reap_unconnected, %{runner: nil} = state) do
-    Onlytty.Metrics.inc(:sessions_ttl_expired)
+    OnlyTTY.Metrics.inc(:sessions_ttl_expired)
     close_all(state, @close_bye, "expired")
     {:stop, :normal, state}
   end

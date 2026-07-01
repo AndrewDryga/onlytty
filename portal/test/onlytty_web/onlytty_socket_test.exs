@@ -1,4 +1,4 @@
-defmodule OnlyttyWeb.OnlyttySocketTest do
+defmodule OnlyTTYWeb.OnlyTTYSocketTest do
   @moduledoc """
   End-to-end WebSocket behavior, driven by a real gun client against the running
   Bandit endpoint. Covers auth, the binary relay, the control plane, the
@@ -6,11 +6,11 @@ defmodule OnlyttyWeb.OnlyttySocketTest do
   """
   use ExUnit.Case, async: false
 
-  alias Onlytty.{SessionStore, WSClient}
-  import Onlytty.Test.RuntimeEnv, only: [with_runtime_env: 2]
+  alias OnlyTTY.{SessionStore, WSClient}
+  import OnlyTTY.Test.RuntimeEnv, only: [with_runtime_env: 2]
 
   setup do
-    port = Application.get_env(:onlytty, OnlyttyWeb.Endpoint)[:http][:port]
+    port = Application.get_env(:onlytty, OnlyTTYWeb.Endpoint)[:http][:port]
     %{port: port}
   end
 
@@ -426,7 +426,7 @@ defmodule OnlyttyWeb.OnlyttySocketTest do
       WSClient.send_binary(runner, r_ref, <<1, 2, 3>>)
       assert WSClient.recv_binary(viewer, v_ref) == <<1, 2, 3>>
 
-      before = Onlytty.Metrics.value(:frame_size_rejects)
+      before = OnlyTTY.Metrics.value(:frame_size_rejects)
 
       # Just over the 1 MiB default cap: Bandit rejects the frame and closes the sender —
       # a 1009 close frame, or an abrupt drop under load — before the payload is ever
@@ -436,7 +436,7 @@ defmodule OnlyttyWeb.OnlyttySocketTest do
       assert WSClient.recv_close_or_down(runner, r_ref) in [1009, :down]
       assert WSClient.recv_json(viewer, v_ref)["t"] == "peer_left"
       WSClient.refute_frame(viewer, v_ref)
-      assert Onlytty.Metrics.value(:frame_size_rejects) == before + 1
+      assert OnlyTTY.Metrics.value(:frame_size_rejects) == before + 1
 
       WSClient.close(viewer)
     end

@@ -1,4 +1,4 @@
-defmodule Onlytty.Cluster.GCE do
+defmodule OnlyTTY.Cluster.GCE do
   @moduledoc """
   A libcluster strategy that forms the BEAM cluster from the relay's GCP managed
   instance group, discovering peers via the Compute API instead of DNS.

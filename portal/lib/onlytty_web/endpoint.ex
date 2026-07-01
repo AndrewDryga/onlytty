@@ -1,14 +1,14 @@
-defmodule OnlyttyWeb.Endpoint do
+defmodule OnlyTTYWeb.Endpoint do
   use Phoenix.Endpoint, otp_app: :onlytty
 
   # No Plug.Session: the relay has no accounts and nothing reads a session cookie.
 
   # Security hardening (CSP + friends) on every response, static assets included.
-  plug OnlyttyWeb.SecurityHeaders
+  plug OnlyTTYWeb.SecurityHeaders
 
   # Per-path Cache-Control: first-party viewer JS is no-store, vendored assets are
   # immutable (registered before Plug.Static so it overrides the static defaults).
-  plug OnlyttyWeb.CacheControl
+  plug OnlyTTYWeb.CacheControl
 
   # Serve at "/" the static files from "priv/static" directory.
   #
@@ -18,7 +18,7 @@ defmodule OnlyttyWeb.Endpoint do
     at: "/",
     from: :onlytty,
     gzip: false,
-    only: OnlyttyWeb.static_paths()
+    only: OnlyTTYWeb.static_paths()
 
   # Code reloading can be explicitly enabled under the
   # :code_reloader configuration of your endpoint.
@@ -31,7 +31,7 @@ defmodule OnlyttyWeb.Endpoint do
 
   # Throttle POST /api/sessions by client IP BEFORE the body is parsed, so a flood
   # can't spend parser work ahead of being rejected. Other paths pass through.
-  plug OnlyttyWeb.RateLimitGuard
+  plug OnlyTTYWeb.RateLimitGuard
 
   plug Plug.Parsers,
     parsers: [:urlencoded, :multipart, :json],
@@ -40,5 +40,5 @@ defmodule OnlyttyWeb.Endpoint do
 
   plug Plug.MethodOverride
   plug Plug.Head
-  plug OnlyttyWeb.Router
+  plug OnlyTTYWeb.Router
 end

@@ -1,4 +1,4 @@
-defmodule OnlyttyWeb.SocketController do
+defmodule OnlyTTYWeb.SocketController do
   @moduledoc """
   Upgrades `GET /ws/runner/:id` and `GET /ws/viewer/:id` to raw WebSockets via
   the `WebSock` behaviour (no Phoenix Channels — we relay opaque binary frames).
@@ -10,16 +10,16 @@ defmodule OnlyttyWeb.SocketController do
     * runner with wrong/missing token -> 401
 
   The single-viewer lock is the one rejection that happens after upgrade: the
-  viewer socket sends `{"t":"busy"}` then closes (handled in `OnlyttySocket`).
+  viewer socket sends `{"t":"busy"}` then closes (handled in `OnlyTTYSocket`).
   """
 
-  use OnlyttyWeb, :controller
+  use OnlyTTYWeb, :controller
 
-  alias Onlytty.{Session, SessionStore}
+  alias OnlyTTY.{Session, SessionStore}
 
   # Cap a single frame so a client can't OOM the relay (Bandit enforces this at the
   # frame parser, before any payload is buffered, and closes with 1009 on violation —
-  # see OnlyttySocket.terminate/2, which counts the reject). Terminal frames are tiny;
+  # see OnlyTTYSocket.terminate/2, which counts the reject). Terminal frames are tiny;
   # 1 MiB is generous headroom for a large paste / screen repaint. Tunable at runtime
   # via ONLYTTY_MAX_FRAME_BYTES for operators who want a tighter covert-tunnel bound.
   @default_max_frame_size 1024 * 1024
@@ -58,7 +58,7 @@ defmodule OnlyttyWeb.SocketController do
 
   defp upgrade(conn, state) do
     conn
-    |> WebSockAdapter.upgrade(OnlyttyWeb.OnlyttySocket, state,
+    |> WebSockAdapter.upgrade(OnlyTTYWeb.OnlyTTYSocket, state,
       max_frame_size: max_frame_size(),
       timeout: @socket_timeout
     )
@@ -117,8 +117,8 @@ defmodule OnlyttyWeb.SocketController do
 
   defp reject(conn, status, message) do
     case status do
-      401 -> Onlytty.Metrics.inc(:upgrade_unauthorized)
-      404 -> Onlytty.Metrics.inc(:upgrade_not_found)
+      401 -> OnlyTTY.Metrics.inc(:upgrade_unauthorized)
+      404 -> OnlyTTY.Metrics.inc(:upgrade_not_found)
       _ -> :ok
     end
 

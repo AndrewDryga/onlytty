@@ -1,4 +1,4 @@
-defmodule Onlytty.RateLimit do
+defmodule OnlyTTY.RateLimit do
   @moduledoc """
   A small in-memory, per-key fixed-window rate limiter for the unauthenticated
   `POST /api/sessions` path, so a client cannot fill the session pool and 503

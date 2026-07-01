@@ -153,7 +153,7 @@ resource "google_compute_instance_template" "onlytty" {
   machine_type = var.machine_type
   tags         = ["onlytty"]
 
-  # libcluster's GCE strategy (Onlytty.Cluster.GCE) finds cluster peers by this label.
+  # libcluster's GCE strategy (OnlyTTY.Cluster.GCE) finds cluster peers by this label.
   labels = {
     cluster_name = "onlytty"
   }
@@ -197,7 +197,7 @@ resource "google_compute_instance_template" "onlytty" {
 # Scaling: OnlyTTY sessions live IN MEMORY on the node that created them, but are now
 # registered CLUSTER-WIDE via :global, so a runner and a viewer that land on different
 # instances resolve the same session over Erlang distribution. Raising target_size just
-# works: libcluster's GCE strategy (Onlytty.Cluster.GCE) discovers the new instances via
+# works: libcluster's GCE strategy (OnlyTTY.Cluster.GCE) discovers the new instances via
 # the Compute API, and the onlytty-allow-cluster firewall (epmd + dist ports) lets them
 # form one BEAM cluster. A node still loses only its own sessions if it dies (the runner
 # reconnects and re-creates), by design.
@@ -233,7 +233,7 @@ resource "google_compute_region_instance_group_manager" "onlytty" {
     type           = "PROACTIVE"
     minimal_action = "REPLACE"
     # Keep full capacity during a deploy — surge new instances up first, never drop a
-    # healthy one — so sessions migrate as old instances drain (see Onlytty.Drain).
+    # healthy one — so sessions migrate as old instances drain (see OnlyTTY.Drain).
     max_surge_fixed       = 3
     max_unavailable_fixed = 0
   }

@@ -1,4 +1,4 @@
-defmodule Onlytty.Test.RuntimeEnv do
+defmodule OnlyTTY.Test.RuntimeEnv do
   @moduledoc false
 
   @env_names [
@@ -36,7 +36,7 @@ defmodule Onlytty.Test.RuntimeEnv do
       Enum.each(vars, fn {key, value} -> System.put_env(key, to_string(value)) end)
       restore_app(prev_app)
 
-      for {key, value} <- Onlytty.Env.runtime_overrides() do
+      for {key, value} <- OnlyTTY.Env.runtime_overrides() do
         Application.put_env(:onlytty, key, value)
       end
 

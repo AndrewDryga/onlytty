@@ -1,10 +1,10 @@
-defmodule Onlytty.MixProject do
+defmodule OnlyTTY.MixProject do
   use Mix.Project
 
   def project do
     [
       app: :onlytty,
-      version: "0.4.0",
+      version: "0.4.1",
       elixir: "~> 1.18",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
@@ -18,7 +18,7 @@ defmodule Onlytty.MixProject do
   # Type `mix help compile.app` for more information.
   def application do
     [
-      mod: {Onlytty.Application, []},
+      mod: {OnlyTTY.Application, []},
       extra_applications: [:logger, :runtime_tools]
     ]
   end
@@ -32,7 +32,10 @@ defmodule Onlytty.MixProject do
   # Type `mix help deps` for examples and options.
   defp deps do
     [
-      {:phoenix, "~> 1.7.21"},
+      {:phoenix, "~> 1.8"},
+      # Phoenix 1.8.8 still depends on websock_adapter ~> 0.5.3. OnlyTTY always
+      # passes max_frame_size explicitly, so 0.6.0's default-limit change is inert here.
+      {:websock_adapter, "~> 0.6", override: true},
       {:telemetry_metrics, "~> 1.0"},
       {:telemetry_poller, "~> 1.0"},
       {:jason, "~> 1.2"},

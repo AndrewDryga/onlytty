@@ -2,7 +2,7 @@ import Config
 
 # The relay is exercised end-to-end over real WebSockets in tests, so the
 # server must actually listen during the test run.
-config :onlytty, OnlyttyWeb.Endpoint,
+config :onlytty, OnlyTTYWeb.Endpoint,
   http: [ip: {127, 0, 0, 1}, port: 4002],
   secret_key_base: "oZMlwXqdKb8xdx/PYEDzQD/ZkPxsAKeXGuuvgqxzQThje6N1vmeIkAEdPB5e9xPf",
   server: true

@@ -1,8 +1,8 @@
-defmodule Onlytty.EnvTest do
+defmodule OnlyTTY.EnvTest do
   @moduledoc "Fail-fast parsing of operational env vars (used by config/runtime.exs)."
   use ExUnit.Case, async: true
 
-  alias Onlytty.Env
+  alias OnlyTTY.Env
 
   test "parses a positive integer" do
     assert Env.pos_int!("ONLYTTY_MAX_SESSIONS", "2000") == 2000

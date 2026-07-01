@@ -1,4 +1,4 @@
-defmodule Onlytty.Drain do
+defmodule OnlyTTY.Drain do
   @moduledoc """
   Graceful shutdown for a relay node. On SIGTERM (a deploy draining/replacing the
   instance) we don't hard-cut live sessions: we flip `/healthz` to 503 (so the load
@@ -54,10 +54,10 @@ defmodule Onlytty.Drain do
 
   @doc "Tell every session on THIS node to send its sockets a `going_away` nudge."
   def notify_local_sessions do
-    Onlytty.SessionSupervisor
+    OnlyTTY.SessionSupervisor
     |> DynamicSupervisor.which_children()
     |> Enum.each(fn
-      {_, pid, _type, _modules} when is_pid(pid) -> Onlytty.Session.drain(pid)
+      {_, pid, _type, _modules} when is_pid(pid) -> OnlyTTY.Session.drain(pid)
       _ -> :ok
     end)
   end

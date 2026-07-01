@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"strings"
 	"testing"
 	"time"
@@ -69,6 +70,22 @@ func TestGeneratePassphrase(t *testing.T) {
 	// Distinct each call.
 	if p2, _ := generatePassphrase(); p == p2 {
 		t.Fatal("two generated passphrases should differ")
+	}
+}
+
+func TestWriteQRHalfBlock(t *testing.T) {
+	var out bytes.Buffer
+
+	writeQRHalfBlock(&out, "https://onlytty.com/s/test#secret")
+
+	got := out.String()
+	if got == "" {
+		t.Fatal("expected QR output")
+	}
+	for _, want := range []string{"\u2588", "\u2580", "\u2584"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("QR output missing %q", want)
+		}
 	}
 }
 

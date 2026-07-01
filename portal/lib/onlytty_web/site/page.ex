@@ -1,4 +1,4 @@
-defmodule OnlyttyWeb.Site.Page do
+defmodule OnlyTTYWeb.Site.Page do
   @moduledoc """
   Server-rendered marketing pages for OnlyTTY.
 
@@ -8,11 +8,11 @@ defmodule OnlyttyWeb.Site.Page do
   footer shell with the full SEO payload (canonical, Open Graph, Twitter, JSON-LD).
 
   All interpolated text flows through `h/1` (HTML-escaped). Tool slugs are looked
-  up in `OnlyttyWeb.Site.Tools` and never echoed from raw request input, so the only
+  up in `OnlyTTYWeb.Site.Tools` and never echoed from raw request input, so the only
   dynamic values that reach a page are from our own catalog.
   """
 
-  alias OnlyttyWeb.Site.Tools
+  alias OnlyTTYWeb.Site.Tools
 
   @github "https://github.com/AndrewDryga/onlytty"
   @og_image "/assets/og.png"
@@ -1087,7 +1087,7 @@ defmodule OnlyttyWeb.Site.Page do
 
   # ── Helpers ───────────────────────────────────────────────────────────────
 
-  defp base_url, do: OnlyttyWeb.Endpoint.url()
+  defp base_url, do: OnlyTTYWeb.Endpoint.url()
 
   defp h(value), do: value |> to_string() |> Plug.HTML.html_escape()
 

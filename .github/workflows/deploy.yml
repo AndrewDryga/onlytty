@@ -4,7 +4,7 @@ name: Deploy
 # `container_image` Terraform variable in the TFC workspace to the requested version
 # and QUEUES a run; a human approves it in TFC ("Confirm & Apply") — that approval is
 # the deploy gate. Terraform's update_policy then rolls the MIG, draining each old
-# instance gracefully (see Onlytty.Drain).
+# instance gracefully (see OnlyTTY.Drain).
 #
 # Needs the TF_API_TOKEN secret: a TFC *user* or *team* token with Apply / "Queue
 # plans" access to the workspace. An ORGANIZATION token can read/write variables but

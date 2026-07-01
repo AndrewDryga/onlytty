@@ -1,6 +1,6 @@
-defmodule OnlyttyWeb.HTTPTest do
+defmodule OnlyTTYWeb.HTTPTest do
   @moduledoc "Plain HTTP endpoints: session creation, health, viewer page."
-  use OnlyttyWeb.ConnCase, async: true
+  use OnlyTTYWeb.ConnCase, async: true
 
   # The directives that prove the policy is strict where it matters — scripts are
   # same-origin only (style-src keeps 'unsafe-inline' for xterm; see SecurityHeaders).

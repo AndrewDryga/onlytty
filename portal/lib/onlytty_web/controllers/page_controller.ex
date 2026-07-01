@@ -1,16 +1,16 @@
-defmodule OnlyttyWeb.PageController do
+defmodule OnlyTTYWeb.PageController do
   @moduledoc """
   The OnlyTTY marketing site: the home page, the per-tool landing pages, the tool
   index, and the XML sitemap. Pages are rendered as plain HTML strings by
-  `OnlyttyWeb.Site.Page`; this controller just maps routes to them.
+  `OnlyTTYWeb.Site.Page`; this controller just maps routes to them.
   """
 
-  use OnlyttyWeb, :controller
+  use OnlyTTYWeb, :controller
 
-  alias OnlyttyWeb.Site.{Page, Tools}
+  alias OnlyTTYWeb.Site.{Page, Tools}
 
   # Marketing pages opt into the looser CSP that allows the Mixpanel analytics script
-  # (see OnlyttyWeb.SecurityHeaders). The terminal viewer and the API are served by
+  # (see OnlyTTYWeb.SecurityHeaders). The terminal viewer and the API are served by
   # other controllers, so they keep the strict same-origin CSP that stops a tracker
   # from leaking the link's #fragment secret.
   plug :allow_marketing_analytics

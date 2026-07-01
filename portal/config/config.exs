@@ -15,14 +15,14 @@ config :onlytty,
   rate_limit_window_ms: 60_000
 
 # Configures the endpoint
-config :onlytty, OnlyttyWeb.Endpoint,
+config :onlytty, OnlyTTYWeb.Endpoint,
   url: [host: "localhost"],
   adapter: Bandit.PhoenixAdapter,
   render_errors: [
-    formats: [json: OnlyttyWeb.ErrorJSON],
+    formats: [json: OnlyTTYWeb.ErrorJSON],
     layout: false
   ],
-  pubsub_server: Onlytty.PubSub,
+  pubsub_server: OnlyTTY.PubSub,
   live_view: [signing_salt: "+4xex4VK"]
 
 # Configures Elixir's Logger
@@ -36,7 +36,7 @@ config :phoenix, :json_library, Jason
 # Backend-only error reporting. No-ops unless SENTRY_DSN is set, so dev/test/CI
 # never report. DSN, release, and environment are read from SENTRY_DSN /
 # SENTRY_RELEASE / SENTRY_ENVIRONMENT. We capture crashes via Sentry.LoggerHandler
-# only (see Onlytty.Application) and attach no request context — so events never
+# only (see OnlyTTY.Application) and attach no request context — so events never
 # carry IPs, request bodies, or other PII; terminal IO is E2E and never on the server.
 # Sentry 13 defaults to Finch; keep the existing Hackney transport, pinned by our deps.
 config :sentry,

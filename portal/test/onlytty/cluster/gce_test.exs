@@ -1,10 +1,10 @@
-defmodule Onlytty.Cluster.GCETest do
+defmodule OnlyTTY.Cluster.GCETest do
   use ExUnit.Case, async: true
 
   import ExUnit.CaptureLog
 
   alias Cluster.Strategy.State
-  alias Onlytty.Cluster.GCE
+  alias OnlyTTY.Cluster.GCE
 
   defp instance(ip), do: %{"networkInterfaces" => [%{"networkIP" => ip}]}
 

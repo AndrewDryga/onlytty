@@ -28,7 +28,7 @@ services:
       - "4000" # internal-only; Caddy reaches it as onlytty:4000, the host cannot
 
   caddy:
-    image: caddy:2
+    image: caddy:2.11.4
     restart: unless-stopped
     depends_on:
       - onlytty

@@ -1,10 +1,10 @@
-defmodule OnlyttyWeb.RateLimitTest do
+defmodule OnlyTTYWeb.RateLimitTest do
   @moduledoc "Per-IP throttling of POST /api/sessions."
   # async: false — process env + app env are VM-global.
-  use OnlyttyWeb.ConnCase, async: false
+  use OnlyTTYWeb.ConnCase, async: false
 
-  alias Onlytty.RateLimit
-  import Onlytty.Test.RuntimeEnv, only: [with_runtime_env: 2]
+  alias OnlyTTY.RateLimit
+  import OnlyTTY.Test.RuntimeEnv, only: [with_runtime_env: 2]
 
   test "allows up to the limit, then throttles with a positive retry-after" do
     with_runtime_env(%{"ONLYTTY_RATELIMIT_MAX" => "2", "ONLYTTY_RATELIMIT_WINDOW" => "60"}, fn ->

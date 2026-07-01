@@ -1,10 +1,10 @@
-defmodule Onlytty.DrainTest do
+defmodule OnlyTTY.DrainTest do
   # async: false — flips the global drain flag (persistent_term), which /healthz reads.
   use ExUnit.Case, async: false
 
   import Phoenix.ConnTest
 
-  alias Onlytty.{Drain, Session, SessionStore}
+  alias OnlyTTY.{Drain, Session, SessionStore}
 
   setup do
     Drain.clear_draining()
@@ -21,9 +21,9 @@ defmodule Onlytty.DrainTest do
   end
 
   test "/healthz returns 200 normally and 503 while draining" do
-    assert OnlyttyWeb.SessionController.healthz(build_conn(), %{}).status == 200
+    assert OnlyTTYWeb.SessionController.healthz(build_conn(), %{}).status == 200
     Drain.mark_draining()
-    assert OnlyttyWeb.SessionController.healthz(build_conn(), %{}).status == 503
+    assert OnlyTTYWeb.SessionController.healthz(build_conn(), %{}).status == 503
   end
 
   test "Session.drain nudges the connected sockets with a going_away frame" do

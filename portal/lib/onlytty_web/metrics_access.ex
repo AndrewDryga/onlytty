@@ -1,4 +1,4 @@
-defmodule OnlyttyWeb.MetricsAccess do
+defmodule OnlyTTYWeb.MetricsAccess do
   @moduledoc """
   Access gate for `GET /metrics`. The counters are aggregate-only (no per-session
   data), but the endpoint still isn't for the public internet, so we enforce it

@@ -33,10 +33,8 @@ export ONLYTTY_DOMAIN="localhost"
 export SECRET_KEY_BASE="$(openssl rand -base64 64 | tr -d '\n')"
 
 # Build the relay image from THIS tree for the host's architecture and feed it to the
-# bundle via its ONLYTTY_IMAGE override. The published :latest is linux/amd64 only, so
-# pulling it on an arm64 box (Apple Silicon, Graviton) would run under QEMU and the BEAM's
-# tty NIF crashes on boot — an emulation artifact, not a bundle bug. Building natively
-# also tests the current Dockerfile + source, a superset of the published image.
+# bundle via its ONLYTTY_IMAGE override. Building natively tests the current Dockerfile
+# + source instead of whatever image tag is currently published.
 export ONLYTTY_IMAGE="onlytty:selfhost-check"
 
 dc() { docker compose -f "$BUNDLE/compose.yml" "$@"; }
@@ -48,14 +46,14 @@ cleanup() {
 trap cleanup EXIT
 
 step "Validate the shipped Caddyfile"
-docker run --rm -e ONLYTTY_DOMAIN -v "$BUNDLE/Caddyfile:/etc/caddy/Caddyfile:ro" caddy:2 \
+docker run --rm -e ONLYTTY_DOMAIN -v "$BUNDLE/Caddyfile:/etc/caddy/Caddyfile:ro" caddy:2.11.4 \
   caddy validate --config /etc/caddy/Caddyfile >/dev/null 2>&1 \
   && pass "caddy validate ok" || fail "Caddyfile is invalid"
 
 step "Build the relay image for this host ($ONLYTTY_IMAGE)"
 docker build -t "$ONLYTTY_IMAGE" "$ROOT/portal" >/dev/null && pass "image built" || fail "image build"
 
-step "Bring up the shipped bundle (the relay image above + caddy:2)"
+step "Bring up the shipped bundle (the relay image above + caddy:2.11.4)"
 dc up -d
 
 step "Wait for the relay to be healthy behind Caddy over HTTPS"

@@ -1,8 +1,8 @@
-defmodule OnlyttyWeb.SiteTest do
+defmodule OnlyTTYWeb.SiteTest do
   @moduledoc "The OnlyTTY marketing site: home, tool pages, tools index, sitemap, SEO."
-  use OnlyttyWeb.ConnCase, async: true
+  use OnlyTTYWeb.ConnCase, async: true
 
-  alias OnlyttyWeb.Site.Tools
+  alias OnlyTTYWeb.Site.Tools
 
   describe "GET /" do
     test "renders the home page with the brand and the hook", %{conn: conn} do

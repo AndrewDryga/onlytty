@@ -1,4 +1,4 @@
-defmodule OnlyttyWeb.CacheControl do
+defmodule OnlyTTYWeb.CacheControl do
   @moduledoc """
   Per-path `Cache-Control` for static assets.
 

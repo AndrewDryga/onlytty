@@ -17,16 +17,16 @@ import Config
 # Alternatively, you can use `mix phx.gen.release` to generate a `bin/server`
 # script that automatically sets the env var above.
 if System.get_env("PHX_SERVER") do
-  config :onlytty, OnlyttyWeb.Endpoint, server: true
+  config :onlytty, OnlyTTYWeb.Endpoint, server: true
 end
 
-# Runtime operational settings are parsed in `Onlytty.Env.runtime_overrides/1` so tests can
+# Runtime operational settings are parsed in `OnlyTTY.Env.runtime_overrides/1` so tests can
 # exercise the same process-env path that deployments use:
 #   ONLYTTY_DEFAULT_TTL, ONLYTTY_MAX_TTL, ONLYTTY_IDLE_TIMEOUT
 #   ONLYTTY_MAX_SESSIONS, ONLYTTY_MAX_FRAME_BYTES, ONLYTTY_ALLOWED_ORIGINS
 #   ONLYTTY_RATELIMIT_MAX, ONLYTTY_RATELIMIT_WINDOW
 #   ONLYTTY_TRUSTED_PROXY_HOPS, ONLYTTY_METRICS_TOKEN
-for {key, value} <- Onlytty.Env.runtime_overrides() do
+for {key, value} <- OnlyTTY.Env.runtime_overrides() do
   config :onlytty, key, value
 end
 
@@ -39,13 +39,13 @@ end
 #   N           — for a chain of N proxies you control (e.g. Cloudflare -> nginx).
 # The client IP is read as a FIXED offset from the RIGHT (infra-appended) end of
 # X-Forwarded-For, so a client can't shift the read position by spoofing extra left-hand
-# entries; a short/malformed header falls back to the peer. See OnlyttyWeb.ClientIP. This
+# entries; a short/malformed header falls back to the peer. See OnlyTTYWeb.ClientIP. This
 # only affects the rate-limit key — GET /metrics loopback auth still uses the real peer.
 #
 # ONLYTTY_METRICS_TOKEN — bearer token that lets a remote scraper (e.g. Prometheus
 # behind the LB) read GET /metrics. Without it, /metrics is loopback-only; with it,
 # a request carrying `Authorization: Bearer <token>` is allowed from any IP. See
-# OnlyttyWeb.MetricsAccess. Aggregate counters only — still never expose it broadly.
+# OnlyTTYWeb.MetricsAccess. Aggregate counters only — still never expose it broadly.
 
 if config_env() == :prod do
   # The secret key base is used to sign/encrypt cookies and other secrets.
@@ -72,7 +72,7 @@ if config_env() == :prod do
       project when is_binary(project) and project != "" ->
         [
           onlytty: [
-            strategy: Onlytty.Cluster.GCE,
+            strategy: OnlyTTY.Cluster.GCE,
             config: [
               project_id: project,
               cluster_value: System.get_env("ONLYTTY_CLUSTER_VALUE") || "onlytty"
@@ -91,7 +91,7 @@ if config_env() == :prod do
   # dev/test signal handling is untouched.
   config :onlytty, :drain_on_sigterm, true
 
-  config :onlytty, OnlyttyWeb.Endpoint,
+  config :onlytty, OnlyTTYWeb.Endpoint,
     url: [host: host, port: 443, scheme: "https"],
     http: [
       # Enable IPv6 and bind on all interfaces.
@@ -108,7 +108,7 @@ if config_env() == :prod do
   # To get SSL working, you will need to add the `https` key
   # to your endpoint configuration:
   #
-  #     config :onlytty, OnlyttyWeb.Endpoint,
+  #     config :onlytty, OnlyTTYWeb.Endpoint,
   #       https: [
   #         ...,
   #         port: 443,
@@ -130,7 +130,7 @@ if config_env() == :prod do
   # We also recommend setting `force_ssl` in your config/prod.exs,
   # ensuring no data is ever sent via http, always redirecting to https:
   #
-  #     config :onlytty, OnlyttyWeb.Endpoint,
+  #     config :onlytty, OnlyTTYWeb.Endpoint,
   #       force_ssl: [hsts: true]
   #
   # Check `Plug.SSL` for all available options in `force_ssl`.

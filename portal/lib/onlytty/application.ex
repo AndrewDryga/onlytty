@@ -1,4 +1,4 @@
-defmodule Onlytty.Application do
+defmodule OnlyTTY.Application do
   # See https://hexdocs.pm/elixir/Application.html
   # for more information on OTP Applications
   @moduledoc false
@@ -18,37 +18,37 @@ defmodule Onlytty.Application do
     end
 
     # Allocate the operator-metrics counter array before anything can bump it.
-    Onlytty.Metrics.setup()
+    OnlyTTY.Metrics.setup()
 
     # Graceful drain on SIGTERM (deploys): flip /healthz to 503, nudge connected
     # clients to reconnect elsewhere, brief grace, then stop. Prod only (runtime.exs).
-    if Application.get_env(:onlytty, :drain_on_sigterm, false), do: Onlytty.Drain.install()
+    if Application.get_env(:onlytty, :drain_on_sigterm, false), do: OnlyTTY.Drain.install()
 
     children = [
-      OnlyttyWeb.Telemetry,
+      OnlyTTYWeb.Telemetry,
       # Forms the BEAM cluster so sessions registered under `:global` resolve across
       # instances. On a GCP MIG, `:cluster_topologies` (runtime.exs) wires libcluster's
       # GCE strategy; empty in dev/test/single-node → the supervisor starts no strategy.
       {Cluster.Supervisor,
-       [Application.get_env(:onlytty, :cluster_topologies, []), [name: Onlytty.ClusterSupervisor]]},
-      {Phoenix.PubSub, name: Onlytty.PubSub},
+       [Application.get_env(:onlytty, :cluster_topologies, []), [name: OnlyTTY.ClusterSupervisor]]},
+      {Phoenix.PubSub, name: OnlyTTY.PubSub},
       # One supervised GenServer per session, registered cluster-wide under `:global`
       # by id (so any node can route to a session created on another). The per-node
       # supervisor is capped so unauthenticated session creation cannot exhaust a node
-      # (see Onlytty.SessionStore.create_or_attach/3); tune with ONLYTTY_MAX_SESSIONS (per node).
+      # (see OnlyTTY.SessionStore.create_or_attach/3); tune with ONLYTTY_MAX_SESSIONS (per node).
       {DynamicSupervisor,
-       name: Onlytty.SessionSupervisor,
+       name: OnlyTTY.SessionSupervisor,
        strategy: :one_for_one,
        max_children: Application.get_env(:onlytty, :max_sessions, 2_000)},
       # Per-IP throttle for unauthenticated session creation (ONLYTTY_RATELIMIT_*).
-      Onlytty.RateLimit,
+      OnlyTTY.RateLimit,
       # Start to serve requests, typically the last entry
-      OnlyttyWeb.Endpoint
+      OnlyTTYWeb.Endpoint
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html
     # for other strategies and supported options
-    opts = [strategy: :one_for_one, name: Onlytty.Supervisor]
+    opts = [strategy: :one_for_one, name: OnlyTTY.Supervisor]
     Supervisor.start_link(children, opts)
   end
 
@@ -56,7 +56,7 @@ defmodule Onlytty.Application do
   # whenever the application is updated.
   @impl true
   def config_change(changed, _new, removed) do
-    OnlyttyWeb.Endpoint.config_change(changed, removed)
+    OnlyTTYWeb.Endpoint.config_change(changed, removed)
     :ok
   end
 end

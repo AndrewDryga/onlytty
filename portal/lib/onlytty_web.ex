@@ -1,12 +1,12 @@
-defmodule OnlyttyWeb do
+defmodule OnlyTTYWeb do
   @moduledoc """
   The entrypoint for defining your web interface, such
   as controllers, components, channels, and so on.
 
   This can be used in your application as:
 
-      use OnlyttyWeb, :controller
-      use OnlyttyWeb, :html
+      use OnlyTTYWeb, :controller
+      use OnlyTTYWeb, :html
 
   The definitions below will be executed for every controller,
   component, etc, so keep them short and clean, focused
@@ -42,7 +42,7 @@ defmodule OnlyttyWeb do
     quote do
       use Phoenix.Controller,
         formats: [:html, :json],
-        layouts: [html: OnlyttyWeb.Layouts]
+        layouts: [html: OnlyTTYWeb.Layouts]
 
       import Plug.Conn
 
@@ -53,9 +53,9 @@ defmodule OnlyttyWeb do
   def verified_routes do
     quote do
       use Phoenix.VerifiedRoutes,
-        endpoint: OnlyttyWeb.Endpoint,
-        router: OnlyttyWeb.Router,
-        statics: OnlyttyWeb.static_paths()
+        endpoint: OnlyTTYWeb.Endpoint,
+        router: OnlyTTYWeb.Router,
+        statics: OnlyTTYWeb.static_paths()
     end
   end
 

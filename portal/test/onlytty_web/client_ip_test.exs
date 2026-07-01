@@ -1,10 +1,10 @@
-defmodule OnlyttyWeb.ClientIPTest do
+defmodule OnlyTTYWeb.ClientIPTest do
   @moduledoc "Proxy-aware, spoof-resistant client-IP resolution for the rate-limit key."
   # async: false — toggles the global :trusted_proxy_hops app env.
   use ExUnit.Case, async: false
 
-  alias OnlyttyWeb.ClientIP
-  import Onlytty.Test.RuntimeEnv, only: [with_runtime_env: 2]
+  alias OnlyTTYWeb.ClientIP
+  import OnlyTTY.Test.RuntimeEnv, only: [with_runtime_env: 2]
 
   defp conn(remote_ip, xff) do
     headers = if xff, do: [{"x-forwarded-for", xff}], else: []

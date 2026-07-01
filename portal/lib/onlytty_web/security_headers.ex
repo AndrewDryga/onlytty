@@ -1,4 +1,4 @@
-defmodule OnlyttyWeb.SecurityHeaders do
+defmodule OnlyTTYWeb.SecurityHeaders do
   @moduledoc """
   Hardening headers on every response — most importantly a Content-Security-Policy
   that is strict for scripts (the part that matters), with one deliberate exception

@@ -22,7 +22,6 @@ import (
 	"github.com/AndrewDryga/onlytty/runner/internal/relayclient"
 	"github.com/AndrewDryga/onlytty/runner/internal/runner"
 	"github.com/creack/pty"
-	"github.com/mdp/qrterminal/v3"
 	"golang.org/x/term"
 )
 
@@ -328,7 +327,7 @@ func printBanner(link, fingerprint string, expiry string, control runner.Control
 	w := os.Stderr
 	fmt.Fprintf(w, "\n  %s\n\n", bold("onlytty — this session is shared, end-to-end encrypted"))
 	if !noQR {
-		qrterminal.GenerateHalfBlock(link, qrterminal.M, w)
+		writeQRHalfBlock(w, link)
 		fmt.Fprintln(w)
 	}
 	fmt.Fprintf(w, "  Link         %s\n", link)

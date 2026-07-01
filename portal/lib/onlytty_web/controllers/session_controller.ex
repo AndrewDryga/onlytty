@@ -1,12 +1,12 @@
-defmodule OnlyttyWeb.SessionController do
+defmodule OnlyTTYWeb.SessionController do
   @moduledoc """
   Plain HTTP endpoints: create a session, health check, and serve the static
-  viewer page. WebSocket upgrades live in `OnlyttyWeb.SocketController`.
+  viewer page. WebSocket upgrades live in `OnlyTTYWeb.SocketController`.
   """
 
-  use OnlyttyWeb, :controller
+  use OnlyTTYWeb, :controller
 
-  alias Onlytty.SessionStore
+  alias OnlyTTY.SessionStore
 
   @doc """
   `POST /api/sessions` — create a session, or re-claim an existing one.
@@ -20,7 +20,7 @@ defmodule OnlyttyWeb.SessionController do
   id is a 401. Responds 201 with `{id, runner_token, expires_at}`.
   """
   def create(conn, params) do
-    # The per-IP throttle runs in the endpoint (OnlyttyWeb.RateLimitGuard) ahead of
+    # The per-IP throttle runs in the endpoint (OnlyTTYWeb.RateLimitGuard) ahead of
     # Plug.Parsers, so by the time we get here the request is within the limit.
     with {:ok, id} <- id_param(params),
          {:ok, token} <- token_param(params),
@@ -76,7 +76,7 @@ defmodule OnlyttyWeb.SessionController do
   so the load balancer stops routing new connections here during a deploy.
   """
   def healthz(conn, _params) do
-    {status, body} = if Onlytty.Drain.draining?(), do: {503, "draining"}, else: {200, "ok"}
+    {status, body} = if OnlyTTY.Drain.draining?(), do: {503, "draining"}, else: {200, "ok"}
 
     conn
     |> put_resp_content_type("text/plain")

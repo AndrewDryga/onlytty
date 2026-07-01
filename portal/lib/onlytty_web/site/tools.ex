@@ -1,4 +1,4 @@
-defmodule OnlyttyWeb.Site.Tools do
+defmodule OnlyTTYWeb.Site.Tools do
   @moduledoc """
   The catalog of CLI tools featured on the marketing site.
 

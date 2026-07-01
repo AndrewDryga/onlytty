@@ -1,11 +1,11 @@
-defmodule Onlytty.Env do
+defmodule OnlyTTY.Env do
   @moduledoc """
   Tiny parsers for operational environment variables, used by `config/runtime.exs`.
 
   The point is fail-fast validation: a bad operational value should raise a clear,
   named error at boot rather than corrupting behavior or crashing at request time.
   The acute case is `ONLYTTY_RATELIMIT_WINDOW=0`, which would otherwise reach
-  `Onlytty.RateLimit` as a window of `0` and raise `ArithmeticError` on the first
+  `OnlyTTY.RateLimit` as a window of `0` and raise `ArithmeticError` on the first
   `div(now, window)` — a runtime crash, not a boot failure.
   """
 

@@ -25,20 +25,20 @@ jobs:
     name: gate (check + e2e + audit)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           ref: ${{ inputs.ref || github.ref }}
-      - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
         with:
           go-version-file: runner/go.mod
           cache-dependency-path: runner/go.sum
-      - uses: erlef/setup-beam@fc68ffb90438ef2936bbb3251622353b3dcb2f93 # v1
+      - uses: erlef/setup-beam@54075bcc5e249e4758d363f27d099f55d843f124 # v1.24.1
         with:
-          otp-version: "29"
-          elixir-version: "1.20"
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+          otp-version: "29.0.2"
+          elixir-version: "1.20.2"
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
-          node-version: "26"
+          node-version: "26.4.0"
       - run: mix deps.get
         working-directory: portal
       - run: npm ci
@@ -58,10 +58,10 @@ jobs:
       id-token: write # mint the OIDC token Sigstore signs the attestation with
       attestations: write # record the build provenance
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           ref: ${{ inputs.ref || github.ref }}
-      - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
         with:
           go-version-file: runner/go.mod
           cache-dependency-path: runner/go.sum
@@ -83,7 +83,7 @@ jobs:
       - name: Attest build provenance for the binaries
         # SLSA provenance for every tarball listed in SHA256SUMS. Keyless (Sigstore,
         # via the OIDC token) — no secrets. Verify: gh attestation verify <tarball> --repo <repo>
-        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
+        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
         with:
           subject-checksums: dist/SHA256SUMS
       - name: Publish release
@@ -104,7 +104,7 @@ jobs:
       id-token: write # mint the OIDC token Sigstore signs the attestation with
       attestations: write # record the build provenance
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           ref: ${{ inputs.ref || github.ref }}
       - name: Image name (GHCR requires lowercase)
@@ -119,7 +119,7 @@ jobs:
       # pull and run without emulation. QEMU emulates arm64 for the build on the amd64
       # runner; buildx produces a single manifest list. The arm64 build runs the Elixir
       # release compile under emulation, so this step is slower than a single-arch build.
-      - uses: docker/setup-qemu-action@06116385d9baf250c9f4dcb4858b16962ea869c3 # v4.1.0
+      - uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4.2.0
       - uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4.1.0
       - uses: docker/metadata-action@80c7e94dd9b9319bd5eb7a0e0fe9291e23a2a2e9 # v6.1.0
         id: meta
@@ -128,7 +128,7 @@ jobs:
           tags: |
             type=semver,pattern={{version}}
             type=raw,value=latest
-      - uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7.2.0
+      - uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         id: build
         with:
           context: ./portal
@@ -139,7 +139,7 @@ jobs:
       - name: Attest build provenance for the image
         # Keyless SLSA provenance, pushed alongside the image in GHCR. Verify:
         # gh attestation verify oci://<image>:<tag> --repo <repo>
-        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
+        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
         with:
           subject-name: ${{ steps.img.outputs.name }}
           subject-digest: ${{ steps.build.outputs.digest }}

@@ -1,4 +1,4 @@
-defmodule OnlyttyWeb.MetricsTest do
+defmodule OnlyTTYWeb.MetricsTest do
   @moduledoc """
   `GET /metrics` exposes aggregate operator counters in Prometheus text format.
 
@@ -6,10 +6,10 @@ defmodule OnlyttyWeb.MetricsTest do
   the *delta* across an action rather than an absolute value — other tests bump the
   same counters. `async: false` keeps each delta attributable to its own action.
   """
-  use OnlyttyWeb.ConnCase, async: false
+  use OnlyTTYWeb.ConnCase, async: false
 
-  alias Onlytty.{Metrics, SessionStore, WSClient}
-  import Onlytty.Test.RuntimeEnv, only: [with_runtime_env: 2]
+  alias OnlyTTY.{Metrics, SessionStore, WSClient}
+  import OnlyTTY.Test.RuntimeEnv, only: [with_runtime_env: 2]
 
   defp delta(name, fun) do
     before = Metrics.value(name)
@@ -37,7 +37,7 @@ defmodule OnlyttyWeb.MetricsTest do
   end
 
   test "a viewer upgrade for an unknown id increments the 404 counter" do
-    port = Application.get_env(:onlytty, OnlyttyWeb.Endpoint)[:http][:port]
+    port = Application.get_env(:onlytty, OnlyTTYWeb.Endpoint)[:http][:port]
 
     assert delta(:upgrade_not_found, fn ->
              pid = WSClient.open(port)
@@ -47,7 +47,7 @@ defmodule OnlyttyWeb.MetricsTest do
   end
 
   test "a second viewer under the single-viewer lock increments the busy counter" do
-    port = Application.get_env(:onlytty, OnlyttyWeb.Endpoint)[:http][:port]
+    port = Application.get_env(:onlytty, OnlyTTYWeb.Endpoint)[:http][:port]
     {:ok, s} = SessionStore.create_or_attach(tok(), tok(), [])
 
     assert delta(:viewer_busy_rejects, fn ->

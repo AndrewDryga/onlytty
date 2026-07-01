@@ -1,4 +1,4 @@
-defmodule OnlyttyWeb.ClientIP do
+defmodule OnlyTTYWeb.ClientIP do
   @moduledoc """
   Resolves the client IP to key `POST /api/sessions` rate limiting on, in a way that
   is proxy-aware WITHOUT trusting a spoofable `X-Forwarded-For` from arbitrary clients.
@@ -20,7 +20,7 @@ defmodule OnlyttyWeb.ClientIP do
   offset we read. A short or malformed header falls back to the direct peer.
 
   This is deliberately scoped to the rate-limit key. It never rewrites `conn.remote_ip`,
-  because `OnlyttyWeb.MetricsAccess` relies on that being the real TCP peer for its
+  because `OnlyTTYWeb.MetricsAccess` relies on that being the real TCP peer for its
   loopback gate — resolving a spoofed `X-Forwarded-For` into it would let an attacker
   claim `127.0.0.1` and read `/metrics`.
   """

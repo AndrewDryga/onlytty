@@ -1,5 +1,5 @@
 golang 1.26.4
-nodejs 26.3.0
+nodejs 26.4.0
 erlang 29.0.2
-elixir 1.20.1-otp-29
-terraform 1.14.0
+elixir 1.20.2-otp-29
+terraform 1.15.7

@@ -17,7 +17,7 @@ services:
       - "4001:4000" # direct (no proxy) — used to assert force_ssl redirects http→https
 
   caddy:
-    image: caddy:2
+    image: caddy:2.11.4
     depends_on:
       - onlytty
     ports:
