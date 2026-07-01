@@ -234,8 +234,9 @@ resource "google_compute_region_instance_group_manager" "onlytty" {
   }
 
   update_policy {
-    type           = "PROACTIVE"
-    minimal_action = "REPLACE"
+    type                         = "PROACTIVE"
+    minimal_action               = "REPLACE"
+    instance_redistribution_type = "NONE"
     # Keep full capacity during a deploy — surge new instances up first, never drop a
     # healthy one — so sessions migrate as old instances drain (see OnlyTTY.Drain).
     max_surge_fixed       = 3
