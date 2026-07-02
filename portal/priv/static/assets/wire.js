@@ -46,7 +46,7 @@ export function decodeControl(b) {
 }
 
 export function encodeViewerPayload(viewerId, payload) {
-  if (!viewerId) return payload;
+  if (!viewerId) throw new Error("viewer id required");
   const id = enc.encode(viewerId).subarray(0, 255);
   const out = new Uint8Array(VIEWER_PAYLOAD_MAGIC.length + 1 + id.length + payload.length);
   out.set(VIEWER_PAYLOAD_MAGIC, 0);
@@ -57,12 +57,13 @@ export function encodeViewerPayload(viewerId, payload) {
 }
 
 export function decodeViewerPayload(payload) {
-  if (payload.length < VIEWER_PAYLOAD_MAGIC.length) return { viewerId: "", payload };
+  if (payload.length < VIEWER_PAYLOAD_MAGIC.length) throw new Error("bad viewer payload");
   for (let i = 0; i < VIEWER_PAYLOAD_MAGIC.length; i++) {
-    if (payload[i] !== VIEWER_PAYLOAD_MAGIC[i]) return { viewerId: "", payload };
+    if (payload[i] !== VIEWER_PAYLOAD_MAGIC[i]) throw new Error("bad viewer payload");
   }
   if (payload.length < VIEWER_PAYLOAD_MAGIC.length + 1) throw new Error("short viewer payload");
   const n = payload[VIEWER_PAYLOAD_MAGIC.length];
+  if (n === 0) throw new Error("bad viewer payload");
   const start = VIEWER_PAYLOAD_MAGIC.length + 1;
   if (payload.length < start + n) throw new Error("short viewer payload");
   return { viewerId: dec.decode(payload.subarray(start, start + n)), payload: payload.subarray(start + n) };

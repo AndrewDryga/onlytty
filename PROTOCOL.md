@@ -123,7 +123,7 @@ viewer → runner (sealed with `k_v2r`):
 
 `CONTROL.state` is per viewer. In multi-viewer sessions, only the current owner sees
 `granted`; a requester denied because another viewer owns the terminal sees state `2`.
-The host's `--control` policy (`auto` / `view-only` / `once`; `ask` is a deprecated alias for `auto`) and the `SIGUSR1` revoke
+The host's `--control` policy (`auto` / `view-only` / `once`) and the `SIGUSR1` revoke
 decide when ownership is granted or cleared.
 
 `HELLO` is the first frame the runner sends to a newly-joined viewer; `baseline` is
@@ -144,12 +144,11 @@ carrying that self-chosen id:
 The payload after `viewer_id` is the kind-specific payload from the table above. This
 `viewer_id` is chosen by the viewer and sealed inside the encrypted payload, so an
 untrusted relay can neither read, pick, nor duplicate it. The runner keys control
-ownership and the replay floor on it. Legacy payloads without the `OVP1` magic are
-accepted as an empty viewer id for single-viewer compatibility.
+ownership and the replay floor on it. Payloads without the `OVP1` magic are invalid.
 
 The relay does not decrypt this envelope. Separately, it assigns each viewer socket a
-relay routing id and, when the runner has advertised support, wraps the opaque
-viewer→runner binary WebSocket frame in plaintext metadata carrying that routing id:
+relay routing id and wraps the opaque viewer→runner binary WebSocket frame in plaintext
+metadata carrying that routing id:
 
 ```
 | "OTV1" (4 bytes) | viewer_id_len (uint8) | viewer_id | sealed_frame |
@@ -189,7 +188,7 @@ The relay forwards `frame` as binary only to that viewer.
 relay → client:
 
 ```json
-{"t":"hello","role":"runner|viewer","viewers":N,"locked":true,"expires_at":N,"viewer_protocol":1}
+{"t":"hello","role":"runner|viewer","viewers":N,"locked":true,"expires_at":N}
 {"t":"hello","role":"viewer","viewer_id":"…","viewers":N,"locked":true,"expires_at":N}
 {"t":"peer_join","viewer_id":"…","viewers":N}  // runner: a viewer connected. viewer: runner is present.
 {"t":"peer_left","viewer_id":"…","viewers":N}
@@ -198,18 +197,16 @@ relay → client:
 {"t":"bye","reason":"expired|closed|idle|ended|replaced"}
 ```
 
-`hello.expires_at` is unix seconds when the session expires, or `0` for no expiry;
-`viewer_protocol` appears on the runner hello only. `going_away` is a nudge, not a
-close — the relay keeps forwarding traffic over this node until it actually stops, so
-clients keep relaying and reconnect elsewhere once the socket breaks. The `replaced` bye
-reason means a runner was displaced by a re-claim of the same id (the old socket is
-closed so a zombie can't keep injecting frames).
+`hello.expires_at` is unix seconds when the session expires, or `0` for no expiry.
+`going_away` is a nudge, not a close — the relay keeps forwarding traffic over this node
+until it actually stops, so clients keep relaying and reconnect elsewhere once the socket
+breaks. The `replaced` bye reason means a runner was displaced by a re-claim of the same
+id (the old socket is closed so a zombie can't keep injecting frames).
 
 client → relay: `{"t":"bye"}` closes that client socket. A runner may send
-`{"t":"runner_ready","viewer_protocol":1}` to opt into relay viewer envelopes and
 `{"t":"bye","reason":"ended"}` after its command exits; the relay closes the whole
-session so viewers see an explicit final state even if the encrypted `EXIT` frame
-was missed.
+session so viewers see an explicit final state even if the encrypted `EXIT` frame was
+missed.
 
 When a viewer connects, the relay sends the runner `{"t":"peer_join"}`; the runner
 replies (over the binary channel) with `HELLO` + buffer replay. The relay forwards

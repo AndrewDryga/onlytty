@@ -35,7 +35,6 @@ defmodule OnlyTTYWeb.OnlyTTYSocketTest do
       viewer_peers: %{},
       peer_ids: %{},
       viewer_id: "v1",
-      viewer_protocol: false,
       max_queue: max_queue
     }
   end
@@ -182,7 +181,7 @@ defmodule OnlyTTYWeb.OnlyTTYSocketTest do
   end
 
   describe "binary relay (the core)" do
-    test "binary frames are delivered byte-identical in both directions", %{port: port} do
+    test "runner output broadcasts raw and viewer input is labelled", %{port: port} do
       s = new_session()
 
       runner = WSClient.open(port)
@@ -191,7 +190,8 @@ defmodule OnlyTTYWeb.OnlyTTYSocketTest do
 
       viewer = WSClient.open(port)
       v_ref = WSClient.connect!(viewer, "/ws/viewer/#{s.id}", [])
-      assert WSClient.recv_json(viewer, v_ref)["t"] == "hello"
+      v_hello = WSClient.recv_json(viewer, v_ref)
+      assert v_hello["t"] == "hello"
       # viewer sees runner present
       assert WSClient.recv_json(viewer, v_ref)["t"] == "peer_join"
       # runner sees the viewer join
@@ -202,10 +202,10 @@ defmodule OnlyTTYWeb.OnlyTTYSocketTest do
       WSClient.send_binary(runner, r_ref, payload)
       assert WSClient.recv_binary(viewer, v_ref) == payload
 
-      # viewer -> runner
+      # viewer -> runner is relay-labelled for the runner.
       back = :crypto.strong_rand_bytes(64)
       WSClient.send_binary(viewer, v_ref, back)
-      assert WSClient.recv_binary(runner, r_ref) == back
+      assert WSClient.recv_binary(runner, r_ref) == relay_viewer_frame(v_hello["viewer_id"], back)
 
       WSClient.close(runner)
       WSClient.close(viewer)
@@ -393,12 +393,17 @@ defmodule OnlyTTYWeb.OnlyTTYSocketTest do
       assert WSClient.recv_binary(v1, v1_ref) == payload
       assert WSClient.recv_binary(v2, v2_ref) == payload
 
-      # Without runner opt-in, each viewer's input reaches the runner verbatim: legacy
-      # single-viewer runners keep working during a rolling deploy.
+      # Viewer input is always labelled for the runner; the encrypted payload itself
+      # stays opaque to the relay.
       WSClient.send_binary(v1, v1_ref, <<1, 1, 1>>)
-      assert WSClient.recv_binary(runner, r_ref) == <<1, 1, 1>>
+
+      assert WSClient.recv_binary(runner, r_ref) ==
+               relay_viewer_frame(v1_hello["viewer_id"], <<1, 1, 1>>)
+
       WSClient.send_binary(v2, v2_ref, <<2, 2, 2>>)
-      assert WSClient.recv_binary(runner, r_ref) == <<2, 2, 2>>
+
+      assert WSClient.recv_binary(runner, r_ref) ==
+               relay_viewer_frame(v2_hello["viewer_id"], <<2, 2, 2>>)
 
       WSClient.close(runner)
       WSClient.close(v1)
@@ -446,14 +451,13 @@ defmodule OnlyTTYWeb.OnlyTTYSocketTest do
       WSClient.close(runner)
     end
 
-    test "runner opt-in labels viewer input and targeted frames reach only one viewer",
+    test "viewer input is labelled and targeted frames reach only one viewer",
          %{port: port} do
       s = new_session(locked: false)
 
       runner = WSClient.open(port)
       r_ref = WSClient.connect!(runner, "/ws/runner/#{s.id}", runner_headers(s.runner_token))
       assert WSClient.recv_json(runner, r_ref)["t"] == "hello"
-      WSClient.send_text(runner, r_ref, Jason.encode!(%{t: "runner_ready", viewer_protocol: 1}))
 
       v1 = WSClient.open(port)
       v1_ref = WSClient.connect!(v1, "/ws/viewer/#{s.id}", [])

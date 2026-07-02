@@ -36,14 +36,12 @@ test("decodeHello rejects a short body", () => {
   assert.throws(() => decodeHello(new Uint8Array(11)), /short hello/);
 });
 
-test("viewer payload wrapper round-trips and leaves legacy payloads alone", () => {
+test("viewer payload wrapper round-trips and rejects unwrapped payloads", () => {
   const wrapped = encodeViewerPayload("viewer-a", new Uint8Array([1, 2, 3]));
   const got = decodeViewerPayload(wrapped);
   assert.equal(got.viewerId, "viewer-a");
   assert.deepEqual([...got.payload], [1, 2, 3]);
 
-  const legacy = new Uint8Array([9, 8, 7]);
-  const plain = decodeViewerPayload(legacy);
-  assert.equal(plain.viewerId, "");
-  assert.equal(plain.payload, legacy);
+  assert.throws(() => encodeViewerPayload("", new Uint8Array([1])), /viewer id required/);
+  assert.throws(() => decodeViewerPayload(new Uint8Array([9, 8, 7])), /bad viewer payload/);
 });

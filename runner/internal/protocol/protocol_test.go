@@ -241,12 +241,11 @@ func TestViewerPayloadCodec(t *testing.T) {
 		t.Fatalf("viewer payload = %q %q", gotID, gotPayload)
 	}
 
-	gotID, gotPayload, err = DecodeViewerPayload([]byte("legacy"))
-	if err != nil {
-		t.Fatal(err)
+	if _, _, err = DecodeViewerPayload([]byte("raw")); err == nil {
+		t.Fatal("raw viewer payload must be rejected")
 	}
-	if gotID != "" || !bytes.Equal(gotPayload, []byte("legacy")) {
-		t.Fatalf("legacy payload = %q %q", gotID, gotPayload)
+	if _, _, err = DecodeViewerPayload(EncodeViewerPayload("", []byte("payload"))); err == nil {
+		t.Fatal("empty viewer id must be rejected")
 	}
 }
 
@@ -259,11 +258,10 @@ func TestRelayViewerFrameCodec(t *testing.T) {
 		t.Fatalf("relay frame = %q %v", gotID, gotFrame)
 	}
 
-	gotID, gotFrame, err = DecodeRelayViewerFrame([]byte{9, 8, 7})
-	if err != nil {
-		t.Fatal(err)
+	if _, _, err = DecodeRelayViewerFrame([]byte{9, 8, 7}); err == nil {
+		t.Fatal("raw relay frame must be rejected")
 	}
-	if gotID != "" || !bytes.Equal(gotFrame, []byte{9, 8, 7}) {
-		t.Fatalf("legacy relay frame = %q %v", gotID, gotFrame)
+	if _, _, err = DecodeRelayViewerFrame(EncodeRelayViewerFrame("", []byte{1, 2, 3})); err == nil {
+		t.Fatal("empty relay viewer id must be rejected")
 	}
 }

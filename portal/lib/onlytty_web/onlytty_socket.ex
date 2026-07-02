@@ -40,7 +40,6 @@ defmodule OnlyTTYWeb.OnlyTTYSocket do
   # socket has stalled and let its output backlog grow. The client's onclose just
   # reconnects and repaints from the runner's ring, so the code is advisory.
   @close_slow 1013
-  @viewer_protocol 1
   @relay_viewer_magic "OTV1"
 
   # Slow-consumer backpressure. A viewer that stops draining its socket applies no
@@ -90,8 +89,8 @@ defmodule OnlyTTYWeb.OnlyTTYSocket do
 
   @impl true
   # Binary = opaque E2E payload. Runner output broadcasts byte-for-byte to viewers.
-  # Viewer input is optionally relay-labeled with viewer id for new runners, while the
-  # encrypted payload itself remains opaque to the relay.
+  # Viewer input is relay-labeled with viewer id, while the encrypted payload itself
+  # remains opaque to the relay.
   def handle_in({data, opcode: :binary}, state) do
     case state.role do
       :runner ->
@@ -112,10 +111,6 @@ defmodule OnlyTTYWeb.OnlyTTYSocket do
       {:ok, %{"t" => "bye"} = msg} when state.role == :runner ->
         Session.close(state.session, Map.get(msg, "reason", "closed"))
         {:ok, state}
-
-      {:ok, %{"t" => "runner_ready", "viewer_protocol" => @viewer_protocol}}
-      when state.role == :runner ->
-        {:ok, %{state | viewer_protocol: true}}
 
       {:ok, %{"t" => "to_viewer"} = msg} when state.role == :runner ->
         send_to_viewer(msg, state)
@@ -142,8 +137,7 @@ defmodule OnlyTTYWeb.OnlyTTYSocket do
   end
 
   def handle_info({:onlytty_binary, viewer_id, data}, state) do
-    data = if state.viewer_protocol, do: relay_viewer_frame(viewer_id, data), else: data
-    {:push, [{:binary, data}], state}
+    {:push, [{:binary, relay_viewer_frame(viewer_id, data)}], state}
   end
 
   # Control-plane JSON from the Session (peer_join / peer_left).
@@ -219,7 +213,6 @@ defmodule OnlyTTYWeb.OnlyTTYSocket do
       viewer_peers: %{},
       peer_ids: %{},
       viewer_id: nil,
-      viewer_protocol: false,
       # Read once at connect so the hot path is a bare integer compare, no app-env lookup.
       max_queue: max_viewer_queue()
     }
@@ -255,7 +248,6 @@ defmodule OnlyTTYWeb.OnlyTTYSocket do
       expires_at: snap.expires_at
     }
     |> maybe_put(:viewer_id, Map.get(snap, :viewer_id))
-    |> maybe_put(:viewer_protocol, if(role == :runner, do: @viewer_protocol))
     |> Jason.encode!()
   end
 

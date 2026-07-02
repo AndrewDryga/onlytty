@@ -52,7 +52,6 @@ func main() { os.Exit(run()) }
 func run() int {
 	server := flag.String("server", envOr("ONLYTTY_SERVER", defaultPublicRelay), "relay origin (or ONLYTTY_SERVER); e.g. a self-hosted https://relay.example.com")
 	control := flag.String("control", "auto", "viewer control policy: auto (auto-grant control to any viewer that requests it — no host prompt; revoke with SIGUSR1), view-only (never), once (auto-grant the first request only)")
-	readOnly := flag.Bool("read-only", false, "deprecated alias for --control view-only")
 	multiViewer := flag.Bool("multi-viewer", false, "allow multiple browser viewers; only one viewer may control the terminal at a time")
 	ttl := flag.Duration("ttl", 0, "session lifetime before the link expires; 0 (default) = no expiry — the session lives as long as onlytty runs and ends when the command exits (the relay may impose a maximum)")
 	withPass := flag.Bool("passphrase", false, "prompt for a passphrase to mix into the keys (shared out-of-band; the link alone won't decrypt)")
@@ -76,13 +75,7 @@ func run() int {
 		fmt.Fprintln(os.Stderr, "onlytty: --ttl cannot be negative (0 = no expiry)")
 		return 2
 	}
-	controlSet := false
-	flag.Visit(func(f *flag.Flag) {
-		if f.Name == "control" {
-			controlSet = true
-		}
-	})
-	controlMode, err := resolveControl(*control, *readOnly, controlSet)
+	controlMode, err := resolveControl(*control)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "onlytty:", err)
 		return 2
@@ -197,18 +190,10 @@ func run() int {
 	return code
 }
 
-// resolveControl maps the --control flag (and the deprecated --read-only alias) to a
-// runner.ControlMode. --read-only forces view-only; combining it with a conflicting
-// --control is an error.
-func resolveControl(controlFlag string, readOnly, controlSet bool) (runner.ControlMode, error) {
-	if readOnly {
-		if controlSet && controlFlag != "view-only" {
-			return 0, fmt.Errorf("--read-only is a deprecated alias for --control view-only; it conflicts with --control %s", controlFlag)
-		}
-		return runner.ControlViewOnly, nil
-	}
+// resolveControl maps the --control flag to a runner.ControlMode.
+func resolveControl(controlFlag string) (runner.ControlMode, error) {
 	switch controlFlag {
-	case "auto", "ask": // "ask" is a deprecated alias — it never prompted the host.
+	case "auto":
 		return runner.ControlAuto, nil
 	case "view-only":
 		return runner.ControlViewOnly, nil

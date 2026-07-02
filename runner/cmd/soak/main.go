@@ -199,7 +199,7 @@ func (p *pair) session(ctx context.Context, wsBase string, sess *relayclient.Ses
 
 	openC, _ := protocol.NewCipher(keys.R2V, []byte(sess.ID))
 	sealC, _ := protocol.NewCipher(keys.V2R, []byte(sess.ID))
-	v := &viewer{conn: conn, open: openC, seal: sealC}
+	v := &viewer{conn: conn, open: openC, seal: sealC, id: fmt.Sprintf("viewer-%d", time.Now().UnixNano())}
 
 	kind, payload, err := v.read(ctx)
 	if err != nil {
@@ -254,6 +254,7 @@ type viewer struct {
 	conn   *websocket.Conn
 	open   *protocol.Cipher
 	seal   *protocol.Cipher
+	id     string
 	outSeq uint64
 }
 
@@ -276,7 +277,7 @@ func (v *viewer) read(ctx context.Context) (byte, []byte, error) {
 
 func (v *viewer) send(ctx context.Context, kind byte, payload []byte) error {
 	v.outSeq++
-	frame, err := v.seal.Seal(v.outSeq, kind, payload)
+	frame, err := v.seal.Seal(v.outSeq, kind, protocol.EncodeViewerPayload(v.id, payload))
 	if err != nil {
 		return err
 	}

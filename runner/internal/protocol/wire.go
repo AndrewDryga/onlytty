@@ -26,7 +26,10 @@ const (
 	ControlTaken    byte = 2
 )
 
-var errShortPayload = errors.New("protocol: payload too short")
+var (
+	errShortPayload = errors.New("protocol: payload too short")
+	errBadPayload   = errors.New("protocol: bad payload")
+)
 
 var (
 	viewerPayloadMagic = []byte("OVP1")
@@ -88,9 +91,6 @@ func DecodeExit(b []byte) (int32, error) {
 // relay cannot read this wrapper, but the runner can compare it with the relay's
 // plaintext source label to reject re-labeled frames.
 func EncodeViewerPayload(viewerID string, payload []byte) []byte {
-	if viewerID == "" {
-		return payload
-	}
 	if len(viewerID) > 255 {
 		viewerID = viewerID[:255]
 	}
@@ -102,16 +102,18 @@ func EncodeViewerPayload(viewerID string, payload []byte) []byte {
 	return b
 }
 
-// DecodeViewerPayload unwraps EncodeViewerPayload. Legacy payloads without the magic
-// are returned as viewer id "" and the original payload.
+// DecodeViewerPayload unwraps EncodeViewerPayload.
 func DecodeViewerPayload(b []byte) (viewerID string, payload []byte, err error) {
 	if len(b) < len(viewerPayloadMagic) || string(b[:len(viewerPayloadMagic)]) != string(viewerPayloadMagic) {
-		return "", b, nil
+		return "", nil, errBadPayload
 	}
 	if len(b) < len(viewerPayloadMagic)+1 {
 		return "", nil, errShortPayload
 	}
 	n := int(b[len(viewerPayloadMagic)])
+	if n == 0 {
+		return "", nil, errBadPayload
+	}
 	start := len(viewerPayloadMagic) + 1
 	if len(b) < start+n {
 		return "", nil, errShortPayload
@@ -123,9 +125,6 @@ func DecodeViewerPayload(b []byte) (viewerID string, payload []byte, err error) 
 // relay-assigned viewer id. It carries metadata only; terminal bytes remain inside
 // the sealed frame.
 func EncodeRelayViewerFrame(viewerID string, sealedFrame []byte) []byte {
-	if viewerID == "" {
-		return sealedFrame
-	}
 	if len(viewerID) > 255 {
 		viewerID = viewerID[:255]
 	}
@@ -137,16 +136,18 @@ func EncodeRelayViewerFrame(viewerID string, sealedFrame []byte) []byte {
 	return b
 }
 
-// DecodeRelayViewerFrame unwraps EncodeRelayViewerFrame. Raw legacy frames are
-// returned with viewer id "" and the original frame.
+// DecodeRelayViewerFrame unwraps EncodeRelayViewerFrame.
 func DecodeRelayViewerFrame(b []byte) (viewerID string, sealedFrame []byte, err error) {
 	if len(b) < len(relayViewerMagic) || string(b[:len(relayViewerMagic)]) != string(relayViewerMagic) {
-		return "", b, nil
+		return "", nil, errBadPayload
 	}
 	if len(b) < len(relayViewerMagic)+1 {
 		return "", nil, errShortPayload
 	}
 	n := int(b[len(relayViewerMagic)])
+	if n == 0 {
+		return "", nil, errBadPayload
+	}
 	start := len(relayViewerMagic) + 1
 	if len(b) < start+n {
 		return "", nil, errShortPayload

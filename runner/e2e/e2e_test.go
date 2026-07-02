@@ -39,6 +39,7 @@ type viewer struct {
 	conn   *websocket.Conn
 	open   *protocol.Cipher // r2v
 	seal   *protocol.Cipher // v2r
+	id     string
 	outSeq uint64
 	out    strings.Builder
 }
@@ -62,7 +63,7 @@ func (v *viewer) read(ctx context.Context) (byte, []byte, error) {
 
 func (v *viewer) send(ctx context.Context, kind byte, payload []byte) error {
 	v.outSeq++
-	frame, err := v.seal.Seal(v.outSeq, kind, payload)
+	frame, err := v.seal.Seal(v.outSeq, kind, protocol.EncodeViewerPayload(v.id, payload))
 	if err != nil {
 		return err
 	}
@@ -125,7 +126,7 @@ func TestEndToEnd(t *testing.T) {
 
 	openC, _ := protocol.NewCipher(keys.R2V, []byte(sess.ID))
 	sealC, _ := protocol.NewCipher(keys.V2R, []byte(sess.ID))
-	v := &viewer{conn: conn, open: openC, seal: sealC}
+	v := &viewer{conn: conn, open: openC, seal: sealC, id: "e2e-viewer"}
 
 	// 1) Expect HELLO first; adopt the seq baseline.
 	kind, payload, err := v.read(ctx)

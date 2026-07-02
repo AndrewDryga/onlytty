@@ -17,7 +17,6 @@ The OG card is the exception: it's generated from HTML (see `og.html` below).
 |-------------------|-----------------|----------|
 | `app-icon.png` | `priv/static/assets/icon-192.png` (192×192), `icon-512.png` (512×512), `apple-touch-icon.png` (180×180), `priv/static/favicon.ico` | PWA manifest icons, iOS home-screen icon, favicon |
 | `og.html` (rendered by `og-render.mjs`) | `priv/static/assets/og.png` (1200×630) | Open Graph / social link preview |
-| `banner.png` | — | legacy hand-drawn OG source, superseded by `og.html` (kept as a historical original) |
 | `mascot-color.png` | `priv/static/assets/brand/mascot.png` | the mascot shown on the site |
 | `mascot-mono.png` | — | monochrome mascot variant; not currently served |
 | `logo-lockup-light.png` | — | wordmark/lockup for external use (READMEs, decks); not currently served |
@@ -32,6 +31,5 @@ The OG card (`og.png`) is generated, not hand-exported: edit `og.html`, then
 1200×630, then pngquant + oxipng optimize). It uses the live design tokens + the
 app icon, so it stays on-brand and shows the current `$ onlytty -- claude`.
 
-Since the repo isn't published yet, dropping these sources entirely (keeping them in
-the design tool / a release artifact) is a legitimate alternative to versioning them
-here — they're only originals, not built outputs.
+These are source originals, not built outputs; remove any source that no longer maps to
+a served asset or active external use.

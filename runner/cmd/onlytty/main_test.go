@@ -91,24 +91,19 @@ func TestWriteQRHalfBlock(t *testing.T) {
 
 func TestResolveControl(t *testing.T) {
 	cases := []struct {
-		name     string
-		flag     string
-		readOnly bool
-		set      bool
-		want     runner.ControlMode
-		wantErr  bool
+		name    string
+		flag    string
+		want    runner.ControlMode
+		wantErr bool
 	}{
-		{"default auto", "auto", false, false, runner.ControlAuto, false},
-		{"ask is a deprecated alias for auto", "ask", false, true, runner.ControlAuto, false},
-		{"explicit view-only", "view-only", false, true, runner.ControlViewOnly, false},
-		{"once", "once", false, true, runner.ControlOnce, false},
-		{"read-only alias maps to view-only", "auto", true, false, runner.ControlViewOnly, false},
-		{"read-only with matching view-only is fine", "view-only", true, true, runner.ControlViewOnly, false},
-		{"read-only conflicts with once", "once", true, true, 0, true},
-		{"unknown mode errors", "bogus", false, true, 0, true},
+		{"default auto", "auto", runner.ControlAuto, false},
+		{"explicit view-only", "view-only", runner.ControlViewOnly, false},
+		{"once", "once", runner.ControlOnce, false},
+		{"old ask mode is rejected", "ask", 0, true},
+		{"unknown mode errors", "bogus", 0, true},
 	}
 	for _, c := range cases {
-		got, err := resolveControl(c.flag, c.readOnly, c.set)
+		got, err := resolveControl(c.flag)
 		if c.wantErr {
 			if err == nil {
 				t.Errorf("%s: expected an error, got mode %v", c.name, got)

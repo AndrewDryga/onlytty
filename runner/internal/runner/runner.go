@@ -91,9 +91,8 @@ type Orchestrator struct {
 	controlOwner  string            // viewer-chosen id that may write; "" = no owner
 	ownerRoute    string            // owner's relay routing id, for addressing its control frames
 
-	onceUsed            atomic.Bool // ControlOnce: the one-time grant has been consumed
-	viewers             atomic.Int32
-	relayViewerProtocol atomic.Bool
+	onceUsed atomic.Bool // ControlOnce: the one-time grant has been consumed
+	viewers  atomic.Int32
 
 	altScreen atomic.Bool  // child is in the alternate screen buffer (vim/htop/less/…)
 	lastCtl   atomic.Int64 // unixnano of the child's last cursor/line-control output
@@ -115,7 +114,6 @@ type outMsg struct {
 // exits, so a viewer that missed the encrypted EXIT still sees a terminal state
 // (the relay closes the session on it — see PROTOCOL.md). It leaks nothing.
 var byeEnded = []byte(`{"t":"bye","reason":"ended"}`)
-var runnerReady = []byte(`{"t":"runner_ready","viewer_protocol":1}`)
 
 type connState struct {
 	ws      *websocket.Conn
@@ -415,7 +413,6 @@ func (o *Orchestrator) serveConn(ctx context.Context, conn *websocket.Conn) {
 	swg.Wait()
 	o.viewers.Store(0)
 	o.clearControlOwner()
-	o.relayViewerProtocol.Store(false)
 }
 
 // reader consumes relay control (text) and viewer payload (binary) frames.
@@ -494,7 +491,7 @@ func (o *Orchestrator) writeMsg(ctx context.Context, c *connState, target string
 	if err != nil {
 		return err
 	}
-	if target != "" && o.relayViewerProtocol.Load() {
+	if target != "" {
 		return o.writeTargetFrame(ctx, c, target, frame)
 	}
 	wctx, cancel := context.WithTimeout(ctx, writeTimeout)
@@ -525,10 +522,9 @@ func (o *Orchestrator) writeText(ctx context.Context, c *connState, payload []by
 
 func (o *Orchestrator) handleControl(c *connState, data []byte) {
 	var m struct {
-		T              string `json:"t"`
-		Viewers        int    `json:"viewers"`
-		ViewerID       string `json:"viewer_id"`
-		ViewerProtocol int    `json:"viewer_protocol"`
+		T        string `json:"t"`
+		Viewers  int    `json:"viewers"`
+		ViewerID string `json:"viewer_id"`
 	}
 	if json.Unmarshal(data, &m) != nil {
 		return
@@ -536,10 +532,6 @@ func (o *Orchestrator) handleControl(c *connState, data []byte) {
 	switch m.T {
 	case "hello":
 		o.viewers.Store(int32(m.Viewers))
-		if m.ViewerProtocol == 1 {
-			o.relayViewerProtocol.Store(true)
-			o.emitText(runnerReady)
-		}
 		if m.Viewers > 0 {
 			signal(c.join, "")
 		}
@@ -613,45 +605,35 @@ func (o *Orchestrator) handleBinary(frame []byte) {
 	}
 }
 
-const legacyViewerID = "\x00legacy"
-
-func viewerKey(viewerID string) string {
-	if viewerID == "" {
-		return legacyViewerID
-	}
-	return viewerID
-}
-
 // bindRoute records the relay routing id → viewer-chosen id mapping so that, when the
 // relay reports the viewer left (by routing id), the runner forgets the right
 // self-keyed floor/ownership. Only called for frames that pass the replay floor.
 func (o *Orchestrator) bindRoute(routeID, viewerID string) {
 	o.stateMu.Lock()
-	o.selfByRoute[viewerKey(routeID)] = viewerKey(viewerID)
+	o.selfByRoute[routeID] = viewerID
 	o.stateMu.Unlock()
 }
 
 func (o *Orchestrator) baseline(viewerID string) uint64 {
 	o.stateMu.Lock()
 	defer o.stateMu.Unlock()
-	return o.inSeqByViewer[viewerKey(viewerID)] + 1
+	return o.inSeqByViewer[viewerID] + 1
 }
 
 func (o *Orchestrator) acceptSeq(viewerID string, seq uint64) bool {
-	key := viewerKey(viewerID)
 	o.stateMu.Lock()
 	defer o.stateMu.Unlock()
-	if seq <= o.inSeqByViewer[key] {
+	if seq <= o.inSeqByViewer[viewerID] {
 		return false
 	}
-	o.inSeqByViewer[key] = seq
+	o.inSeqByViewer[viewerID] = seq
 	return true
 }
 
 func (o *Orchestrator) viewerHasControl(viewerID string) bool {
 	o.stateMu.Lock()
 	defer o.stateMu.Unlock()
-	return o.controlOwner == viewerKey(viewerID)
+	return o.controlOwner == viewerID
 }
 
 func (o *Orchestrator) controlState(viewerID string) byte {
@@ -660,7 +642,7 @@ func (o *Orchestrator) controlState(viewerID string) byte {
 	switch owner := o.controlOwner; {
 	case owner == "":
 		return protocol.ControlReadOnly
-	case owner == viewerKey(viewerID):
+	case owner == viewerID:
 		return protocol.ControlGranted
 	default:
 		return protocol.ControlTaken
@@ -681,19 +663,8 @@ func (o *Orchestrator) clearControlOwner() {
 func (o *Orchestrator) forgetViewer(routeID string) {
 	o.stateMu.Lock()
 	defer o.stateMu.Unlock()
-	if routeID == "" {
-		// Legacy single-viewer: no per-viewer routing. Reset once the last viewer left.
-		if o.viewers.Load() == 0 {
-			o.inSeqByViewer = make(map[string]uint64)
-			o.selfByRoute = make(map[string]string)
-			o.controlOwner = ""
-			o.ownerRoute = ""
-		}
-		return
-	}
-	routeKey := viewerKey(routeID)
-	if self, ok := o.selfByRoute[routeKey]; ok {
-		delete(o.selfByRoute, routeKey)
+	if self, ok := o.selfByRoute[routeID]; ok {
+		delete(o.selfByRoute, routeID)
 		delete(o.inSeqByViewer, self)
 		if o.controlOwner == self {
 			o.controlOwner = ""
@@ -708,13 +679,12 @@ func (o *Orchestrator) forgetViewer(routeID string) {
 }
 
 func (o *Orchestrator) handleControlRequest(viewerID, routeID string) {
-	key := viewerKey(viewerID)
 	state := protocol.ControlReadOnly
 	notify := false
 
 	o.stateMu.Lock()
 	switch {
-	case o.controlOwner == key:
+	case o.controlOwner == viewerID:
 		state = protocol.ControlGranted
 	case o.controlOwner != "":
 		state = protocol.ControlTaken
@@ -724,7 +694,7 @@ func (o *Orchestrator) handleControlRequest(viewerID, routeID string) {
 		if o.control == ControlOnce {
 			o.onceUsed.Store(true)
 		}
-		o.controlOwner = key
+		o.controlOwner = viewerID
 		o.ownerRoute = routeID
 		state = protocol.ControlGranted
 		notify = true
@@ -738,11 +708,10 @@ func (o *Orchestrator) handleControlRequest(viewerID, routeID string) {
 }
 
 func (o *Orchestrator) handleControlRelease(viewerID, routeID string) {
-	key := viewerKey(viewerID)
 	released := false
 
 	o.stateMu.Lock()
-	if o.controlOwner == key {
+	if o.controlOwner == viewerID {
 		o.controlOwner = ""
 		o.ownerRoute = ""
 		released = true

@@ -115,10 +115,8 @@ onlytty [flags] -- <cmd>...  share one command
   --control <mode>   viewer control policy: auto (default; auto-grants control to
                      any viewer that requests it — there is no host approval
                      prompt), view-only (never), or once (auto-grant the first
-                     request only). "ask" is accepted as a deprecated alias for
-                     auto. Take control back any time (any mode) with:
+                     request only). Take control back any time (any mode) with:
                      kill -USR1 <onlytty-pid>
-  --read-only        deprecated alias for --control view-only
   --multi-viewer     allow multiple browser viewers; only one viewer can control
                      the terminal at a time
   --ttl <dur>        session lifetime before the link expires. Default: no expiry —
