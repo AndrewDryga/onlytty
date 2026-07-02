@@ -15,7 +15,8 @@ runner-check: ## Runner: gofmt + vet + tests
 	@gofmt -l runner | (! grep .) || { echo "gofmt: run gofmt -w runner"; exit 1; }
 	@cd runner && go vet ./... && go test ./...
 
-web-check: ## Web viewer: Node interop + unit tests
+web-check: ## Web viewer: syntax-check first-party JS + Node interop/unit tests
+	@for f in portal/priv/static/assets/*.js; do node --check "$$f" || exit 1; done
 	@node --test dev/test/web/*.test.js
 
 server-check: ## Relay server: format check + warnings-as-errors + tests
