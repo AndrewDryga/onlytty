@@ -43,8 +43,10 @@ can drop/observe-timing/deny, but cannot read or forge terminal IO.
 https://<host>/s/<id>#<base64url(S)>
 ```
 
-The runner prints this (and a QR of it) locally. The fragment never leaves the
-browser, so the relay only ever learns `<id>`. With a passphrase (optional), the
+The runner prints this (and a QR of it) locally. The fragment is never sent to a
+server, so the relay only ever learns `<id>` — but it does persist client-side (the
+browser's history/URL and cross-device sync), so the link is a bearer capability that
+should be treated like a password. With a passphrase (optional), the
 fragment is `#<base64url(S)>.p` — the trailing `.p` flags that a passphrase must be
 mixed in (the passphrase itself is shared out-of-band, never in the link).
 

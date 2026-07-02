@@ -356,7 +356,7 @@ defmodule OnlyTTYWeb.Site.Page do
         </div>
         <div class="steps">
           #{step("01", "Run it", "<code>onlytty -- claude</code> — or just <code>onlytty</code> to share your whole shell. It keeps running in your terminal and prints a link plus a QR code.")}
-          #{step("02", "Scan it", "Open the link on your phone. The session secret rides in the URL <code>#fragment</code>, which never leaves the browser — so the relay can't read a thing.")}
+          #{step("02", "Scan it", "Open the link on your phone. The session secret rides in the URL <code>#fragment</code>, which the browser never sends to a server — so the relay can't read a thing. It does stay in your browser history, so treat the link like a password.")}
           #{step("03", "Drive it", "Watch live, or tap <em>take control</em> to type — anyone with the link can, so share it like a key (or start <code>--control view-only</code>). Lose signal? It reconnects and picks up where you left off.")}
         </div>
       </div>

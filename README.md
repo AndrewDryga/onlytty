@@ -38,7 +38,8 @@ your machine                      relay (untrusted)             browser (phone /
 │  prints link + QR  │            │  nothing         │          │  reconnect / resume    │
 └────────────────────┘            └──────────────────┘          └────────────────────────┘
         the QR carries a URL whose #fragment holds the session secret — the fragment
-        never leaves the browser, so the relay only ever learns the session id.
+        is never sent to a server, so the relay only ever learns the session id
+        (it does stay in this browser's history/URL — treat the link like a password).
 ```
 
 The runner generates a 32-byte secret, derives directional AES-256-GCM keys from it
@@ -169,9 +170,14 @@ It is **not** zero-trust, and here's the honest residue:
   can't be cached), and the third-party code (xterm) is vendored and
   Subresource-Integrity-pinned. A native viewer (no browser JS) would remove this
   caveat entirely.
-- **The link is a capability.** Anyone you forward it to becomes a viewer. Mitigate
-  with a short `--ttl`, the single-viewer lock (default; opt into several watchers
-  with `--multi-viewer`), and `--passphrase`.
+- **The link is a capability, and it leaves local traces.** Anyone you forward it to
+  becomes a viewer. The `#fragment` secret is never *sent* to a server, but it still
+  persists in this browser's history and address bar, and can be replicated to your
+  other devices by browser sync (Chrome/Safari account sync). The viewer re-reads the
+  fragment on reload, so stripping the URL would break a manual refresh — hence it's
+  documented, not "fixed". Treat the link like a password: a short `--ttl`, the
+  single-viewer lock (default; opt into several watchers with `--multi-viewer`),
+  `--passphrase`, and don't paste it into shared or synced places.
 - **Trust the fingerprint, not the prose.** The fingerprint shown at both ends is
   derived from the secret and is trustworthy. A "viewer connected" notice in the
   terminal is relay-delivered metadata and could be spoofed by a hostile relay (which

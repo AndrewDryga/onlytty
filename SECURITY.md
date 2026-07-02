@@ -31,9 +31,17 @@ read-only viewer cannot type or resize the host. The full contract is [PROTOCOL.
   Vendored files carry a content hash in their filename (e.g. `xterm.<hash>.js`) and
   are served `immutable`, so any upgrade changes the URL — a browser can never reuse
   a stale cached copy that would fail the new page's SRI check.
-- **The link is a capability.** Anyone with the link is a viewer. Use a short
-  `--ttl`, the single-viewer lock (on by default), and `--passphrase` to require a
-  second secret shared out-of-band. As defense-in-depth, browser viewer WebSocket
+- **The link is a capability, and it leaves local traces.** Anyone with the link is
+  a viewer. The `#fragment` secret is never *sent* to a server, but it still persists
+  client-side: in that browser's history and address bar (shoulder-surfing), and —
+  most notably — in cross-device browser sync (Chrome/Safari account sync), which can
+  replicate the full secret URL to your other devices and the vendor's cloud. The
+  viewer must re-read the fragment to re-derive keys on reload, so it can't strip the
+  URL without breaking a manual refresh; treat the link like a password instead: don't
+  paste it into shared or synced places, prefer a short `--ttl` and/or `--passphrase`,
+  and close the tab when you're done. Use the single-viewer lock (on by default) and
+  `--passphrase` to require a second secret shared out-of-band. As defense-in-depth,
+  browser viewer WebSocket
   upgrades are same-origin-checked (host must match, or an `ONLYTTY_ALLOWED_ORIGINS`
   allowlist) so a drive-by page can't occupy the viewer slot with a leaked id — this
   is *not* the boundary (E2E + the fragment secret are); non-browser clients, which
