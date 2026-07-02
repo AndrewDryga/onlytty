@@ -441,9 +441,12 @@ term.onData((d) => {
 });
 
 // --- expiry countdown --------------------------------------------------------
-// The session has a server-side TTL; show the time remaining and, if we reach it,
-// fall to a terminal state ourselves so a missed EXIT can never leave the viewer
-// hanging at "waiting…" indefinitely.
+// The session has a server-side TTL; show the time remaining. The countdown is
+// display-only: the relay is the authority on expiry and sends `bye`/`expired`
+// when the TTL fires, so hitting 0 here — which may just mean a fast device
+// clock — shows "expiring…" and waits for that bye instead of disconnecting a
+// session the relay still considers live. A viewer that never gets the bye
+// (relay gone) still ends via the reconnect give-up budget, not this clock.
 function startTtl() {
   if (ttlTimer) { clearInterval(ttlTimer); ttlTimer = null; }
   if (expiresAt === 0) { // 0 = no server-side expiry (lives as long as the runner runs)
@@ -463,10 +466,10 @@ function stopTtl() {
 function tickTtl() {
   if (ended || expiresAt == null) { stopTtl(); return; }
   const rem = expiresAt - Math.floor(Date.now() / 1000);
-  if (rem <= 0) { stopTtl(); leave("session expired", "expired"); return; }
   const el = $("ttl");
   el.hidden = false;
-  el.textContent = "expires in " + fmtDur(rem);
+  // Keep ticking past 0: a clock corrected backwards (NTP) recovers the countdown.
+  el.textContent = rem <= 0 ? "expiring…" : "expires in " + fmtDur(rem);
   el.classList.toggle("soon", rem <= 300);
 }
 function fmtDur(s) {
@@ -478,8 +481,9 @@ function fmtDur(s) {
   return `${sec}s`;
 }
 
-// Terminal-state transition shared by Disconnect and expiry: stop reconnecting,
-// close the socket (which frees the single-viewer slot), and show why.
+// Terminal-state transition shared by Disconnect and the fingerprint-mismatch
+// bail: stop reconnecting, close the socket (which frees the single-viewer
+// slot), and show why.
 function leave(line, status) {
   if (ended) return;
   ended = true; noReconnect = true; hasControl = false;

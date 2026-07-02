@@ -491,6 +491,61 @@ test("browser viewer: shows an expiry countdown and Disconnect frees the viewer 
   }
 });
 
+test("browser viewer: a fast device clock cannot self-expire the session — the relay's bye stays the authority", async (t) => {
+  let chromium;
+  try { ({ chromium } = await import("playwright")); } catch { t.skip("playwright not installed"); return; }
+  if (!(await healthy())) { t.skip("relay not reachable at " + base); return; }
+
+  const { proc, link } = await startRunner(["--ttl", "1h", "--", "bash", "--norc", "--noprofile", "-i"]);
+  let browser;
+  try {
+    browser = await chromium.launch();
+    const page = await browser.newPage();
+    // Device clock 2h fast: the client-computed remaining time is negative from the
+    // very first tick even though the relay's 1h TTL has barely started.
+    await page.addInitScript(() => {
+      const real = Date.now.bind(Date);
+      Date.now = () => real() + 2 * 3600 * 1000;
+    });
+    // Keep a handle on the viewer socket so a relay-style bye can be injected below.
+    let route = null;
+    await page.routeWebSocket(/\/ws\/viewer\//, (ws) => { route = ws; ws.connectToServer(); });
+
+    await page.goto(link);
+    await dismissVerify(page);
+    await page.waitForFunction(
+      () => document.getElementById("status-text").textContent === "connected",
+      null, { timeout: 10000 },
+    );
+
+    // The countdown degrades to "expiring…" (approximate under skew is fine)…
+    await page.waitForFunction(() => {
+      const el = document.getElementById("ttl");
+      return el && !el.hidden && el.textContent === "expiring…";
+    }, null, { timeout: 5000 });
+    // …and across a few more ticks the viewer must NOT disconnect itself: it stays
+    // connected and typeable, with no "session expired" terminal state.
+    await new Promise((r) => setTimeout(r, 2500));
+    assert.equal(await page.locator("#status-text").textContent(), "connected",
+      "a fast clock must not self-expire a session the relay considers live");
+    assert.doesNotMatch(
+      await page.evaluate(() => document.querySelector(".xterm-rows")?.innerText || ""),
+      /session expired/, "no client-side expiry line in the terminal");
+
+    // The relay stays the authority: a real bye (what it sends when the TTL fires)
+    // still ends the session.
+    route.send(JSON.stringify({ t: "bye", reason: "expired" }));
+    await page.waitForFunction(
+      () => document.getElementById("status-text").textContent === "session closed (expired)",
+      null, { timeout: 5000 },
+    );
+    assert.equal(await page.textContent("#control"), "ended");
+  } finally {
+    if (browser) await browser.close();
+    proc.kill("SIGKILL");
+  }
+});
+
 test("browser viewer: a large single-line paste is confirmed and only sent on accept", async (t) => {
   let chromium;
   try { ({ chromium } = await import("playwright")); } catch { t.skip("playwright not installed"); return; }
