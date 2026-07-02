@@ -25,7 +25,12 @@ services:
       # ONLYTTY_MAX_SESSIONS: "2000"    # concurrent in-memory sessions
       # ONLYTTY_METRICS_TOKEN: "..."    # let a remote scraper read GET /metrics
     expose:
-      - "4000" # internal-only; Caddy reaches it as onlytty:4000, the host cannot
+      # Internal-only: Caddy reaches it as onlytty:4000; the host and public net cannot.
+      # Do NOT add a public `ports: "4000:4000"` mapping. The relay speaks plain HTTP and
+      # trusts `X-Forwarded-Proto` from the proxy to decide a request already arrived over
+      # HTTPS, so a client reaching :4000 directly could forge that header and bypass the
+      # http→https redirect — serving the secret-bearing viewer page in cleartext.
+      - "4000"
 
   caddy:
     image: caddy:2.11.4

@@ -181,6 +181,15 @@ so the proxy must do four things — all four, or the viewer breaks:
 4. **Preserve the `Host` header.** The viewer's WebSocket `Origin` must match the relay's
    host; a proxy that rewrites `Host` will trip the origin check.
 
+> **Keep `:4000` private — never publish it to an untrusted network.** The relay speaks
+> plain HTTP and trusts `X-Forwarded-Proto` to decide a request already arrived over HTTPS.
+> That is safe *only* behind a TLS-terminating proxy you control that sets the header. If a
+> client can reach `:4000` directly, it can send plain HTTP with a forged
+> `X-Forwarded-Proto: https`, skip the http→https redirect, and receive the secret-bearing
+> viewer page in cleartext on first contact (HSTS only protects a browser that already made
+> a clean HTTPS visit). Bind `:4000` to loopback or the proxy's private network — exactly
+> what the Compose bundle does with `expose` instead of `ports`.
+
 A minimal nginx `location` block:
 
 ```nginx
@@ -195,10 +204,12 @@ location / {
 }
 ```
 
-The bare `docker run` form (no proxy bundled — you supply TLS):
+The bare `docker run` form (no proxy bundled — you supply TLS). It binds `:4000` to
+loopback so only a proxy on this host can reach it, never the public net (see the note
+above):
 
 ```bash
-docker run -p 4000:4000 \
+docker run -p 127.0.0.1:4000:4000 \
   -e PHX_SERVER=true \
   -e SECRET_KEY_BASE="$(openssl rand -base64 64)" \
   -e PHX_HOST=relay.example.com \
@@ -225,6 +236,11 @@ To keep it honest:
 - The link is a capability — anyone you forward it to becomes a viewer. Bound it with a
   short `--ttl`, the single-viewer lock (on by default; `--multi-viewer` opts into
   several watchers), or a `--passphrase` shared out-of-band.
+- Keep the relay's plain-HTTP `:4000` private — behind your TLS proxy, never published to
+  an untrusted network. It trusts `X-Forwarded-Proto`, so a client reaching it directly
+  could forge the header and bypass the http→https redirect. The Compose bundle is safe by
+  default (`expose`, not `ports`); see [Keep `:4000` private](#bring-your-own-proxy) if you
+  bring your own proxy.
 
 The full model, stated with its limits, is in [SECURITY.md](SECURITY.md) and
 [PROTOCOL.md](PROTOCOL.md).
