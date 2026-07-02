@@ -3,6 +3,7 @@ package ptysession
 import (
 	"bytes"
 	"testing"
+	"unicode/utf8"
 )
 
 func TestRingUnderCapacity(t *testing.T) {
@@ -32,6 +33,30 @@ func TestRingWriteLargerThanCapacity(t *testing.T) {
 	r.Write([]byte("abcdefghij")) // keep last 4 "ghij"
 	if got := r.Snapshot(); !bytes.Equal(got, []byte("ghij")) {
 		t.Fatalf("got %q, want ghij", got)
+	}
+}
+
+func TestRingSnapshotAlignsRuneBoundary(t *testing.T) {
+	// "€" is 3 bytes (0xE2 0x82 0xAC). Capacity 4 trims "ab€cd" (7 bytes) to the
+	// last 4 = [0x82 0xAC 'c' 'd'], slicing into the € rune. The snapshot must skip
+	// the orphaned continuation bytes so a repaint starts on a rune boundary.
+	r := NewRing(4)
+	r.Write([]byte("ab€cd"))
+	got := r.Snapshot()
+	if !bytes.Equal(got, []byte("cd")) {
+		t.Fatalf("got %q, want cd", got)
+	}
+	if !utf8.Valid(got) {
+		t.Fatalf("snapshot is not valid UTF-8: %x", got)
+	}
+}
+
+func TestRingSnapshotKeepsWholeRune(t *testing.T) {
+	// When the trim lands exactly on a rune boundary, the whole rune is retained.
+	r := NewRing(5)
+	r.Write([]byte("ab€cd")) // keep last 5 = "€cd"
+	if got := r.Snapshot(); !bytes.Equal(got, []byte("€cd")) {
+		t.Fatalf("got %q, want €cd", got)
 	}
 }
 

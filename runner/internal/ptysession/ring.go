@@ -32,11 +32,19 @@ func (r *Ring) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
-// Snapshot returns a copy of the retained bytes.
+// Snapshot returns a copy of the retained bytes, aligned to a UTF-8 rune boundary.
+// The ring trims the oldest bytes at an arbitrary offset, so the retained head can
+// begin in the middle of a multi-byte rune; a repaint that replayed those orphaned
+// continuation bytes would show garbage glyphs at the top of the first screen. Skip
+// any leading continuation bytes (0x80–0xBF) so the snapshot starts on a rune start.
 func (r *Ring) Snapshot() []byte {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	out := make([]byte, len(r.buf))
-	copy(out, r.buf)
+	start := 0
+	for start < len(r.buf) && r.buf[start]&0xC0 == 0x80 {
+		start++
+	}
+	out := make([]byte, len(r.buf)-start)
+	copy(out, r.buf[start:])
 	return out
 }
