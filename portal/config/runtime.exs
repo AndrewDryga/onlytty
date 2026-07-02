@@ -23,8 +23,8 @@ end
 # Runtime operational settings are parsed in `OnlyTTY.Env.runtime_overrides/1` so tests can
 # exercise the same process-env path that deployments use:
 #   ONLYTTY_DEFAULT_TTL, ONLYTTY_MAX_TTL, ONLYTTY_IDLE_TIMEOUT
-#   ONLYTTY_MAX_SESSIONS, ONLYTTY_MAX_FRAME_BYTES, ONLYTTY_ALLOWED_ORIGINS
-#   ONLYTTY_RATELIMIT_MAX, ONLYTTY_RATELIMIT_WINDOW
+#   ONLYTTY_MAX_SESSIONS, ONLYTTY_MAX_FRAME_BYTES, ONLYTTY_MAX_VIEWER_QUEUE
+#   ONLYTTY_ALLOWED_ORIGINS, ONLYTTY_RATELIMIT_MAX, ONLYTTY_RATELIMIT_WINDOW
 #   ONLYTTY_TRUSTED_PROXY_HOPS, ONLYTTY_METRICS_TOKEN
 for {key, value} <- OnlyTTY.Env.runtime_overrides() do
   config :onlytty, key, value

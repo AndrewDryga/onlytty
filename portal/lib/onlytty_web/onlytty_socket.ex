@@ -36,8 +36,29 @@ defmodule OnlyTTYWeb.OnlyTTYSocket do
 
   @close_normal 1000
   @close_busy 4002
+  # 1013 "Try Again Later" (RFC 6455 registered): we force-close a viewer whose
+  # socket has stalled and let its output backlog grow. The client's onclose just
+  # reconnects and repaints from the runner's ring, so the code is advisory.
+  @close_slow 1013
   @viewer_protocol 1
   @relay_viewer_magic "OTV1"
+
+  # Slow-consumer backpressure. A viewer that stops draining its socket applies no
+  # backpressure to the runner: relay `send/2` is async, so runner output piles into
+  # the viewer process mailbox unbounded and one connection can push a relay node
+  # toward OOM. We can't drop *intelligently* (the payload is E2E ciphertext, and a
+  # partial drop corrupts the stream), so we count the backlog and evict the whole
+  # viewer past a watermark — it reconnects and repaints from the runner's ring.
+  #
+  # The signal is `message_queue_len`: the count of runner frames still queued behind
+  # the one we're processing. It is the only backlog measure BEAM exposes cheaply —
+  # queued *bytes* would mean scanning the mailbox, and off-heap refc binaries don't
+  # show up in `:memory` either. With the per-frame cap (ONLYTTY_MAX_FRAME_BYTES,
+  # default 1 MiB) this bounds the mailbox to at most `max_viewer_queue` frames;
+  # real terminal frames are small, so the default 512 targets a few-MiB backlog
+  # before eviction (a few × the runner's 256-frame send queue / 256 KiB ring).
+  # Operators wanting a tighter memory bound lower ONLYTTY_MAX_VIEWER_QUEUE.
+  @default_max_viewer_queue 512
 
   @impl true
   def init(%{session: session, id: id, role: :runner}) do
@@ -109,9 +130,15 @@ defmodule OnlyTTYWeb.OnlyTTYSocket do
   end
 
   @impl true
-  # Peer-to-peer binary relay: push the bytes straight out to our client.
+  # Peer-to-peer binary relay: push the bytes straight out to our client. This 2-arg
+  # message only ever targets a viewer (runner output broadcast + targeted to_viewer),
+  # so it is the high-volume path a slow viewer stalls — apply backpressure here.
   def handle_info({:onlytty_binary, data}, state) do
-    {:push, [{:binary, data}], state}
+    if slow_viewer?(state) do
+      evict_slow_viewer(state)
+    else
+      {:push, [{:binary, data}], state}
+    end
   end
 
   def handle_info({:onlytty_binary, viewer_id, data}, state) do
@@ -192,8 +219,31 @@ defmodule OnlyTTYWeb.OnlyTTYSocket do
       viewer_peers: %{},
       peer_ids: %{},
       viewer_id: nil,
-      viewer_protocol: false
+      viewer_protocol: false,
+      # Read once at connect so the hot path is a bare integer compare, no app-env lookup.
+      max_queue: max_viewer_queue()
     }
+  end
+
+  defp max_viewer_queue do
+    Application.get_env(:onlytty, :max_viewer_queue, @default_max_viewer_queue)
+  end
+
+  # True when runner frames are backing up in our mailbox faster than we can push them
+  # to the client — the stalled-viewer signal. `message_queue_len` counts the frames
+  # still queued behind the one we're handling now.
+  defp slow_viewer?(state) do
+    case Process.info(self(), :message_queue_len) do
+      {:message_queue_len, len} -> len > state.max_queue
+      _ -> false
+    end
+  end
+
+  defp evict_slow_viewer(state) do
+    OnlyTTY.Metrics.inc(:viewer_slow_evicted)
+    # Log only a short id prefix — the full id is the viewer connect capability.
+    Logger.info("relay session #{String.slice(state.id, 0, 8)}: viewer too slow — evicted")
+    {:stop, :normal, {@close_slow, "too_slow"}, state}
   end
 
   defp hello(role, snap) do

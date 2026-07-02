@@ -226,6 +226,11 @@ viewer→runner frames to the runner.
   Unlocked sessions may have several viewers, but the runner grants write-side
   control to only one active viewer at a time; terminal output broadcasts to all.
 - Idle timeout: closed after a period with no runner traffic.
+- Slow-viewer eviction: a viewer that stops draining its socket lets runner output
+  back up in the relay's per-connection queue. Past a watermark
+  (`ONLYTTY_MAX_VIEWER_QUEUE`, default 512 queued frames) the relay force-closes just
+  that viewer with WS close code **1013** ("try again later"); the runner and other
+  viewers are untouched. The viewer reconnects and repaints from the runner's ring.
 - The relay forwards binary frames it cannot decrypt; it stores none of them.
 
 ## Trust boundary, stated honestly

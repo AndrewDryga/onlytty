@@ -35,7 +35,10 @@ defmodule OnlyTTY.Metrics do
     {:rate_limit_rejects, "Session-create requests refused by the per-IP rate limiter."},
     # Counted in OnlyTTYSocket.terminate/2 when Bandit closes a socket (1009) for an
     # over-cap frame (ONLYTTY_MAX_FRAME_BYTES).
-    {:frame_size_rejects, "Frames rejected for exceeding the maximum frame size."}
+    {:frame_size_rejects, "Frames rejected for exceeding the maximum frame size."},
+    # Counted when a viewer socket is force-closed (1013) because its output backlog
+    # exceeded ONLYTTY_MAX_VIEWER_QUEUE — slow-consumer eviction.
+    {:viewer_slow_evicted, "Viewer sockets force-closed for a slow/stalled output backlog."}
   ]
 
   @size length(@counters)

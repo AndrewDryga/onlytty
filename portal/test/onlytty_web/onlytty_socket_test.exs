@@ -7,6 +7,7 @@ defmodule OnlyTTYWeb.OnlyTTYSocketTest do
   use ExUnit.Case, async: false
 
   alias OnlyTTY.{SessionStore, WSClient}
+  alias OnlyTTYWeb.OnlyTTYSocket
   import OnlyTTY.Test.RuntimeEnv, only: [with_runtime_env: 2]
 
   setup do
@@ -22,6 +23,30 @@ defmodule OnlyTTYWeb.OnlyTTYSocketTest do
   defp token, do: 16 |> :crypto.strong_rand_bytes() |> Base.url_encode64(padding: false)
 
   defp runner_headers(token), do: [{"authorization", "Bearer " <> token}]
+
+  # A viewer socket's internal state, as base_state/3 builds it, for driving
+  # handle_info/2 directly in the slow-viewer eviction tests.
+  defp viewer_state(max_queue) do
+    %{
+      session: nil,
+      id: "abcdef0123456789",
+      role: :viewer,
+      peers: MapSet.new(),
+      viewer_peers: %{},
+      peer_ids: %{},
+      viewer_id: "v1",
+      viewer_protocol: false,
+      max_queue: max_queue
+    }
+  end
+
+  defp flush_binary do
+    receive do
+      {:onlytty_binary, _} -> flush_binary()
+    after
+      0 -> :ok
+    end
+  end
 
   defp relay_viewer_frame(viewer_id, payload) do
     <<"OTV1", byte_size(viewer_id), viewer_id::binary, payload::binary>>
@@ -546,6 +571,42 @@ defmodule OnlyTTYWeb.OnlyTTYSocketTest do
       assert {4000, _} = WSClient.recv_close(runner, r_ref)
 
       WSClient.close(runner)
+    end
+  end
+
+  describe "slow-viewer eviction (backpressure)" do
+    # A viewer that stalls its socket lets runner output back up in its process
+    # mailbox unbounded. Real TCP backpressure — the thing that makes the mailbox
+    # grow — isn't deterministically reproducible in-suite (it depends on OS socket
+    # buffer sizes), so we drive handle_info/2 directly: a stuffed mailbox stands in
+    # for a viewer whose socket has stopped draining, and message_queue_len is the
+    # exact signal the handler checks.
+
+    test "a viewer past the backlog watermark is force-closed (1013) and counted" do
+      state = viewer_state(5)
+      before = OnlyTTY.Metrics.value(:viewer_slow_evicted)
+
+      # Stand in for the stalled socket: pile queued frames past the cap.
+      for _ <- 1..20, do: send(self(), {:onlytty_binary, <<0>>})
+
+      assert {:stop, :normal, {1013, "too_slow"}, ^state} =
+               OnlyTTYSocket.handle_info({:onlytty_binary, <<1, 2, 3>>}, state)
+
+      assert OnlyTTY.Metrics.value(:viewer_slow_evicted) == before + 1
+
+      # Drain the stand-in backlog so it doesn't leak into later assertions.
+      flush_binary()
+    end
+
+    test "a healthy viewer under the watermark keeps flowing byte-identically, uncounted" do
+      state = viewer_state(512)
+      before = OnlyTTY.Metrics.value(:viewer_slow_evicted)
+      payload = <<0, 1, 2, 255, "stream", 0>>
+
+      assert {:push, [{:binary, ^payload}], ^state} =
+               OnlyTTYSocket.handle_info({:onlytty_binary, payload}, state)
+
+      assert OnlyTTY.Metrics.value(:viewer_slow_evicted) == before
     end
   end
 end
