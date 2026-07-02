@@ -84,7 +84,43 @@ test("home page: mobile hero paints without first-viewport reveal animation", as
       return { opacity: cs.opacity, transform: cs.transform };
     });
     assert.deepEqual(styles, { opacity: "1", transform: "none" });
-    assert.equal(await page.evaluate(() => getComputedStyle(document.body, "::after").display), "none");
+
+    const paintState = await page.locator(".hero").evaluate((el) => {
+      const sample = (selector) => {
+        const node = el.querySelector(selector);
+        const cs = getComputedStyle(node);
+
+        return {
+          animationName: cs.animationName,
+          opacity: cs.opacity,
+          transform: cs.transform
+        };
+      };
+
+      return {
+        activeAnimations: el.getAnimations({ subtree: true }).map((animation) => animation.animationName),
+        badgeDot: sample(".badge .dot"),
+        termLine: sample(".term-body .ln"),
+        termLiveDot: sample(".term-live i"),
+        phone: sample(".phone"),
+        phoneDot: sample(".phone-stat i"),
+        bodyBefore: getComputedStyle(document.body, "::before").display,
+        bodyAfter: getComputedStyle(document.body, "::after").display,
+        navBackdrop: getComputedStyle(document.querySelector(".nav")).backdropFilter
+      };
+    });
+
+    assert.deepEqual(paintState.activeAnimations, [], "mobile hero has no active CSS animations");
+    for (const key of ["badgeDot", "termLine", "termLiveDot", "phone", "phoneDot"]) {
+      assert.deepEqual(
+        paintState[key],
+        { animationName: "none", opacity: "1", transform: "none" },
+        `${key} is static and fully painted`
+      );
+    }
+    assert.equal(paintState.bodyBefore, "none");
+    assert.equal(paintState.bodyAfter, "none");
+    assert.equal(paintState.navBackdrop, "none");
   } finally {
     if (browser) await browser.close();
   }
