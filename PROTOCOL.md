@@ -189,13 +189,21 @@ The relay forwards `frame` as binary only to that viewer.
 relay → client:
 
 ```json
-{"t":"hello","role":"runner|viewer","viewers":N,"locked":true,"viewer_protocol":1}
-{"t":"hello","role":"viewer","viewer_id":"…","viewers":N,"locked":true}
+{"t":"hello","role":"runner|viewer","viewers":N,"locked":true,"expires_at":N,"viewer_protocol":1}
+{"t":"hello","role":"viewer","viewer_id":"…","viewers":N,"locked":true,"expires_at":N}
 {"t":"peer_join","viewer_id":"…","viewers":N}  // runner: a viewer connected. viewer: runner is present.
 {"t":"peer_left","viewer_id":"…","viewers":N}
+{"t":"going_away"}    // relay node is draining for a deploy; keep relaying, reconnect when the socket breaks
 {"t":"busy"}          // viewer slot taken (single-viewer lock); relay then closes
-{"t":"bye","reason":"expired|closed|idle|ended"}
+{"t":"bye","reason":"expired|closed|idle|ended|replaced"}
 ```
+
+`hello.expires_at` is unix seconds when the session expires, or `0` for no expiry;
+`viewer_protocol` appears on the runner hello only. `going_away` is a nudge, not a
+close — the relay keeps forwarding traffic over this node until it actually stops, so
+clients keep relaying and reconnect elsewhere once the socket breaks. The `replaced` bye
+reason means a runner was displaced by a re-claim of the same id (the old socket is
+closed so a zombie can't keep injecting frames).
 
 client → relay: `{"t":"bye"}` closes that client socket. A runner may send
 `{"t":"runner_ready","viewer_protocol":1}` to opt into relay viewer envelopes and
