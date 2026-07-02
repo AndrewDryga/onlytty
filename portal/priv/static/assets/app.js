@@ -2,7 +2,7 @@
 // URL fragment (never sent to the server), derives the E2E keys, and runs an xterm
 // terminal over an encrypted WebSocket. See PROTOCOL.md.
 
-import { deriveKeys, newCipher, b64urlToBytes } from "./crypto.js";
+import { deriveKeys, newCipher, b64urlToBytes, bytesToHex } from "./crypto.js";
 import { Kind, Control, decodeHello, encodeResize, decodeExit, decodeControl, encodeViewerPayload } from "./wire.js";
 import { parsePayload } from "./keys.js";
 
@@ -51,7 +51,11 @@ let openC, sealC; // r2v (open), v2r (seal)
 let ws = null;
 let outSeq = 0; // viewer→runner sequence (starts at HELLO baseline)
 let lastSeq = 0; // runner→viewer replay floor (monotonic, runner is one process)
-let viewerId = ""; // relay-assigned socket id, authenticated inside v2r payloads
+// Viewer-chosen identity (128-bit), sealed inside every v2r payload. The runner keys
+// control ownership and the replay floor on it, so a hostile relay cannot forge or
+// duplicate it to hand a second link-holder our control (see PROTOCOL.md). Regenerated
+// per connection: a reconnect is treated as a fresh viewer that just repaints.
+let viewerId = "";
 let hasControl = false;
 let controlPending = false, controlTimer = null; // a "Take control" tap awaiting the host's answer
 let expiresAt = null, ttlTimer = null; // session expiry (unix s) from the hello, for the countdown
@@ -204,6 +208,7 @@ async function start(passphrase) {
 
 function connect() {
   if (ended || noReconnect) return;
+  viewerId = bytesToHex(crypto.getRandomValues(new Uint8Array(16)));
   const proto = location.protocol === "https:" ? "wss:" : "ws:";
   ws = new WebSocket(`${proto}//${location.host}/ws/viewer/${encodeURIComponent(id)}`);
   ws.binaryType = "arraybuffer";
@@ -361,7 +366,6 @@ function onControlText(data) {
   try { m = JSON.parse(data); } catch { return; }
   switch (m.t) {
     case "hello":
-      if (typeof m.viewer_id === "string") viewerId = m.viewer_id;
       if (typeof m.expires_at === "number") { expiresAt = m.expires_at; startTtl(); }
       break;
     case "peer_join": if (!ended) setStatus("connected", "ok"); break;

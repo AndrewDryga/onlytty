@@ -131,27 +131,34 @@ repaints, then streams live.
 
 ### Viewer-scoped payloads
 
-New viewers wrap every viewer→runner encrypted payload in a small authenticated
-sub-envelope:
+Each viewer generates its OWN random identity (128 bits, fresh per connection) and
+wraps every viewer→runner encrypted payload in a small authenticated sub-envelope
+carrying that self-chosen id:
 
 ```
 | "OVP1" (4 bytes) | viewer_id_len (uint8) | viewer_id | payload |
 ```
 
-The payload after `viewer_id` is the kind-specific payload from the table above.
-Legacy payloads without the `OVP1` magic are accepted as an empty viewer id for
-single-viewer compatibility.
+The payload after `viewer_id` is the kind-specific payload from the table above. This
+`viewer_id` is chosen by the viewer and sealed inside the encrypted payload, so an
+untrusted relay can neither read, pick, nor duplicate it. The runner keys control
+ownership and the replay floor on it. Legacy payloads without the `OVP1` magic are
+accepted as an empty viewer id for single-viewer compatibility.
 
-The relay does not decrypt this envelope. When the runner has advertised support, the
-relay also wraps the opaque viewer→runner binary WebSocket frame in plaintext metadata:
+The relay does not decrypt this envelope. Separately, it assigns each viewer socket a
+relay routing id and, when the runner has advertised support, wraps the opaque
+viewer→runner binary WebSocket frame in plaintext metadata carrying that routing id:
 
 ```
 | "OTV1" (4 bytes) | viewer_id_len (uint8) | viewer_id | sealed_frame |
 ```
 
-The runner decrypts `sealed_frame`, unwraps `OVP1`, and rejects the message if the
-plaintext relay `viewer_id` does not equal the encrypted `viewer_id`. This prevents an
-untrusted relay from re-labeling a valid read-only viewer frame as the active owner.
+The `OTV1` routing id is trusted only to address runner→viewer replies back to the
+right socket — never for control ownership, which binds solely to the self-chosen
+`OVP1` id above. Because a relay cannot forge the sealed `OVP1` id, it cannot grant a
+second link-holder the current owner's write access by assigning it a duplicate routing
+id (this hardens the `once` "first taker only" guarantee against a malicious relay). A
+viewer is treated as fresh on reconnect (new self id → repaint from the ring).
 
 Runner→viewer terminal output remains ordinary sealed binary and is broadcast to all
 viewers. Runner→viewer per-viewer frames (HELLO/repaint/CONTROL) are sent to the relay
@@ -165,13 +172,13 @@ The relay forwards `frame` as binary only to that viewer.
 
 ### Replay protection
 
-- The runner keeps a monotonic viewer→runner seq floor **per viewer id**. It accepts
-  a v2r frame iff `seq` is above that viewer's floor, then updates only that floor.
-  Replayed old input is therefore rejected without one viewer's sequence stream
+- The runner keeps a monotonic viewer→runner seq floor **per self-chosen `OVP1` id**.
+  It accepts a v2r frame iff `seq` is above that viewer's floor, then updates only that
+  floor. Replayed old input is therefore rejected without one viewer's sequence stream
   causing another viewer's valid frames to be dropped.
-- On each viewer join the runner sends `HELLO.baseline = floor(viewer_id) + 1`; the
-  viewer starts its outgoing counter there. A fresh/reconnected viewer thus always
-  sends seq above anything the runner has accepted from that viewer id.
+- The runner sends `HELLO.baseline = floor + 1`; the viewer starts its outgoing counter
+  there. Because a self id is fresh per connection, the runner has never seen it and the
+  floor is 0, so the baseline is 1 — a reconnect is a fresh viewer that just repaints.
 - runner→viewer replay is only cosmetic (stale screen, overwritten live), so the
   viewer just requires output seq to increase within its current connection.
 

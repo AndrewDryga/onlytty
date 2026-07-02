@@ -47,11 +47,21 @@ func seal(t *testing.T, c *protocol.Cipher, seq uint64, kind byte, payload []byt
 	return f
 }
 
+// sealViewer models an honest relay: the relay routing label (OTV1) matches the
+// viewer's sealed self id (OVP1).
 func sealViewer(t *testing.T, c *protocol.Cipher, viewerID string, seq uint64, kind byte, payload []byte) []byte {
 	t.Helper()
+	return sealViewerSplit(t, c, viewerID, viewerID, seq, kind, payload)
+}
+
+// sealViewerSplit lets a test drive the relay routing label (routeID, OTV1) and the
+// viewer's sealed self id (selfID, OVP1) independently — a hostile relay controls the
+// former but never the latter.
+func sealViewerSplit(t *testing.T, c *protocol.Cipher, routeID, selfID string, seq uint64, kind byte, payload []byte) []byte {
+	t.Helper()
 	return protocol.EncodeRelayViewerFrame(
-		viewerID,
-		seal(t, c, seq, kind, protocol.EncodeViewerPayload(viewerID, payload)),
+		routeID,
+		seal(t, c, seq, kind, protocol.EncodeViewerPayload(selfID, payload)),
 	)
 }
 
@@ -306,23 +316,82 @@ func TestMultipleViewersSingleControlOwner(t *testing.T) {
 	assertControlTarget(t, c, "viewer-b", protocol.ControlGranted)
 }
 
-func TestRelayCannotRelabelViewerFrame(t *testing.T) {
+// Ownership binds to the sealed self id (OVP1), not the relay's plaintext routing
+// label (OTV1): a relay may relabel routing metadata, but the runner keys control on
+// the value it cannot forge. The reply still routes to the relay's label so it reaches
+// the socket.
+func TestControlOwnershipKeyedOnEncryptedId(t *testing.T) {
 	o, v2r, _ := newTestOrch(t, ControlAsk)
 	c := withConn(o)
-	frame := protocol.EncodeRelayViewerFrame(
-		"viewer-b",
-		seal(t, v2r, 1, protocol.KindCtrlReq, protocol.EncodeViewerPayload("viewer-a", nil)),
-	)
 
-	o.handleBinary(frame)
-	if o.viewerHasControl("viewer-a") || o.viewerHasControl("viewer-b") {
-		t.Fatal("mismatched relay/encrypted viewer ids granted control")
+	o.handleBinary(sealViewerSplit(t, v2r, "route-x", "self-a", 1, protocol.KindCtrlReq, nil))
+	if !o.viewerHasControl("self-a") {
+		t.Fatal("ownership did not follow the sealed self id")
 	}
+	if o.viewerHasControl("route-x") {
+		t.Fatal("ownership must not key on the relay routing label")
+	}
+	assertControlTarget(t, c, "route-x", protocol.ControlGranted)
+}
+
+// A hostile relay cannot reuse the owner's viewer id: control keys on the viewer-chosen
+// self id sealed inside the payload, which the relay can neither read, pick, nor
+// duplicate. Assigning a second link-holder the SAME relay routing id as the owner does
+// not hand it the owner's write access — the once "first taker only" guarantee holds.
+func TestDuplicateRelayIdCannotShareControl(t *testing.T) {
+	o, v2r, ps := newTestOrch(t, ControlOnce)
+	c := withConn(o)
+
+	o.handleBinary(sealViewerSplit(t, v2r, "route-owner", "self-owner", 1, protocol.KindCtrlReq, nil))
+	if !o.viewerHasControl("self-owner") {
+		t.Fatal("owner was not granted the once control")
+	}
+	assertControlTarget(t, c, "route-owner", protocol.ControlGranted)
+
+	// Second link-holder, same relay routing id, but its OWN sealed self id.
+	o.handleBinary(sealViewerSplit(t, v2r, "route-owner", "self-attacker", 1, protocol.KindCtrlReq, nil))
+	if o.viewerHasControl("self-attacker") {
+		t.Fatal("duplicate relay id granted a second viewer control")
+	}
+	assertControlTarget(t, c, "route-owner", protocol.ControlTaken)
+
+	// Its input is dropped: it does not own control.
+	o.handleBinary(sealViewerSplit(t, v2r, "route-owner", "self-attacker", 2, protocol.KindResize, protocol.EncodeResize(123, 45)))
+	if cols, rows := ps.Size(); cols == 123 || rows == 45 {
+		t.Fatalf("duplicate-id viewer resize applied: %dx%d", cols, rows)
+	}
+
+	// The real owner still holds control and can still drive the terminal.
+	if !o.viewerHasControl("self-owner") {
+		t.Fatal("owner lost control to the duplicate-id viewer")
+	}
+	o.handleBinary(sealViewerSplit(t, v2r, "route-owner", "self-owner", 2, protocol.KindResize, protocol.EncodeResize(120, 40)))
+	if cols, rows := ps.Size(); cols != 120 || rows != 40 {
+		t.Fatalf("owner resize not applied: %dx%d", cols, rows)
+	}
+}
+
+// Replay floors are per self id: a viewer's own replayed frame is rejected, while a
+// second viewer reusing the same seq numbers is unaffected (independent floors).
+func TestReplayFloorsPerSelfId(t *testing.T) {
+	o, v2r, _ := newTestOrch(t, ControlAsk)
+	c := withConn(o)
+
+	o.handleBinary(sealViewerSplit(t, v2r, "route-a", "self-a", 1, protocol.KindCtrlReq, nil))
+	assertControlTarget(t, c, "route-a", protocol.ControlGranted)
+
+	// Replaying self-a's seq=1 frame is rejected by its floor — no second grant, no emit.
+	o.handleBinary(sealViewerSplit(t, v2r, "route-a", "self-a", 1, protocol.KindCtrlReq, nil))
 	select {
 	case m := <-c.send:
-		t.Fatalf("mismatched viewer ids emitted control frame: %+v", m)
+		t.Fatalf("replayed frame produced a control emit: %+v", m)
 	default:
 	}
+
+	// self-b reusing seq=1 is a distinct stream — accepted (and denied only because
+	// self-a owns control, proving its frame was processed, not floor-dropped).
+	o.handleBinary(sealViewerSplit(t, v2r, "route-b", "self-b", 1, protocol.KindCtrlReq, nil))
+	assertControlTarget(t, c, "route-b", protocol.ControlTaken)
 }
 
 // Revoke takes control back: it clears the grant and tells the viewer it is read-only;

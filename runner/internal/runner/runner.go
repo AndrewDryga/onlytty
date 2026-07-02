@@ -86,8 +86,10 @@ type Orchestrator struct {
 	outSeq uint64
 
 	stateMu       sync.Mutex
-	inSeqByViewer map[string]uint64 // viewer→runner replay floor, per viewer id
-	controlOwner  string            // viewer id that may write; "" = no owner
+	inSeqByViewer map[string]uint64 // viewer→runner replay floor, keyed by viewer-chosen id
+	selfByRoute   map[string]string // relay routing id → viewer-chosen id, for peer_left cleanup
+	controlOwner  string            // viewer-chosen id that may write; "" = no owner
+	ownerRoute    string            // owner's relay routing id, for addressing its control frames
 
 	onceUsed            atomic.Bool // ControlOnce: the one-time grant has been consumed
 	viewers             atomic.Int32
@@ -147,6 +149,7 @@ func New(cfg Config) (*Orchestrator, error) {
 		notify:        cfg.Notify,
 		fp:            cfg.Fingerprint,
 		inSeqByViewer: make(map[string]uint64),
+		selfByRoute:   make(map[string]string),
 	}, nil
 }
 
@@ -567,7 +570,7 @@ func (o *Orchestrator) handleControl(c *connState, data []byte) {
 }
 
 func (o *Orchestrator) handleBinary(frame []byte) {
-	sourceID, sealed, err := protocol.DecodeRelayViewerFrame(frame)
+	routeID, sealed, err := protocol.DecodeRelayViewerFrame(frame)
 	if err != nil {
 		return
 	}
@@ -579,15 +582,16 @@ func (o *Orchestrator) handleBinary(frame []byte) {
 	if err != nil {
 		return
 	}
-	if sourceID != "" && viewerID != "" && sourceID != viewerID {
-		return
-	}
-	if sourceID != "" && viewerID == "" {
-		viewerID = sourceID
-	}
+	// viewerID is chosen by the viewer and sealed inside the payload, so a hostile
+	// relay can neither pick nor duplicate it. It alone keys control ownership and the
+	// replay floor — that is what stops a relay from handing a second link-holder the
+	// owner's write access by assigning it a duplicate relay id (once mode). routeID is
+	// the relay's plaintext routing label, trusted only to address runner→viewer
+	// replies back to this socket, never for ownership. See PROTOCOL.md.
 	if !o.acceptSeq(viewerID, seq) {
 		return
 	}
+	o.bindRoute(routeID, viewerID)
 	switch kind {
 	case protocol.KindInput:
 		if o.viewerHasControl(viewerID) {
@@ -603,9 +607,9 @@ func (o *Orchestrator) handleBinary(frame []byte) {
 			}
 		}
 	case protocol.KindCtrlReq:
-		o.handleControlRequest(viewerID)
+		o.handleControlRequest(viewerID, routeID)
 	case protocol.KindCtrlRel:
-		o.handleControlRelease(viewerID)
+		o.handleControlRelease(viewerID, routeID)
 	}
 }
 
@@ -618,11 +622,13 @@ func viewerKey(viewerID string) string {
 	return viewerID
 }
 
-func viewerTarget(key string) string {
-	if key == legacyViewerID {
-		return ""
-	}
-	return key
+// bindRoute records the relay routing id → viewer-chosen id mapping so that, when the
+// relay reports the viewer left (by routing id), the runner forgets the right
+// self-keyed floor/ownership. Only called for frames that pass the replay floor.
+func (o *Orchestrator) bindRoute(routeID, viewerID string) {
+	o.stateMu.Lock()
+	o.selfByRoute[viewerKey(routeID)] = viewerKey(viewerID)
+	o.stateMu.Unlock()
 }
 
 func (o *Orchestrator) baseline(viewerID string) uint64 {
@@ -661,31 +667,47 @@ func (o *Orchestrator) controlState(viewerID string) byte {
 	}
 }
 
+// clearControlOwner wipes all per-viewer state on a full connection teardown (the last
+// viewer is gone), so a reconnect starts from a clean slate.
 func (o *Orchestrator) clearControlOwner() {
 	o.stateMu.Lock()
 	o.controlOwner = ""
+	o.ownerRoute = ""
+	o.inSeqByViewer = make(map[string]uint64)
+	o.selfByRoute = make(map[string]string)
 	o.stateMu.Unlock()
 }
 
-func (o *Orchestrator) forgetViewer(viewerID string) {
+func (o *Orchestrator) forgetViewer(routeID string) {
 	o.stateMu.Lock()
-	if viewerID == "" {
+	defer o.stateMu.Unlock()
+	if routeID == "" {
+		// Legacy single-viewer: no per-viewer routing. Reset once the last viewer left.
 		if o.viewers.Load() == 0 {
 			o.inSeqByViewer = make(map[string]uint64)
+			o.selfByRoute = make(map[string]string)
 			o.controlOwner = ""
+			o.ownerRoute = ""
 		}
-		o.stateMu.Unlock()
 		return
 	}
-	key := viewerKey(viewerID)
-	delete(o.inSeqByViewer, key)
-	if o.controlOwner == key {
-		o.controlOwner = ""
+	routeKey := viewerKey(routeID)
+	if self, ok := o.selfByRoute[routeKey]; ok {
+		delete(o.selfByRoute, routeKey)
+		delete(o.inSeqByViewer, self)
+		if o.controlOwner == self {
+			o.controlOwner = ""
+			o.ownerRoute = ""
+		}
 	}
-	o.stateMu.Unlock()
+	// Belt: a leaving owner clears control even if no frame recorded the mapping.
+	if o.ownerRoute == routeID {
+		o.controlOwner = ""
+		o.ownerRoute = ""
+	}
 }
 
-func (o *Orchestrator) handleControlRequest(viewerID string) {
+func (o *Orchestrator) handleControlRequest(viewerID, routeID string) {
 	key := viewerKey(viewerID)
 	state := protocol.ControlReadOnly
 	notify := false
@@ -703,30 +725,32 @@ func (o *Orchestrator) handleControlRequest(viewerID string) {
 			o.onceUsed.Store(true)
 		}
 		o.controlOwner = key
+		o.ownerRoute = routeID
 		state = protocol.ControlGranted
 		notify = true
 	}
 	o.stateMu.Unlock()
 
-	o.emitToViewer(viewerID, protocol.KindControl, []byte{state})
+	o.emitToViewer(routeID, protocol.KindControl, []byte{state})
 	if notify {
 		o.note("onlytty: viewer took control")
 	}
 }
 
-func (o *Orchestrator) handleControlRelease(viewerID string) {
+func (o *Orchestrator) handleControlRelease(viewerID, routeID string) {
 	key := viewerKey(viewerID)
 	released := false
 
 	o.stateMu.Lock()
 	if o.controlOwner == key {
 		o.controlOwner = ""
+		o.ownerRoute = ""
 		released = true
 	}
 	o.stateMu.Unlock()
 
 	if released {
-		o.emitToViewer(viewerID, protocol.KindControl, []byte{protocol.ControlReadOnly})
+		o.emitToViewer(routeID, protocol.KindControl, []byte{protocol.ControlReadOnly})
 		o.note("onlytty: viewer released control")
 	}
 }
@@ -818,15 +842,17 @@ func (o *Orchestrator) screenBusy() bool {
 func (o *Orchestrator) Revoke() {
 	o.stateMu.Lock()
 	owner := o.controlOwner
+	route := o.ownerRoute
 	if owner != "" {
 		o.controlOwner = ""
+		o.ownerRoute = ""
 	}
 	o.stateMu.Unlock()
 
 	if owner == "" {
 		return
 	}
-	o.emitToViewer(viewerTarget(owner), protocol.KindControl, []byte{protocol.ControlReadOnly})
+	o.emitToViewer(route, protocol.KindControl, []byte{protocol.ControlReadOnly})
 	o.note("onlytty: host revoked control")
 }
 
