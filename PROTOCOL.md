@@ -31,6 +31,11 @@ can drop/observe-timing/deny, but cannot read or forge terminal IO.
 - **session secret S** — 32 random bytes the runner generates locally. Lives **only**
   in the URL *fragment* (`#…`), which browsers never send to a server. The root of
   all E2E keys.
+- **viewer id** — relay-assigned per viewer socket id. It is metadata, not a secret.
+  The relay includes it in the viewer's hello and labels viewer→runner frames with it
+  when both relay and runner support the v2 viewer envelope. The browser also includes
+  it inside the encrypted payload; the runner accepts the frame only when the relay
+  label and encrypted id match.
 
 ## The link
 
@@ -103,7 +108,7 @@ runner → viewer (sealed with `k_r2v`):
 | 0x01 | HELLO   | `baseline:uint64 BE`, `cols:uint16 BE`, `rows:uint16 BE` |
 | 0x02 | OUTPUT  | raw PTY bytes                                       |
 | 0x03 | EXIT    | `code:int32 BE`                                     |
-| 0x04 | CONTROL | `state:uint8` (0 = read-only, 1 = control granted) |
+| 0x04 | CONTROL | `state:uint8` (0 = read-only, 1 = control granted, 2 = another viewer has control) |
 
 viewer → runner (sealed with `k_v2r`):
 
@@ -114,25 +119,59 @@ viewer → runner (sealed with `k_v2r`):
 | 0x12 | CTRL_REQ  | (empty) — request to take control |
 | 0x13 | CTRL_REL  | (empty) — release control         |
 
-`CONTROL.state` stays 0/1 on the wire; the host's `--control` policy (`ask` /
-`view-only` / `once`) and the `SIGUSR1` revoke only decide *when* the runner emits
-`granted` vs `read-only` — they add no new frame kinds.
+`CONTROL.state` is per viewer. In multi-viewer sessions, only the current owner sees
+`granted`; a requester denied because another viewer owns the terminal sees state `2`.
+The host's `--control` policy (`ask` / `view-only` / `once`) and the `SIGUSR1` revoke
+decide when ownership is granted or cleared.
 
 `HELLO` is the first frame the runner sends to a newly-joined viewer; `baseline` is
 the seq the viewer must start its `k_v2r` counter at (see Replay). The runner then
 replays its output ring buffer (as `OUTPUT` frames with fresh seq) so the screen
 repaints, then streams live.
 
+### Viewer-scoped payloads
+
+New viewers wrap every viewer→runner encrypted payload in a small authenticated
+sub-envelope:
+
+```
+| "OVP1" (4 bytes) | viewer_id_len (uint8) | viewer_id | payload |
+```
+
+The payload after `viewer_id` is the kind-specific payload from the table above.
+Legacy payloads without the `OVP1` magic are accepted as an empty viewer id for
+single-viewer compatibility.
+
+The relay does not decrypt this envelope. When the runner has advertised support, the
+relay also wraps the opaque viewer→runner binary WebSocket frame in plaintext metadata:
+
+```
+| "OTV1" (4 bytes) | viewer_id_len (uint8) | viewer_id | sealed_frame |
+```
+
+The runner decrypts `sealed_frame`, unwraps `OVP1`, and rejects the message if the
+plaintext relay `viewer_id` does not equal the encrypted `viewer_id`. This prevents an
+untrusted relay from re-labeling a valid read-only viewer frame as the active owner.
+
+Runner→viewer terminal output remains ordinary sealed binary and is broadcast to all
+viewers. Runner→viewer per-viewer frames (HELLO/repaint/CONTROL) are sent to the relay
+as text metadata with an encrypted frame:
+
+```json
+{"t":"to_viewer","viewer_id":"…","frame":"base64…"}
+```
+
+The relay forwards `frame` as binary only to that viewer.
+
 ### Replay protection
 
-- The runner keeps one session-long monotonic `inSeq` = the highest viewer→runner
-  seq it has accepted. It **never resets**. It accepts a v2r frame iff `seq > inSeq`,
-  then sets `inSeq = seq`. Replayed old input is therefore rejected — including
-  across viewer reconnects, which is the case that matters (re-running keystrokes).
-- On each viewer join the runner sends `HELLO.baseline = inSeq + 1`; the viewer
-  starts its outgoing counter there. A fresh/reconnected viewer thus always sends
-  seq above anything the runner has seen; a relay replaying that viewer's old frames
-  uses lower seq and is rejected.
+- The runner keeps a monotonic viewer→runner seq floor **per viewer id**. It accepts
+  a v2r frame iff `seq` is above that viewer's floor, then updates only that floor.
+  Replayed old input is therefore rejected without one viewer's sequence stream
+  causing another viewer's valid frames to be dropped.
+- On each viewer join the runner sends `HELLO.baseline = floor(viewer_id) + 1`; the
+  viewer starts its outgoing counter there. A fresh/reconnected viewer thus always
+  sends seq above anything the runner has accepted from that viewer id.
 - runner→viewer replay is only cosmetic (stale screen, overwritten live), so the
   viewer just requires output seq to increase within its current connection.
 
@@ -141,32 +180,37 @@ repaints, then streams live.
 relay → client:
 
 ```json
-{"t":"hello","role":"runner|viewer","viewers":N,"locked":true}
-{"t":"peer_join"}     // runner: a viewer connected. viewer: runner is present.
-{"t":"peer_left"}
+{"t":"hello","role":"runner|viewer","viewers":N,"locked":true,"viewer_protocol":1}
+{"t":"hello","role":"viewer","viewer_id":"…","viewers":N,"locked":true}
+{"t":"peer_join","viewer_id":"…","viewers":N}  // runner: a viewer connected. viewer: runner is present.
+{"t":"peer_left","viewer_id":"…","viewers":N}
 {"t":"busy"}          // viewer slot taken (single-viewer lock); relay then closes
 {"t":"bye","reason":"expired|closed|idle|ended"}
 ```
 
 client → relay: `{"t":"bye"}` closes that client socket. A runner may send
+`{"t":"runner_ready","viewer_protocol":1}` to opt into relay viewer envelopes and
 `{"t":"bye","reason":"ended"}` after its command exits; the relay closes the whole
 session so viewers see an explicit final state even if the encrypted `EXIT` frame
 was missed.
 
 When a viewer connects, the relay sends the runner `{"t":"peer_join"}`; the runner
 replies (over the binary channel) with `HELLO` + buffer replay. The relay forwards
-binary runner↔viewer verbatim.
+ordinary binary runner→viewer frames to every viewer, and v2 viewer-labeled
+viewer→runner frames to the runner.
 
 ## Endpoints
 
 - `POST /api/sessions` → `{"id","runner_token","expires_at"}`. Body
-  `{"id","runner_token","ttl_seconds"?}` — the runner generates `id` + `runner_token`
+  `{"id","runner_token","ttl_seconds"?,"multi_viewer"?}` — the runner generates `id` + `runner_token`
   (both required, URL-safe, ≥120 bits) and create is **idempotent / claim-based**: a
   new id starts a session; re-posting the same id with the matching token attaches to
   the live one (keeping its expiry); a wrong token for an existing id is `401`. This is
   what lets a runner re-claim its session after a relay node is replaced. Optional
   `ttl_seconds` (default `0` = no expiry; positive is floored at 60s and capped by the
-  relay's optional `ONLYTTY_MAX_TTL`); `expires_at` is `0` when there is no expiry.
+  relay's optional `ONLYTTY_MAX_TTL`); optional `multi_viewer` defaults false and
+  disables the single-viewer lock when true; `expires_at` is `0` when there is no
+  expiry.
 - `GET  /s/:id` → the viewer HTML page (static; JS reads id from path, S from `#`).
 - `GET  /ws/runner/:id` → WebSocket; requires `Authorization: Bearer <runner_token>`.
 - `GET  /ws/viewer/:id` → WebSocket; capability is knowing `:id`.
@@ -179,6 +223,8 @@ binary runner↔viewer verbatim.
   default there is no TTL — the session lives as long as the runner (it ends on
   command exit or runner disconnect).
 - Single-viewer lock by default: a second viewer gets `{"t":"busy"}` and is closed.
+  Unlocked sessions may have several viewers, but the runner grants write-side
+  control to only one active viewer at a time; terminal output broadcasts to all.
 - Idle timeout: closed after a period with no runner traffic.
 - The relay forwards binary frames it cannot decrypt; it stores none of them.
 

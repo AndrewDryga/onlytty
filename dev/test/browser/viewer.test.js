@@ -239,6 +239,31 @@ test("browser viewer: key-bar show/hide toggle persists across reload", async (t
   }
 });
 
+test("browser viewer: macOS hides the Open keyboard menu action", async (t) => {
+  let chromium;
+  try { ({ chromium } = await import("playwright")); } catch { t.skip("playwright not installed"); return; }
+  if (!(await healthy())) { t.skip("relay not reachable at " + base); return; }
+
+  const { proc, link } = await startRunner(["--", "bash", "--norc", "--noprofile", "-i"]);
+  let browser;
+  try {
+    browser = await chromium.launch();
+    const context = await browser.newContext({
+      userAgent:
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+    });
+    const page = await context.newPage();
+    await page.goto(link);
+    await dismissVerify(page);
+    await page.click("#menu-btn");
+    assert.equal(await page.locator("#kbd").isVisible(), false, "Open keyboard hidden on macOS");
+    assert.equal(await page.locator("#paste").isVisible(), true, "other menu actions remain visible");
+  } finally {
+    if (browser) await browser.close();
+    proc.kill("SIGKILL");
+  }
+});
+
 test("browser viewer: wrong passphrase shows a recoverable overlay; the right one connects", async (t) => {
   let chromium;
   try { ({ chromium } = await import("playwright")); } catch { t.skip("playwright not installed"); return; }
@@ -297,6 +322,10 @@ test("browser viewer: mobile layout — Take control stays on-screen at 360px; ^
     // A small phone-width viewport with the key bar forced on. The top bar holds only
     // status + Take control + ⋯, so the primary action stays fully on-screen.
     const page = await browser.newPage({ viewport: { width: 360, height: 780 } });
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, "platform", { get: () => "iPhone" });
+      Object.defineProperty(navigator, "maxTouchPoints", { get: () => 5 });
+    });
     await page.addInitScript(() => { try { localStorage.setItem("onlytty.keybar", "show"); } catch {} });
     await page.goto(link);
     await dismissVerify(page);

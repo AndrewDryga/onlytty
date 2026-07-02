@@ -223,8 +223,8 @@ To keep it honest:
   viewer-hash`). Pin a release tag rather than `:latest` and you can check the bytes your
   relay serves against the audited release.
 - The link is a capability — anyone you forward it to becomes a viewer. Bound it with a
-  short `--ttl`, the single-viewer lock (on by default), or a `--passphrase` shared
-  out-of-band.
+  short `--ttl`, the single-viewer lock (on by default; `--multi-viewer` opts into
+  several watchers), or a `--passphrase` shared out-of-band.
 
 The full model, stated with its limits, is in [SECURITY.md](SECURITY.md) and
 [PROTOCOL.md](PROTOCOL.md).

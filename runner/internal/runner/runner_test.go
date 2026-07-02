@@ -47,6 +47,20 @@ func seal(t *testing.T, c *protocol.Cipher, seq uint64, kind byte, payload []byt
 	return f
 }
 
+func sealViewer(t *testing.T, c *protocol.Cipher, viewerID string, seq uint64, kind byte, payload []byte) []byte {
+	t.Helper()
+	return protocol.EncodeRelayViewerFrame(
+		viewerID,
+		seal(t, c, seq, kind, protocol.EncodeViewerPayload(viewerID, payload)),
+	)
+}
+
+func grantControl(o *Orchestrator, viewerID string) {
+	o.stateMu.Lock()
+	o.controlOwner = viewerKey(viewerID)
+	o.stateMu.Unlock()
+}
+
 // A resize from a viewer that does not hold control must be ignored (it would
 // otherwise SIGWINCH the host — a write-side effect a read-only viewer must not have).
 func TestResizeRequiresControl(t *testing.T) {
@@ -57,7 +71,7 @@ func TestResizeRequiresControl(t *testing.T) {
 		t.Fatalf("resize applied without control: %dx%d", c, r)
 	}
 
-	o.granted.Store(true)
+	grantControl(o, "")
 	o.handleBinary(seal(t, v2r, 2, protocol.KindResize, protocol.EncodeResize(120, 40)))
 	if c, r := ps.Size(); c != 120 || r != 40 {
 		t.Fatalf("resize not applied with control: %dx%d", c, r)
@@ -68,13 +82,13 @@ func TestResizeRequiresControl(t *testing.T) {
 func TestReadOnlyNeverGrantsControl(t *testing.T) {
 	ro, v2r, _ := newTestOrch(t, ControlViewOnly)
 	ro.handleBinary(seal(t, v2r, 1, protocol.KindCtrlReq, nil))
-	if ro.granted.Load() {
+	if ro.viewerHasControl("") {
 		t.Fatal("read-only session granted control")
 	}
 
 	rw, v2r2, _ := newTestOrch(t, ControlAsk)
 	rw.handleBinary(seal(t, v2r2, 1, protocol.KindCtrlReq, nil))
-	if !rw.granted.Load() {
+	if !rw.viewerHasControl("") {
 		t.Fatal("writable session did not grant control on request")
 	}
 }
@@ -83,7 +97,7 @@ func TestReadOnlyNeverGrantsControl(t *testing.T) {
 // against a relay re-running a viewer's past keystrokes.
 func TestReplayRejected(t *testing.T) {
 	o, v2r, ps := newTestOrch(t, ControlAsk)
-	o.granted.Store(true)
+	grantControl(o, "")
 
 	o.handleBinary(seal(t, v2r, 5, protocol.KindResize, protocol.EncodeResize(100, 30)))
 	if c, _ := ps.Size(); c != 100 {
@@ -180,10 +194,18 @@ func withConn(o *Orchestrator) *connState {
 // assertControl reads the next queued control frame and checks its state byte.
 func assertControl(t *testing.T, c *connState, want byte) {
 	t.Helper()
+	assertControlTarget(t, c, "", want)
+}
+
+func assertControlTarget(t *testing.T, c *connState, target string, want byte) {
+	t.Helper()
 	select {
 	case m := <-c.send:
 		if m.kind != protocol.KindControl || len(m.payload) != 1 || m.payload[0] != want {
 			t.Fatalf("got kind=%d payload=%v, want control state %d", m.kind, m.payload, want)
+		}
+		if m.target != target {
+			t.Fatalf("control target = %q, want %q", m.target, target)
 		}
 	default:
 		t.Fatal("no control frame emitted")
@@ -225,22 +247,82 @@ func TestControlOnceGrantsThenDenies(t *testing.T) {
 	c := withConn(o)
 
 	o.handleBinary(seal(t, v2r, 1, protocol.KindCtrlReq, nil))
-	if !o.granted.Load() {
+	if !o.viewerHasControl("") {
 		t.Fatal("once: first request was not granted")
 	}
 	assertControl(t, c, protocol.ControlGranted)
 
 	o.handleBinary(seal(t, v2r, 2, protocol.KindCtrlRel, nil))
-	if o.granted.Load() {
+	if o.viewerHasControl("") {
 		t.Fatal("once: still granted after release")
 	}
 	assertControl(t, c, protocol.ControlReadOnly)
 
 	o.handleBinary(seal(t, v2r, 3, protocol.KindCtrlReq, nil))
-	if o.granted.Load() {
+	if o.viewerHasControl("") {
 		t.Fatal("once: re-granted after the one-time grant was used")
 	}
 	assertControl(t, c, protocol.ControlReadOnly)
+}
+
+func TestMultipleViewersSingleControlOwner(t *testing.T) {
+	o, v2r, ps := newTestOrch(t, ControlAsk)
+	c := withConn(o)
+
+	o.handleBinary(sealViewer(t, v2r, "viewer-a", 1, protocol.KindCtrlReq, nil))
+	if !o.viewerHasControl("viewer-a") {
+		t.Fatal("viewer-a was not granted control")
+	}
+	assertControlTarget(t, c, "viewer-a", protocol.ControlGranted)
+
+	// viewer-b uses its own sequence stream; seq=1 must not be rejected just because
+	// viewer-a already used seq=1.
+	o.handleBinary(sealViewer(t, v2r, "viewer-b", 1, protocol.KindCtrlReq, nil))
+	if o.viewerHasControl("viewer-b") {
+		t.Fatal("viewer-b stole control while viewer-a owned it")
+	}
+	assertControlTarget(t, c, "viewer-b", protocol.ControlTaken)
+
+	o.handleBinary(sealViewer(t, v2r, "viewer-b", 2, protocol.KindResize, protocol.EncodeResize(120, 40)))
+	if cols, rows := ps.Size(); cols == 120 || rows == 40 {
+		t.Fatalf("non-owner resize applied: %dx%d", cols, rows)
+	}
+
+	o.handleBinary(sealViewer(t, v2r, "viewer-a", 2, protocol.KindResize, protocol.EncodeResize(120, 40)))
+	if cols, rows := ps.Size(); cols != 120 || rows != 40 {
+		t.Fatalf("owner resize not applied: %dx%d", cols, rows)
+	}
+
+	o.handleBinary(sealViewer(t, v2r, "viewer-a", 3, protocol.KindCtrlRel, nil))
+	if o.viewerHasControl("viewer-a") {
+		t.Fatal("viewer-a still owns control after release")
+	}
+	assertControlTarget(t, c, "viewer-a", protocol.ControlReadOnly)
+
+	o.handleBinary(sealViewer(t, v2r, "viewer-b", 3, protocol.KindCtrlReq, nil))
+	if !o.viewerHasControl("viewer-b") {
+		t.Fatal("viewer-b was not granted after viewer-a released")
+	}
+	assertControlTarget(t, c, "viewer-b", protocol.ControlGranted)
+}
+
+func TestRelayCannotRelabelViewerFrame(t *testing.T) {
+	o, v2r, _ := newTestOrch(t, ControlAsk)
+	c := withConn(o)
+	frame := protocol.EncodeRelayViewerFrame(
+		"viewer-b",
+		seal(t, v2r, 1, protocol.KindCtrlReq, protocol.EncodeViewerPayload("viewer-a", nil)),
+	)
+
+	o.handleBinary(frame)
+	if o.viewerHasControl("viewer-a") || o.viewerHasControl("viewer-b") {
+		t.Fatal("mismatched relay/encrypted viewer ids granted control")
+	}
+	select {
+	case m := <-c.send:
+		t.Fatalf("mismatched viewer ids emitted control frame: %+v", m)
+	default:
+	}
 }
 
 // Revoke takes control back: it clears the grant and tells the viewer it is read-only;
@@ -248,10 +330,10 @@ func TestControlOnceGrantsThenDenies(t *testing.T) {
 func TestRevokeTakesControlBack(t *testing.T) {
 	o, _, _ := newTestOrch(t, ControlAsk)
 	c := withConn(o)
-	o.granted.Store(true)
+	grantControl(o, "")
 
 	o.Revoke()
-	if o.granted.Load() {
+	if o.viewerHasControl("") {
 		t.Fatal("revoke did not clear the grant")
 	}
 	assertControl(t, c, protocol.ControlReadOnly)

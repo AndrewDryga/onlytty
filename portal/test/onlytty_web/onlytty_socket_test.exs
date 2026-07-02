@@ -23,6 +23,10 @@ defmodule OnlyTTYWeb.OnlyTTYSocketTest do
 
   defp runner_headers(token), do: [{"authorization", "Bearer " <> token}]
 
+  defp relay_viewer_frame(viewer_id, payload) do
+    <<"OTV1", byte_size(viewer_id), viewer_id::binary, payload::binary>>
+  end
+
   describe "auth" do
     test "runner with a valid token connects", %{port: port} do
       s = new_session()
@@ -341,16 +345,22 @@ defmodule OnlyTTYWeb.OnlyTTYSocketTest do
 
       v1 = WSClient.open(port)
       v1_ref = WSClient.connect!(v1, "/ws/viewer/#{s.id}", [])
-      assert WSClient.recv_json(v1, v1_ref)["t"] == "hello"
+      v1_hello = WSClient.recv_json(v1, v1_ref)
+      assert v1_hello["t"] == "hello"
       assert WSClient.recv_json(v1, v1_ref)["t"] == "peer_join"
-      assert WSClient.recv_json(runner, r_ref)["t"] == "peer_join"
+      r_join1 = WSClient.recv_json(runner, r_ref)
+      assert r_join1["t"] == "peer_join"
+      assert r_join1["viewer_id"] == v1_hello["viewer_id"]
 
       # A second viewer attaches to the SAME unlocked session (no busy).
       v2 = WSClient.open(port)
       v2_ref = WSClient.connect!(v2, "/ws/viewer/#{s.id}", [])
-      assert WSClient.recv_json(v2, v2_ref)["t"] == "hello"
+      v2_hello = WSClient.recv_json(v2, v2_ref)
+      assert v2_hello["t"] == "hello"
       assert WSClient.recv_json(v2, v2_ref)["t"] == "peer_join"
-      assert WSClient.recv_json(runner, r_ref)["t"] == "peer_join"
+      r_join2 = WSClient.recv_json(runner, r_ref)
+      assert r_join2["t"] == "peer_join"
+      assert r_join2["viewer_id"] == v2_hello["viewer_id"]
 
       # Runner output reaches BOTH viewers byte-identically.
       payload = <<0, 1, 2, 255, "broadcast", 0>>
@@ -358,7 +368,8 @@ defmodule OnlyTTYWeb.OnlyTTYSocketTest do
       assert WSClient.recv_binary(v1, v1_ref) == payload
       assert WSClient.recv_binary(v2, v2_ref) == payload
 
-      # Each viewer's input reaches the runner (arbitration is a runner/E2E concern).
+      # Without runner opt-in, each viewer's input reaches the runner verbatim: legacy
+      # single-viewer runners keep working during a rolling deploy.
       WSClient.send_binary(v1, v1_ref, <<1, 1, 1>>)
       assert WSClient.recv_binary(runner, r_ref) == <<1, 1, 1>>
       WSClient.send_binary(v2, v2_ref, <<2, 2, 2>>)
@@ -379,7 +390,8 @@ defmodule OnlyTTYWeb.OnlyTTYSocketTest do
 
       v1 = WSClient.open(port)
       v1_ref = WSClient.connect!(v1, "/ws/viewer/#{s.id}", [])
-      assert WSClient.recv_json(v1, v1_ref)["t"] == "hello"
+      v1_hello = WSClient.recv_json(v1, v1_ref)
+      assert v1_hello["t"] == "hello"
       assert WSClient.recv_json(v1, v1_ref)["t"] == "peer_join"
       assert WSClient.recv_json(runner, r_ref)["t"] == "peer_join"
 
@@ -389,19 +401,62 @@ defmodule OnlyTTYWeb.OnlyTTYSocketTest do
       assert WSClient.recv_json(v2, v2_ref)["t"] == "peer_join"
       assert WSClient.recv_json(runner, r_ref)["t"] == "peer_join"
 
-      # v1 leaves. The runner is NOT told peer_left — v2 is still attached — so it must
-      # keep streaming to v2.
+      # v1 leaves. The runner learns which viewer left, but v2 is still attached so it
+      # must keep streaming to v2.
       WSClient.close(v1)
-      WSClient.refute_frame(runner, r_ref)
+      left1 = WSClient.recv_json(runner, r_ref)
+      assert left1["t"] == "peer_left"
+      assert left1["viewer_id"] == v1_hello["viewer_id"]
+      assert left1["viewers"] == 1
 
       WSClient.send_binary(runner, r_ref, <<7, 7, 7>>)
       assert WSClient.recv_binary(v2, v2_ref) == <<7, 7, 7>>
 
       # v2 (the last viewer) leaves: now the runner learns its channel is empty.
       WSClient.close(v2)
-      assert WSClient.recv_json(runner, r_ref)["t"] == "peer_left"
+      left2 = WSClient.recv_json(runner, r_ref)
+      assert left2["t"] == "peer_left"
+      assert left2["viewers"] == 0
 
       WSClient.close(runner)
+    end
+
+    test "runner opt-in labels viewer input and targeted frames reach only one viewer",
+         %{port: port} do
+      s = new_session(locked: false)
+
+      runner = WSClient.open(port)
+      r_ref = WSClient.connect!(runner, "/ws/runner/#{s.id}", runner_headers(s.runner_token))
+      assert WSClient.recv_json(runner, r_ref)["t"] == "hello"
+      WSClient.send_text(runner, r_ref, Jason.encode!(%{t: "runner_ready", viewer_protocol: 1}))
+
+      v1 = WSClient.open(port)
+      v1_ref = WSClient.connect!(v1, "/ws/viewer/#{s.id}", [])
+      v1_id = WSClient.recv_json(v1, v1_ref)["viewer_id"]
+      assert WSClient.recv_json(v1, v1_ref)["t"] == "peer_join"
+      assert WSClient.recv_json(runner, r_ref)["viewer_id"] == v1_id
+
+      v2 = WSClient.open(port)
+      v2_ref = WSClient.connect!(v2, "/ws/viewer/#{s.id}", [])
+      v2_id = WSClient.recv_json(v2, v2_ref)["viewer_id"]
+      assert WSClient.recv_json(v2, v2_ref)["t"] == "peer_join"
+      assert WSClient.recv_json(runner, r_ref)["viewer_id"] == v2_id
+
+      WSClient.send_binary(v1, v1_ref, <<1, 1, 1>>)
+      assert WSClient.recv_binary(runner, r_ref) == relay_viewer_frame(v1_id, <<1, 1, 1>>)
+
+      WSClient.send_text(
+        runner,
+        r_ref,
+        Jason.encode!(%{t: "to_viewer", viewer_id: v2_id, frame: Base.encode64(<<9, 9, 9>>)})
+      )
+
+      assert WSClient.recv_binary(v2, v2_ref) == <<9, 9, 9>>
+      WSClient.refute_frame(v1, v1_ref)
+
+      WSClient.close(runner)
+      WSClient.close(v1)
+      WSClient.close(v2)
     end
   end
 

@@ -103,29 +103,38 @@ defmodule OnlyTTY.SessionTest do
       # hands out. join_runner cancels the unconnected reap, keeping the session alive.
       assert {:ok, %{viewers: 0}} = Session.join_runner(session)
 
-      {v1, {:ok, %{viewers: 1, locked: false}}} = spawn_viewer(session)
+      {v1, {:ok, %{viewers: 1, locked: false, viewer_id: v1_id}}} = spawn_viewer(session)
       # The runner is wired to v1 and told a peer joined.
-      assert_receive {:add_peer, ^v1}
+      assert_receive {:add_peer, ^v1, ^v1_id}
       assert_receive {:onlytty_control, join1}
-      assert Jason.decode!(join1)["t"] == "peer_join"
 
-      {v2, {:ok, %{viewers: 2}}} = spawn_viewer(session)
-      assert_receive {:add_peer, ^v2}
+      assert %{"t" => "peer_join", "viewer_id" => ^v1_id, "viewers" => 1} =
+               Jason.decode!(join1)
+
+      {v2, {:ok, %{viewers: 2, viewer_id: v2_id}}} = spawn_viewer(session)
+      assert_receive {:add_peer, ^v2, ^v2_id}
       assert_receive {:onlytty_control, join2}
-      assert Jason.decode!(join2)["t"] == "peer_join"
 
-      # v1 leaves: the runner drops only v1 and is NOT told its channel is empty — v2
-      # is still attached, so a broadcasting runner must keep streaming to it.
+      assert %{"t" => "peer_join", "viewer_id" => ^v2_id, "viewers" => 2} =
+               Jason.decode!(join2)
+
+      # v1 leaves: the runner drops only v1 and learns which viewer left, but the
+      # viewers count says v2 is still attached.
       Process.exit(v1, :kill)
       assert_receive {:del_peer, ^v1}
       refute_receive {:del_peer, ^v2}, 200
-      refute_receive {:onlytty_control, _}, 200
+      assert_receive {:onlytty_control, left1}
+
+      assert %{"t" => "peer_left", "viewer_id" => ^v1_id, "viewers" => 1} =
+               Jason.decode!(left1)
 
       # v2 (the last viewer) leaves: now the runner is told peer_left.
       Process.exit(v2, :kill)
       assert_receive {:del_peer, ^v2}
       assert_receive {:onlytty_control, left}
-      assert Jason.decode!(left)["t"] == "peer_left"
+
+      assert %{"t" => "peer_left", "viewer_id" => ^v2_id, "viewers" => 0} =
+               Jason.decode!(left)
     end
   end
 end

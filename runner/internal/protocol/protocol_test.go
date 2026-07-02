@@ -231,3 +231,39 @@ func TestCodecsRoundTrip(t *testing.T) {
 		t.Fatal("short hello must error")
 	}
 }
+
+func TestViewerPayloadCodec(t *testing.T) {
+	gotID, gotPayload, err := DecodeViewerPayload(EncodeViewerPayload("viewer-a", []byte("payload")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if gotID != "viewer-a" || !bytes.Equal(gotPayload, []byte("payload")) {
+		t.Fatalf("viewer payload = %q %q", gotID, gotPayload)
+	}
+
+	gotID, gotPayload, err = DecodeViewerPayload([]byte("legacy"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if gotID != "" || !bytes.Equal(gotPayload, []byte("legacy")) {
+		t.Fatalf("legacy payload = %q %q", gotID, gotPayload)
+	}
+}
+
+func TestRelayViewerFrameCodec(t *testing.T) {
+	gotID, gotFrame, err := DecodeRelayViewerFrame(EncodeRelayViewerFrame("viewer-b", []byte{1, 2, 3}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if gotID != "viewer-b" || !bytes.Equal(gotFrame, []byte{1, 2, 3}) {
+		t.Fatalf("relay frame = %q %v", gotID, gotFrame)
+	}
+
+	gotID, gotFrame, err = DecodeRelayViewerFrame([]byte{9, 8, 7})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if gotID != "" || !bytes.Equal(gotFrame, []byte{9, 8, 7}) {
+		t.Fatalf("legacy relay frame = %q %v", gotID, gotFrame)
+	}
+}

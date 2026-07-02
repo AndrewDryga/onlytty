@@ -87,6 +87,13 @@ defmodule OnlyTTYWeb.HTTPTest do
       refute Map.has_key?(body, "id")
     end
 
+    test "rejects a non-boolean multi_viewer with 400 and creates no session", %{conn: conn} do
+      conn = post(conn, ~p"/api/sessions", %{id: tok(), runner_token: tok(), multi_viewer: "yes"})
+      body = json_response(conn, 400)
+      assert body["error"] =~ "multi_viewer"
+      refute Map.has_key?(body, "id")
+    end
+
     test "requires both id and runner_token", %{conn: conn} do
       assert json_response(post(conn, ~p"/api/sessions", %{}), 400)["error"] =~ "id"
 

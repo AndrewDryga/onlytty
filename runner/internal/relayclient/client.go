@@ -68,15 +68,27 @@ type Session struct {
 	ExpiresAt   int64  `json:"expires_at"`
 }
 
+type CreateSessionOptions struct {
+	MultiViewer bool
+}
+
 // CreateSession registers the runner-chosen session id + token with the relay, or
 // re-claims them after a node loss. The runner generates both so the SAME session can
 // be re-established on any relay node. Returns the relay's view (the assigned expiry).
 func (c *Client) CreateSession(ctx context.Context, id, runnerToken string, ttl time.Duration) (*Session, error) {
-	body, _ := json.Marshal(map[string]any{
+	return c.CreateSessionWithOptions(ctx, id, runnerToken, ttl, CreateSessionOptions{})
+}
+
+func (c *Client) CreateSessionWithOptions(ctx context.Context, id, runnerToken string, ttl time.Duration, opts CreateSessionOptions) (*Session, error) {
+	bodyMap := map[string]any{
 		"id":           id,
 		"runner_token": runnerToken,
 		"ttl_seconds":  int(ttl.Seconds()),
-	})
+	}
+	if opts.MultiViewer {
+		bodyMap["multi_viewer"] = true
+	}
+	body, _ := json.Marshal(bodyMap)
 	u := c.base.JoinPath("api", "sessions").String()
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u, bytes.NewReader(body))
 	if err != nil {

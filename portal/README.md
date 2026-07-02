@@ -27,7 +27,7 @@ The full gate (run from the repo root) is `make server-check`:
 | `GET /metrics` | Prometheus counters (access-gated: loopback-only unless `ONLYTTY_METRICS_TOKEN`) |
 | `GET /s/:id` | the static browser viewer page |
 | `GET /ws/runner/:id` | runner WebSocket (Bearer `runner_token`) |
-| `GET /ws/viewer/:id` | viewer WebSocket (single-viewer lock) |
+| `GET /ws/viewer/:id` | viewer WebSocket (single-viewer lock unless the session was created multi-viewer) |
 | `GET /`, `/tools`, `/control/:slug`, `/sitemap.xml` | OnlyTTY marketing site |
 
 WebSocket frames are opaque ciphertext: the relay can pair, drop, or observe

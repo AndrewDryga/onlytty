@@ -21,7 +21,7 @@ bytes, never your terminal.
 - **No inbound ports.** The runner dials out over WebSocket/TLS; nothing listens on your machine.
 - **E2E by default.** AES-256-GCM under keys derived from a secret the relay never sees ([PROTOCOL.md](PROTOCOL.md)).
 - **Mobile-first viewer.** xterm.js with a touch key bar, paste guard, reconnect, and wake lock.
-- **Command-only or whole-shell.** Share just `claude`, or your `$SHELL`. The link opens view-only, but anyone who has it can take control with a tap — pass `--control view-only` to lock it to watching.
+- **Command-only or whole-shell.** Share just `claude`, or your `$SHELL`. The link opens view-only, but anyone who has it can take control with a tap — pass `--control view-only` to lock it to watching, or `--multi-viewer` when several people should watch while one controls at a time.
 - **Minimal & boring.** A Go runner (stdlib crypto), an Elixir relay that stores nothing, a dependency-light vanilla-JS viewer.
 
 ---
@@ -117,6 +117,8 @@ onlytty [flags] -- <cmd>...  share one command
                      request only). Take control back any time (any mode) with:
                      kill -USR1 <onlytty-pid>
   --read-only        deprecated alias for --control view-only
+  --multi-viewer     allow multiple browser viewers; only one viewer can control
+                     the terminal at a time
   --ttl <dur>        session lifetime before the link expires. Default: no expiry —
                      the session lives as long as onlytty runs (it ends when the
                      command exits). Set a duration to bound it; the relay you
@@ -145,7 +147,7 @@ passphrase without reloading, instead of hanging silently.
 
 The browser viewer (xterm.js, no framework, no build step) is built for phones:
 
-- **View-only by default.** Tap **Take control** to type; the host sets the policy with `--control` — `ask` (the default) **auto-grants** control to any viewer who asks, with no host prompt; `view-only` never grants; `once` auto-grants the first request only. The host can take control back any time with `kill -USR1 <onlytty-pid>`.
+- **View-only by default.** Tap **Take control** to type; the host sets the policy with `--control` — `ask` (the default) **auto-grants** control to a viewer who asks, with no host prompt; `view-only` never grants; `once` auto-grants the first request only. By default the link admits one viewer; `--multi-viewer` lets several viewers watch while the runner grants control to one at a time. The host can take control back any time with `kill -USR1 <onlytty-pid>`.
 - **Touch key bar** — Esc, Tab, Ctrl (sticky, for `Ctrl-<key>`), arrows, `^C`, `^D`.
 - **Paste guard** confirms before sending a multi-line paste.
 - **Reconnect & resume** — drops are repainted from the runner's ring buffer.
@@ -155,8 +157,8 @@ The browser viewer (xterm.js, no framework, no build step) is built for phones:
 
 End-to-end encryption means the **relay** never sees terminal IO: it forwards opaque,
 authenticated ciphertext and stores none of it. A replayed or reordered frame is
-rejected (a session-long sequence floor); a read-only viewer cannot type *or* resize
-the host. That is the strong guarantee.
+rejected (per-viewer sequence floors); a read-only viewer cannot type *or* resize the
+host. That is the strong guarantee.
 
 It is **not** zero-trust, and here's the honest residue:
 
@@ -168,7 +170,8 @@ It is **not** zero-trust, and here's the honest residue:
   Subresource-Integrity-pinned. A native viewer (no browser JS) would remove this
   caveat entirely.
 - **The link is a capability.** Anyone you forward it to becomes a viewer. Mitigate
-  with a short `--ttl`, the single-viewer lock (default), and `--passphrase`.
+  with a short `--ttl`, the single-viewer lock (default; opt into several watchers
+  with `--multi-viewer`), and `--passphrase`.
 - **Trust the fingerprint, not the prose.** The fingerprint shown at both ends is
   derived from the secret and is trustworthy. A "viewer connected" notice in the
   terminal is relay-delivered metadata and could be spoofed by a hostile relay (which

@@ -3,7 +3,7 @@
 // real session). See PROTOCOL.md "JS precision note".
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { decodeHello } from "../../../portal/priv/static/assets/wire.js";
+import { decodeHello, encodeViewerPayload, decodeViewerPayload } from "../../../portal/priv/static/assets/wire.js";
 
 // Build a 12-byte HELLO body: baseline:uint64 BE, cols:uint16 BE, rows:uint16 BE.
 function hello(baseline, cols, rows) {
@@ -34,4 +34,16 @@ test("decodeHello is exact up to Number.MAX_SAFE_INTEGER (2^53 - 1)", () => {
 
 test("decodeHello rejects a short body", () => {
   assert.throws(() => decodeHello(new Uint8Array(11)), /short hello/);
+});
+
+test("viewer payload wrapper round-trips and leaves legacy payloads alone", () => {
+  const wrapped = encodeViewerPayload("viewer-a", new Uint8Array([1, 2, 3]));
+  const got = decodeViewerPayload(wrapped);
+  assert.equal(got.viewerId, "viewer-a");
+  assert.deepEqual([...got.payload], [1, 2, 3]);
+
+  const legacy = new Uint8Array([9, 8, 7]);
+  const plain = decodeViewerPayload(legacy);
+  assert.equal(plain.viewerId, "");
+  assert.equal(plain.payload, legacy);
 });

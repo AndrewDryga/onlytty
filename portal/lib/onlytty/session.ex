@@ -12,10 +12,10 @@ defmodule OnlyTTY.Session do
     * `runner_token` — bearer token authorizing the privileged runner socket
     * `created_at` / `expires_at` — unix seconds; `expires_at` drives the TTL
     * `runner` — the connected runner socket pid (or nil), monitored
-    * `viewers` — a `%{pid => monitor_ref}` map of attached viewer sockets. A set,
+    * `viewers` — a `%{pid => %{ref, id}}` map of attached viewer sockets. A set,
       not a single slot, so an unlocked session can hold several viewers without
       overwriting one another or leaking a monitor. Locked (the default) still
-      admits at most one.
+      admits at most one. The id is relay metadata for per-viewer control handoff.
     * `locked` — single-viewer lock (default true): at most one viewer
     * `idle_ms` — close the session after this long with no runner traffic
 
@@ -24,14 +24,13 @@ defmodule OnlyTTY.Session do
   output broadcasts to all), and each viewer's peer is the runner.
     * `{:onlytty_control, json_binary}` — a control-plane JSON frame to send
     * `{:add_peer, pid}` — add `pid` to your peer set; relay binary to it too
+    * `{:add_peer, pid, viewer_id}` — runner-only viewer peer wiring
     * `{:del_peer, pid}` — drop `pid` from your peer set
     * `{:close, code, reason_text}` — close your socket with this WS close code
 
   NOTE: arbitrating *input control* among multiple viewers (who may type) is a
-  runner/end-to-end concern, not this relay's — the relay only ever forwards
-  opaque ciphertext and cannot tell an input frame from a control frame. This
-  module models the viewer set; a multi-viewer control-handoff protocol is a
-  deferred product decision, which is why `locked: true` remains the default.
+  runner/end-to-end concern, not this relay's. The relay supplies viewer identity
+  metadata and targeted delivery, but terminal IO stays encrypted.
   """
 
   use GenServer, restart: :temporary
@@ -78,6 +77,7 @@ defmodule OnlyTTY.Session do
           {:ok,
            %{
              viewers: non_neg_integer(),
+             viewer_id: String.t(),
              locked: boolean(),
              expires_at: integer(),
              runner_present: boolean()
@@ -186,11 +186,11 @@ defmodule OnlyTTY.Session do
     # and let each waiting viewer know its peer (the runner) is now present. On a
     # reconnect, first drop the displaced runner from each viewer's peer set so a
     # viewer never keeps sending input to the fenced zombie.
-    for {viewer, _ref} <- state.viewers do
+    for {viewer, info} <- state.viewers do
       if is_pid(old) and old != pid, do: send(viewer, {:del_peer, old})
       send(viewer, {:add_peer, pid})
-      send(pid, {:add_peer, viewer})
-      send(viewer, {:onlytty_control, control(:peer_join)})
+      send(pid, {:add_peer, viewer, info.id})
+      send(viewer, {:onlytty_control, control(:peer_join, info.id, map_size(state.viewers))})
     end
 
     OnlyTTY.Metrics.inc(:runners_connected)
@@ -206,14 +206,23 @@ defmodule OnlyTTY.Session do
         {:reply, :busy, state}
 
       true ->
-        state = %{state | viewers: Map.put(state.viewers, pid, Process.monitor(pid))}
+        viewer_id = viewer_id()
+
+        state = %{
+          state
+          | viewers: Map.put(state.viewers, pid, %{ref: Process.monitor(pid), id: viewer_id})
+        }
 
         if state.runner do
           # Let both sides relay binary directly, and tell the runner a viewer
           # arrived so it can send HELLO + replay over the binary channel.
-          send(state.runner, {:add_peer, pid})
+          send(state.runner, {:add_peer, pid, viewer_id})
           send(pid, {:add_peer, state.runner})
-          send(state.runner, {:onlytty_control, control(:peer_join)})
+
+          send(
+            state.runner,
+            {:onlytty_control, control(:peer_join, viewer_id, map_size(state.viewers))}
+          )
         end
 
         OnlyTTY.Metrics.inc(:viewers_connected)
@@ -222,6 +231,7 @@ defmodule OnlyTTY.Session do
         snapshot =
           state
           |> hello_snapshot()
+          |> Map.put(:viewer_id, viewer_id)
           |> Map.put(:runner_present, is_pid(state.runner))
 
         {:reply, {:ok, snapshot}, state}
@@ -277,8 +287,8 @@ defmodule OnlyTTY.Session do
     # reconnect) so an empty session can't hold the process/lock budget until idle/TTL.
     runner = state.runner
 
-    for {viewer, _ref} <- state.viewers do
-      send(viewer, {:onlytty_control, control(:peer_left)})
+    for {viewer, info} <- state.viewers do
+      send(viewer, {:onlytty_control, control(:peer_left, info.id, map_size(state.viewers))})
       send(viewer, {:del_peer, runner})
     end
 
@@ -289,22 +299,27 @@ defmodule OnlyTTY.Session do
   end
 
   def handle_info({:DOWN, ref, :process, pid, _reason}, state) do
-    if Map.get(state.viewers, pid) == ref do
-      # A viewer dropped: free only that viewer's slot and drop it from the runner's
-      # peer set. Tell the runner its peer left only when the LAST viewer is gone, so
-      # a runner streaming to several viewers keeps going for the ones that remain.
-      viewers = Map.delete(state.viewers, pid)
-      if state.runner, do: send(state.runner, {:del_peer, pid})
+    case Map.get(state.viewers, pid) do
+      %{ref: ^ref, id: viewer_id} ->
+        # A viewer dropped: free only that viewer's slot and drop it from the runner's
+        # peer set. Tell the runner which viewer left every time; the viewers count lets
+        # it distinguish a control-owner departure from "no viewers left".
+        viewers = Map.delete(state.viewers, pid)
+        if state.runner, do: send(state.runner, {:del_peer, pid})
 
-      if is_pid(state.runner) and map_size(viewers) == 0 do
-        send(state.runner, {:onlytty_control, control(:peer_left)})
-      end
+        if is_pid(state.runner) do
+          send(
+            state.runner,
+            {:onlytty_control, control(:peer_left, viewer_id, map_size(viewers))}
+          )
+        end
 
-      Logger.info("relay session #{short(state.id)}: viewer left")
-      {:noreply, %{state | viewers: viewers}}
-    else
-      # A stale monitor for a socket we no longer track — ignore.
-      {:noreply, state}
+        Logger.info("relay session #{short(state.id)}: viewer left")
+        {:noreply, %{state | viewers: viewers}}
+
+      _ ->
+        # A stale monitor for a socket we no longer track — ignore.
+        {:noreply, state}
     end
   end
 
@@ -338,9 +353,17 @@ defmodule OnlyTTY.Session do
   end
 
   # Control-plane JSON, metadata only — never any terminal content.
-  defp control(:peer_join), do: Jason.encode!(%{t: "peer_join"})
-  defp control(:peer_left), do: Jason.encode!(%{t: "peer_left"})
+  defp control(:peer_join, viewer_id, viewers) do
+    Jason.encode!(%{t: "peer_join", viewer_id: viewer_id, viewers: viewers})
+  end
+
+  defp control(:peer_left, viewer_id, viewers) do
+    Jason.encode!(%{t: "peer_left", viewer_id: viewer_id, viewers: viewers})
+  end
+
   defp control(:going_away), do: Jason.encode!(%{t: "going_away"})
+
+  defp viewer_id, do: 9 |> :crypto.strong_rand_bytes() |> Base.url_encode64(padding: false)
 
   # The session id is the viewer connect capability; log only a short prefix so a
   # leaked log can't be used to connect to live sessions.

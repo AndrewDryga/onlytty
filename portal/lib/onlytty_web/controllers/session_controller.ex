@@ -15,17 +15,19 @@ defmodule OnlyTTYWeb.SessionController do
   and sends them in the JSON body, so it can re-establish the SAME session on any
   node after a node loss/deploy. Both are required. Optional `ttl_seconds` (default
   `0` = no expiry; a positive value is floored at 60s and capped by the optional
-  `ONLYTTY_MAX_TTL`). Idempotent: re-posting the same id with the matching token
-  attaches to the live session (keeping its expiry); a wrong token for an existing
-  id is a 401. Responds 201 with `{id, runner_token, expires_at}`.
+  `ONLYTTY_MAX_TTL`) and `multi_viewer` (default false; when true, several viewers
+  may watch and one can hold control at a time). Idempotent: re-posting the same id
+  with the matching token attaches to the live session (keeping its expiry); a wrong
+  token for an existing id is a 401. Responds 201 with `{id, runner_token, expires_at}`.
   """
   def create(conn, params) do
     # The per-IP throttle runs in the endpoint (OnlyTTYWeb.RateLimitGuard) ahead of
     # Plug.Parsers, so by the time we get here the request is within the limit.
     with {:ok, id} <- id_param(params),
          {:ok, token} <- token_param(params),
-         {:ok, ttl} <- ttl_param(params) do
-      create_session(conn, id, token, ttl)
+         {:ok, ttl} <- ttl_param(params),
+         {:ok, multi_viewer} <- multi_viewer_param(params) do
+      create_session(conn, id, token, ttl, multi_viewer)
     else
       {:error, message} ->
         conn
@@ -42,8 +44,8 @@ defmodule OnlyTTYWeb.SessionController do
     |> json(%{error: "method not allowed; use POST"})
   end
 
-  defp create_session(conn, id, token, ttl) do
-    case SessionStore.create_or_attach(id, token, ttl_seconds: ttl) do
+  defp create_session(conn, id, token, ttl, multi_viewer) do
+    case SessionStore.create_or_attach(id, token, ttl_seconds: ttl, locked: not multi_viewer) do
       {:ok, session} ->
         conn
         |> put_status(:created)
@@ -123,4 +125,8 @@ defmodule OnlyTTYWeb.SessionController do
   defp ttl_param(%{"ttl_seconds" => ttl}) when is_integer(ttl), do: {:ok, ttl}
   defp ttl_param(%{"ttl_seconds" => _}), do: {:error, "ttl_seconds must be an integer"}
   defp ttl_param(_), do: {:ok, nil}
+
+  defp multi_viewer_param(%{"multi_viewer" => value}) when is_boolean(value), do: {:ok, value}
+  defp multi_viewer_param(%{"multi_viewer" => _}), do: {:error, "multi_viewer must be a boolean"}
+  defp multi_viewer_param(_), do: {:ok, false}
 end

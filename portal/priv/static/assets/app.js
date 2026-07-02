@@ -3,7 +3,7 @@
 // terminal over an encrypted WebSocket. See PROTOCOL.md.
 
 import { deriveKeys, newCipher, b64urlToBytes } from "./crypto.js";
-import { Kind, Control, decodeHello, encodeResize, decodeExit, decodeControl } from "./wire.js";
+import { Kind, Control, decodeHello, encodeResize, decodeExit, decodeControl, encodeViewerPayload } from "./wire.js";
 import { parsePayload } from "./keys.js";
 
 const enc = new TextEncoder();
@@ -51,6 +51,7 @@ let openC, sealC; // r2v (open), v2r (seal)
 let ws = null;
 let outSeq = 0; // viewer→runner sequence (starts at HELLO baseline)
 let lastSeq = 0; // runner→viewer replay floor (monotonic, runner is one process)
+let viewerId = ""; // relay-assigned socket id, authenticated inside v2r payloads
 let hasControl = false;
 let controlPending = false, controlTimer = null; // a "Take control" tap awaiting the host's answer
 let expiresAt = null, ttlTimer = null; // session expiry (unix s) from the hello, for the countdown
@@ -325,13 +326,16 @@ function dispatch({ kind, payload }) {
       term.write(payload);
       break;
     case Kind.Control: {
-      const granted = decodeControl(payload) === Control.Granted;
+      const state = decodeControl(payload);
+      const granted = state === Control.Granted;
       const wasPending = controlPending;
       clearControlPending();
       hasControl = granted;
       if (granted) {
         applySize(); term.focus(); // we now drive geometry; keep the keyboard up
         setStatus("connected", "ok");
+      } else if (wasPending && state === Control.Taken) {
+        setStatus("another viewer has control", "warn");
       } else if (wasPending) {
         // The host answered our request with read-only: it's view-only (or a
         // one-shot already used). Tell the user instead of silently doing nothing.
@@ -357,6 +361,7 @@ function onControlText(data) {
   try { m = JSON.parse(data); } catch { return; }
   switch (m.t) {
     case "hello":
+      if (typeof m.viewer_id === "string") viewerId = m.viewer_id;
       if (typeof m.expires_at === "number") { expiresAt = m.expires_at; startTtl(); }
       break;
     case "peer_join": if (!ended) setStatus("connected", "ok"); break;
@@ -402,7 +407,7 @@ async function sendResize(cols, rows) {
 async function send(kind, payload) {
   if (!ws || ws.readyState !== WebSocket.OPEN) return;
   outSeq++;
-  try { ws.send(await sealC.seal(outSeq, kind, payload)); } catch {}
+  try { ws.send(await sealC.seal(outSeq, kind, encodeViewerPayload(viewerId, payload))); } catch {}
 }
 
 // Anything past this in a single chunk is a paste, not typing — confirm it even
@@ -523,6 +528,10 @@ document.addEventListener("click", (e) => {
 $("menu-verify").addEventListener("click", showVerify);
 // Open the mobile soft keyboard on demand — focusing inside the click gesture is
 // what lets iOS/Android raise it (tapping the terminal isn't always discoverable).
+const isMacOS =
+  (/Mac/.test(navigator.platform || "") || /Mac OS X/.test(navigator.userAgent || "")) &&
+  (navigator.maxTouchPoints || 0) < 2;
+if (isMacOS) $("kbd").hidden = true;
 $("kbd").onclick = () => term.focus();
 
 const KEYS = {

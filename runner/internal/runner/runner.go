@@ -5,6 +5,7 @@ package runner
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"io"
@@ -47,12 +48,13 @@ const (
 )
 
 type Config struct {
-	Client    *relayclient.Client
-	Session   *ptysession.Session
-	Keys      protocol.Keys
-	SessionID string
-	Token     string
-	TTL       time.Duration
+	Client      *relayclient.Client
+	Session     *ptysession.Session
+	Keys        protocol.Keys
+	SessionID   string
+	Token       string
+	TTL         time.Duration
+	MultiViewer bool
 	// ExpiresAt is the relay-assigned absolute deadline (unix seconds) from the first
 	// create/attach; 0 means no expiry. On a 404 re-claim it bounds the resurrected
 	// session to the ORIGINAL deadline instead of granting a fresh full TTL.
@@ -66,26 +68,30 @@ type Config struct {
 
 // Orchestrator runs the relay side of a session for the life of the command.
 type Orchestrator struct {
-	client    *relayclient.Client
-	sess      *ptysession.Session
-	id, tok   string
-	ttl       time.Duration
-	expiresAt int64 // relay-assigned deadline (unix s); 0 = no expiry. Fixed at first create.
-	control   ControlMode
-	r2v, v2r  *protocol.Cipher
-	ring      *ptysession.Ring
-	localIn   io.Reader
-	localOut  io.Writer
-	notify    func(string, bool)
-	fp        string
+	client      *relayclient.Client
+	sess        *ptysession.Session
+	id, tok     string
+	ttl         time.Duration
+	multiViewer bool
+	expiresAt   int64 // relay-assigned deadline (unix s); 0 = no expiry. Fixed at first create.
+	control     ControlMode
+	r2v, v2r    *protocol.Cipher
+	ring        *ptysession.Ring
+	localIn     io.Reader
+	localOut    io.Writer
+	notify      func(string, bool)
+	fp          string
 
 	sendMu sync.Mutex // serializes outSeq + seal
 	outSeq uint64
-	inSeq  atomic.Uint64 // viewer→runner replay floor, session-long
 
-	granted  atomic.Bool
-	onceUsed atomic.Bool // ControlOnce: the one-time grant has been consumed
-	viewers  atomic.Int32
+	stateMu       sync.Mutex
+	inSeqByViewer map[string]uint64 // viewer→runner replay floor, per viewer id
+	controlOwner  string            // viewer id that may write; "" = no owner
+
+	onceUsed            atomic.Bool // ControlOnce: the one-time grant has been consumed
+	viewers             atomic.Int32
+	relayViewerProtocol atomic.Bool
 
 	altScreen atomic.Bool  // child is in the alternate screen buffer (vim/htop/less/…)
 	lastCtl   atomic.Int64 // unixnano of the child's last cursor/line-control output
@@ -99,18 +105,20 @@ type Orchestrator struct {
 type outMsg struct {
 	kind    byte
 	payload []byte
-	text    bool // write payload as a plaintext relay-control text frame, not a sealed binary one
+	target  string // relay viewer id for per-viewer frames; empty broadcasts
+	text    bool   // write payload as a plaintext relay-control text frame, not a sealed binary one
 }
 
 // byeEnded is the plaintext relay-control frame the runner sends when its command
 // exits, so a viewer that missed the encrypted EXIT still sees a terminal state
 // (the relay closes the session on it — see PROTOCOL.md). It leaks nothing.
 var byeEnded = []byte(`{"t":"bye","reason":"ended"}`)
+var runnerReady = []byte(`{"t":"runner_ready","viewer_protocol":1}`)
 
 type connState struct {
 	ws      *websocket.Conn
 	send    chan outMsg
-	join    chan struct{}
+	join    chan string
 	done    chan struct{}
 	once    sync.Once
 	dropped atomic.Bool
@@ -130,13 +138,15 @@ func New(cfg Config) (*Orchestrator, error) {
 	}
 	return &Orchestrator{
 		client: cfg.Client, sess: cfg.Session, id: cfg.SessionID, tok: cfg.Token, ttl: cfg.TTL,
-		expiresAt: cfg.ExpiresAt,
-		control:   cfg.Control, r2v: r2v, v2r: v2r,
-		ring:     ptysession.NewRing(ringBytes),
-		localIn:  cfg.LocalIn,
-		localOut: cfg.LocalOut,
-		notify:   cfg.Notify,
-		fp:       cfg.Fingerprint,
+		multiViewer: cfg.MultiViewer,
+		expiresAt:   cfg.ExpiresAt,
+		control:     cfg.Control, r2v: r2v, v2r: v2r,
+		ring:          ptysession.NewRing(ringBytes),
+		localIn:       cfg.LocalIn,
+		localOut:      cfg.LocalOut,
+		notify:        cfg.Notify,
+		fp:            cfg.Fingerprint,
+		inSeqByViewer: make(map[string]uint64),
 	}, nil
 }
 
@@ -183,7 +193,7 @@ func (o *Orchestrator) Resize(cols, rows uint16) {
 	_ = o.sess.SetSize(cols, rows)
 	if o.viewers.Load() > 0 {
 		c, r := o.sess.Size()
-		o.emit(protocol.KindHello, protocol.EncodeHello(o.inSeq.Load()+1, c, r))
+		o.emit(protocol.KindHello, protocol.EncodeHello(1, c, r))
 	}
 }
 
@@ -239,7 +249,7 @@ func (o *Orchestrator) keepalive(ctx context.Context) {
 			return
 		case <-t.C:
 			c, r := o.sess.Size()
-			o.emit(protocol.KindHello, protocol.EncodeHello(o.inSeq.Load()+1, c, r))
+			o.emit(protocol.KindHello, protocol.EncodeHello(1, c, r))
 		}
 	}
 }
@@ -266,6 +276,10 @@ func (o *Orchestrator) shutdown() {
 // local mirroring is never held up by a slow viewer.
 func (o *Orchestrator) emit(kind byte, payload []byte) {
 	o.enqueue(outMsg{kind: kind, payload: append([]byte(nil), payload...)})
+}
+
+func (o *Orchestrator) emitToViewer(viewerID string, kind byte, payload []byte) {
+	o.enqueue(outMsg{kind: kind, payload: append([]byte(nil), payload...), target: viewerID})
 }
 
 // emitText queues a plaintext relay-control text frame (e.g. bye). Like emit it is
@@ -314,7 +328,7 @@ func (o *Orchestrator) connectLoop(ctx context.Context) {
 						o.note("onlytty: session reached its expiry while the relay was gone — sharing stopped (command still running locally)")
 						return
 					}
-					if _, rerr := o.client.CreateSession(ctx, o.id, o.tok, ttl); rerr != nil {
+					if _, rerr := o.client.CreateSessionWithOptions(ctx, o.id, o.tok, ttl, relayclient.CreateSessionOptions{MultiViewer: o.multiViewer}); rerr != nil {
 						if ctx.Err() != nil {
 							return
 						}
@@ -375,7 +389,7 @@ func (o *Orchestrator) serveConn(ctx context.Context, conn *websocket.Conn) {
 	c := &connState{
 		ws:   conn,
 		send: make(chan outMsg, sendQueue),
-		join: make(chan struct{}, 1),
+		join: make(chan string, sendQueue),
 		done: make(chan struct{}),
 	}
 	o.connMu.Lock()
@@ -397,7 +411,8 @@ func (o *Orchestrator) serveConn(ctx context.Context, conn *websocket.Conn) {
 	conn.CloseNow()
 	swg.Wait()
 	o.viewers.Store(0)
-	o.granted.Store(false)
+	o.clearControlOwner()
+	o.relayViewerProtocol.Store(false)
 }
 
 // reader consumes relay control (text) and viewer payload (binary) frames.
@@ -424,8 +439,8 @@ func (o *Orchestrator) sender(ctx context.Context, c *connState) {
 			return
 		case <-c.done:
 			return
-		case <-c.join:
-			if o.sendRepaint(ctx, c) != nil {
+		case viewerID := <-c.join:
+			if o.sendRepaint(ctx, c, viewerID) != nil {
 				c.fail()
 				return
 			}
@@ -438,12 +453,12 @@ func (o *Orchestrator) sender(ctx context.Context, c *connState) {
 				continue
 			}
 			if c.dropped.Swap(false) {
-				if o.sendRepaint(ctx, c) != nil {
+				if o.sendRepaint(ctx, c, "") != nil {
 					c.fail()
 					return
 				}
 			}
-			if o.writeMsg(ctx, c, m.kind, m.payload) != nil {
+			if o.writeMsg(ctx, c, m.target, m.kind, m.payload) != nil {
 				c.fail()
 				return
 			}
@@ -453,25 +468,21 @@ func (o *Orchestrator) sender(ctx context.Context, c *connState) {
 
 // sendRepaint brings a joining or resynced viewer up to date: size + seq baseline,
 // a terminal reset, the recent output, and the current control state.
-func (o *Orchestrator) sendRepaint(ctx context.Context, c *connState) error {
+func (o *Orchestrator) sendRepaint(ctx context.Context, c *connState, viewerID string) error {
 	cols, rows := o.sess.Size()
-	if err := o.writeMsg(ctx, c, protocol.KindHello, protocol.EncodeHello(o.inSeq.Load()+1, cols, rows)); err != nil {
+	if err := o.writeMsg(ctx, c, viewerID, protocol.KindHello, protocol.EncodeHello(o.baseline(viewerID), cols, rows)); err != nil {
 		return err
 	}
 	repaint := append([]byte("\x1bc"), o.ring.Snapshot()...) // RIS reset, then replay
-	if err := o.writeMsg(ctx, c, protocol.KindOutput, repaint); err != nil {
+	if err := o.writeMsg(ctx, c, viewerID, protocol.KindOutput, repaint); err != nil {
 		return err
 	}
-	state := protocol.ControlReadOnly
-	if o.granted.Load() {
-		state = protocol.ControlGranted
-	}
-	return o.writeMsg(ctx, c, protocol.KindControl, []byte{state})
+	return o.writeMsg(ctx, c, viewerID, protocol.KindControl, []byte{o.controlState(viewerID)})
 }
 
 // writeMsg seals one message and writes it. Only the sender goroutine calls this, so
 // outSeq is monotonic; sendMu is defensive.
-func (o *Orchestrator) writeMsg(ctx context.Context, c *connState, kind byte, payload []byte) error {
+func (o *Orchestrator) writeMsg(ctx context.Context, c *connState, target string, kind byte, payload []byte) error {
 	o.sendMu.Lock()
 	o.outSeq++
 	seq := o.outSeq
@@ -480,9 +491,24 @@ func (o *Orchestrator) writeMsg(ctx context.Context, c *connState, kind byte, pa
 	if err != nil {
 		return err
 	}
+	if target != "" && o.relayViewerProtocol.Load() {
+		return o.writeTargetFrame(ctx, c, target, frame)
+	}
 	wctx, cancel := context.WithTimeout(ctx, writeTimeout)
 	defer cancel()
 	return c.ws.Write(wctx, websocket.MessageBinary, frame)
+}
+
+func (o *Orchestrator) writeTargetFrame(ctx context.Context, c *connState, viewerID string, frame []byte) error {
+	body, err := json.Marshal(map[string]string{
+		"t":         "to_viewer",
+		"viewer_id": viewerID,
+		"frame":     base64.StdEncoding.EncodeToString(frame),
+	})
+	if err != nil {
+		return err
+	}
+	return o.writeText(ctx, c, body)
 }
 
 // writeText writes a plaintext relay-control text frame (the runner→relay control
@@ -496,8 +522,10 @@ func (o *Orchestrator) writeText(ctx context.Context, c *connState, payload []by
 
 func (o *Orchestrator) handleControl(c *connState, data []byte) {
 	var m struct {
-		T       string `json:"t"`
-		Viewers int    `json:"viewers"`
+		T              string `json:"t"`
+		Viewers        int    `json:"viewers"`
+		ViewerID       string `json:"viewer_id"`
+		ViewerProtocol int    `json:"viewer_protocol"`
 	}
 	if json.Unmarshal(data, &m) != nil {
 		return
@@ -505,16 +533,27 @@ func (o *Orchestrator) handleControl(c *connState, data []byte) {
 	switch m.T {
 	case "hello":
 		o.viewers.Store(int32(m.Viewers))
+		if m.ViewerProtocol == 1 {
+			o.relayViewerProtocol.Store(true)
+			o.emitText(runnerReady)
+		}
 		if m.Viewers > 0 {
-			signal(c.join)
+			signal(c.join, "")
 		}
 	case "peer_join":
-		o.viewers.Store(1)
+		viewers := m.Viewers
+		if viewers <= 0 {
+			viewers = 1
+		}
+		o.viewers.Store(int32(viewers))
 		o.note("onlytty: viewer connected · fingerprint " + o.fp)
-		signal(c.join)
+		signal(c.join, m.ViewerID)
 	case "peer_left":
-		o.viewers.Store(0)
-		o.granted.Store(false)
+		if m.Viewers < 0 {
+			m.Viewers = 0
+		}
+		o.viewers.Store(int32(m.Viewers))
+		o.forgetViewer(m.ViewerID)
 		o.note("onlytty: viewer disconnected")
 	case "busy":
 		o.note("onlytty: a viewer is already connected (single-viewer lock)")
@@ -528,47 +567,166 @@ func (o *Orchestrator) handleControl(c *connState, data []byte) {
 }
 
 func (o *Orchestrator) handleBinary(frame []byte) {
-	seq, kind, payload, err := o.v2r.Open(frame)
+	sourceID, sealed, err := protocol.DecodeRelayViewerFrame(frame)
+	if err != nil {
+		return
+	}
+	seq, kind, payload, err := o.v2r.Open(sealed)
 	if err != nil {
 		return // unauthenticated — drop
 	}
-	for { // replay protection: strictly increasing seq, session-long
-		cur := o.inSeq.Load()
-		if seq <= cur {
-			return
-		}
-		if o.inSeq.CompareAndSwap(cur, seq) {
-			break
-		}
+	viewerID, payload, err := protocol.DecodeViewerPayload(payload)
+	if err != nil {
+		return
+	}
+	if sourceID != "" && viewerID != "" && sourceID != viewerID {
+		return
+	}
+	if sourceID != "" && viewerID == "" {
+		viewerID = sourceID
+	}
+	if !o.acceptSeq(viewerID, seq) {
+		return
 	}
 	switch kind {
 	case protocol.KindInput:
-		if o.granted.Load() {
+		if o.viewerHasControl(viewerID) {
 			_, _ = o.sess.Write(payload)
 		}
 	case protocol.KindResize:
 		// Resizing the host PTY is a write-side effect (it SIGWINCHes the command),
 		// so it is gated exactly like input: only a viewer that holds control may do
 		// it. A read-only viewer sizes its own xterm to the host instead.
-		if o.granted.Load() {
+		if o.viewerHasControl(viewerID) {
 			if cols, rows, err := protocol.DecodeResize(payload); err == nil {
 				_ = o.sess.SetSize(cols, rows)
 			}
 		}
 	case protocol.KindCtrlReq:
-		if o.control == ControlViewOnly || (o.control == ControlOnce && o.onceUsed.Load()) {
-			o.emit(protocol.KindControl, []byte{protocol.ControlReadOnly})
-		} else {
-			if o.control == ControlOnce {
-				o.onceUsed.Store(true)
-			}
-			o.granted.Store(true)
-			o.emit(protocol.KindControl, []byte{protocol.ControlGranted})
-			o.note("onlytty: viewer took control")
-		}
+		o.handleControlRequest(viewerID)
 	case protocol.KindCtrlRel:
-		o.granted.Store(false)
-		o.emit(protocol.KindControl, []byte{protocol.ControlReadOnly})
+		o.handleControlRelease(viewerID)
+	}
+}
+
+const legacyViewerID = "\x00legacy"
+
+func viewerKey(viewerID string) string {
+	if viewerID == "" {
+		return legacyViewerID
+	}
+	return viewerID
+}
+
+func viewerTarget(key string) string {
+	if key == legacyViewerID {
+		return ""
+	}
+	return key
+}
+
+func (o *Orchestrator) baseline(viewerID string) uint64 {
+	o.stateMu.Lock()
+	defer o.stateMu.Unlock()
+	return o.inSeqByViewer[viewerKey(viewerID)] + 1
+}
+
+func (o *Orchestrator) acceptSeq(viewerID string, seq uint64) bool {
+	key := viewerKey(viewerID)
+	o.stateMu.Lock()
+	defer o.stateMu.Unlock()
+	if seq <= o.inSeqByViewer[key] {
+		return false
+	}
+	o.inSeqByViewer[key] = seq
+	return true
+}
+
+func (o *Orchestrator) viewerHasControl(viewerID string) bool {
+	o.stateMu.Lock()
+	defer o.stateMu.Unlock()
+	return o.controlOwner == viewerKey(viewerID)
+}
+
+func (o *Orchestrator) controlState(viewerID string) byte {
+	o.stateMu.Lock()
+	defer o.stateMu.Unlock()
+	switch owner := o.controlOwner; {
+	case owner == "":
+		return protocol.ControlReadOnly
+	case owner == viewerKey(viewerID):
+		return protocol.ControlGranted
+	default:
+		return protocol.ControlTaken
+	}
+}
+
+func (o *Orchestrator) clearControlOwner() {
+	o.stateMu.Lock()
+	o.controlOwner = ""
+	o.stateMu.Unlock()
+}
+
+func (o *Orchestrator) forgetViewer(viewerID string) {
+	o.stateMu.Lock()
+	if viewerID == "" {
+		if o.viewers.Load() == 0 {
+			o.inSeqByViewer = make(map[string]uint64)
+			o.controlOwner = ""
+		}
+		o.stateMu.Unlock()
+		return
+	}
+	key := viewerKey(viewerID)
+	delete(o.inSeqByViewer, key)
+	if o.controlOwner == key {
+		o.controlOwner = ""
+	}
+	o.stateMu.Unlock()
+}
+
+func (o *Orchestrator) handleControlRequest(viewerID string) {
+	key := viewerKey(viewerID)
+	state := protocol.ControlReadOnly
+	notify := false
+
+	o.stateMu.Lock()
+	switch {
+	case o.controlOwner == key:
+		state = protocol.ControlGranted
+	case o.controlOwner != "":
+		state = protocol.ControlTaken
+	case o.control == ControlViewOnly || (o.control == ControlOnce && o.onceUsed.Load()):
+		state = protocol.ControlReadOnly
+	default:
+		if o.control == ControlOnce {
+			o.onceUsed.Store(true)
+		}
+		o.controlOwner = key
+		state = protocol.ControlGranted
+		notify = true
+	}
+	o.stateMu.Unlock()
+
+	o.emitToViewer(viewerID, protocol.KindControl, []byte{state})
+	if notify {
+		o.note("onlytty: viewer took control")
+	}
+}
+
+func (o *Orchestrator) handleControlRelease(viewerID string) {
+	key := viewerKey(viewerID)
+	released := false
+
+	o.stateMu.Lock()
+	if o.controlOwner == key {
+		o.controlOwner = ""
+		released = true
+	}
+	o.stateMu.Unlock()
+
+	if released {
+		o.emitToViewer(viewerID, protocol.KindControl, []byte{protocol.ControlReadOnly})
 		o.note("onlytty: viewer released control")
 	}
 }
@@ -658,15 +816,23 @@ func (o *Orchestrator) screenBusy() bool {
 // it is read-only again, and notes it. Safe to call from any goroutine (e.g. a signal
 // handler); a no-op when no viewer currently holds control.
 func (o *Orchestrator) Revoke() {
-	if o.granted.CompareAndSwap(true, false) {
-		o.emit(protocol.KindControl, []byte{protocol.ControlReadOnly})
-		o.note("onlytty: host revoked control")
+	o.stateMu.Lock()
+	owner := o.controlOwner
+	if owner != "" {
+		o.controlOwner = ""
 	}
+	o.stateMu.Unlock()
+
+	if owner == "" {
+		return
+	}
+	o.emitToViewer(viewerTarget(owner), protocol.KindControl, []byte{protocol.ControlReadOnly})
+	o.note("onlytty: host revoked control")
 }
 
-func signal(ch chan struct{}) {
+func signal(ch chan string, viewerID string) {
 	select {
-	case ch <- struct{}{}:
+	case ch <- viewerID:
 	default:
 	}
 }

@@ -53,6 +53,7 @@ func run() int {
 	server := flag.String("server", envOr("ONLYTTY_SERVER", defaultPublicRelay), "relay origin (or ONLYTTY_SERVER); e.g. a self-hosted https://relay.example.com")
 	control := flag.String("control", "ask", "viewer control policy: ask (auto-grant control to any viewer that requests it — no host prompt; revoke with SIGUSR1), view-only (never), once (auto-grant the first request only)")
 	readOnly := flag.Bool("read-only", false, "deprecated alias for --control view-only")
+	multiViewer := flag.Bool("multi-viewer", false, "allow multiple browser viewers; only one viewer may control the terminal at a time")
 	ttl := flag.Duration("ttl", 0, "session lifetime before the link expires; 0 (default) = no expiry — the session lives as long as onlytty runs and ends when the command exits (the relay may impose a maximum)")
 	withPass := flag.Bool("passphrase", false, "prompt for a passphrase to mix into the keys (shared out-of-band; the link alone won't decrypt)")
 	genPass := flag.Bool("passphrase-generate", false, "generate a strong passphrase host-side and display it (implies --passphrase)")
@@ -130,7 +131,7 @@ func run() int {
 	}
 
 	// 1) Register the session with the relay (returns the assigned expiry).
-	sess, err := client.CreateSession(ctx, id, tok, *ttl)
+	sess, err := client.CreateSessionWithOptions(ctx, id, tok, *ttl, relayclient.CreateSessionOptions{MultiViewer: *multiViewer})
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "onlytty:", err)
 		return 1
@@ -151,7 +152,7 @@ func run() int {
 	link := client.ViewerURL(id, secretB64, passphrase != "")
 
 	// Show the expiry the relay actually assigned (it clamps the TTL), not the raw flag.
-	printBanner(link, formatFingerprint(keys.Fingerprint), expiryLine(sess.ExpiresAt), controlMode, passphrase, *genPass, *noQR)
+	printBanner(link, formatFingerprint(keys.Fingerprint), expiryLine(sess.ExpiresAt), controlMode, *multiViewer, passphrase, *genPass, *noQR)
 
 	// 3) Start the command in a PTY and mirror it locally.
 	psess, err := ptysession.Start(argv, os.Environ())
@@ -176,8 +177,9 @@ func run() int {
 
 	orch, err := runner.New(runner.Config{
 		Client: client, Session: psess, Keys: keys, SessionID: id, Token: tok, TTL: *ttl,
-		ExpiresAt: sess.ExpiresAt,
-		Control:   controlMode, LocalIn: os.Stdin, LocalOut: os.Stdout,
+		ExpiresAt:   sess.ExpiresAt,
+		MultiViewer: *multiViewer,
+		Control:     controlMode, LocalIn: os.Stdin, LocalOut: os.Stdout,
 		Notify: notifier(*verbose), Fingerprint: formatFingerprint(keys.Fingerprint),
 	})
 	if err != nil {
@@ -323,7 +325,7 @@ func expiryLine(expiresAt int64) string {
 	return "in " + remaining(expiresAt, time.Now()).String()
 }
 
-func printBanner(link, fingerprint string, expiry string, control runner.ControlMode, passphrase string, generated, noQR bool) {
+func printBanner(link, fingerprint string, expiry string, control runner.ControlMode, multiViewer bool, passphrase string, generated, noQR bool) {
 	w := os.Stderr
 	fmt.Fprintf(w, "\n  %s\n\n", bold("onlytty — this session is shared, end-to-end encrypted"))
 	if !noQR {
@@ -333,6 +335,9 @@ func printBanner(link, fingerprint string, expiry string, control runner.Control
 	fmt.Fprintf(w, "  Link         %s\n", link)
 	fmt.Fprintf(w, "  Fingerprint  %s  %s\n", fingerprint, dim("(must match in the browser)"))
 	fmt.Fprintf(w, "  Expires      %s\n", expiry)
+	if multiViewer {
+		fmt.Fprintf(w, "  Viewers      multiple allowed; one controls at a time\n")
+	}
 	controlDesc := "any viewer may take control on request (auto-granted; SIGUSR1 to revoke)"
 	switch control {
 	case runner.ControlViewOnly:
@@ -417,7 +422,7 @@ Flags:
 		}
 		fmt.Fprintf(w, "  %-*s  %s%s\n", width, "--"+f.Name, f.Usage, def)
 	}
-	fmt.Fprintf(w, "\nExamples:\n  onlytty -- claude\n  onlytty --control view-only -- htop\n  onlytty --passphrase\n")
+	fmt.Fprintf(w, "\nExamples:\n  onlytty -- claude\n  onlytty --control view-only -- htop\n  onlytty --multi-viewer -- claude\n  onlytty --passphrase\n")
 }
 
 // Small ANSI helpers, gated on stderr being a terminal.

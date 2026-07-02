@@ -7,9 +7,11 @@ defmodule OnlyTTYWeb.OnlyTTYSocket do
 
   The contract (PROTOCOL.md):
 
-    * **binary** frames are end-to-end ciphertext. We forward them verbatim to
-      the peer process and never parse, log, or store them. If there is no peer,
-      we drop (the runner buffers; that is the runner's job).
+    * **binary** frames are end-to-end ciphertext. We forward runner output
+      verbatim to viewers and, when a new runner opts in, wrap viewer→runner
+      frames with the relay-assigned viewer id as metadata. We never parse, log,
+      or store the encrypted terminal payload. If there is no peer, we drop (the
+      runner buffers; that is the runner's job).
     * **text** frames are the control plane (JSON, metadata only). On connect we
       send `{"t":"hello",...}`. A viewer `{"t":"bye"}` closes that socket; a
       runner `{"t":"bye","reason":"ended"}` closes the whole session.
@@ -19,10 +21,11 @@ defmodule OnlyTTYWeb.OnlyTTYSocket do
   (for runners) the token has matched. `init/1` only does the join, which can
   still return `:busy` for a second viewer under the single-viewer lock.
 
-  State: `%{session, id, role, peers}` — `peers` is a `MapSet` of the peer socket
-  pids we relay binary to. A viewer's set holds the runner (0 or 1); the runner's
-  set holds every attached viewer, so its output broadcasts to all of them. The
-  `OnlyTTY.Session` process maintains it via `{:add_peer, pid}` / `{:del_peer, pid}`.
+  State: `%{session, id, role, peers, viewer_peers, viewer_id}` — `peers` is a
+  `MapSet` of peer socket pids. A viewer's set holds the runner (0 or 1); the
+  runner's set holds every attached viewer, so its output broadcasts to all of them.
+  Runner sockets also keep a `viewer_peers` id→pid map for targeted control frames.
+  The `OnlyTTY.Session` process maintains it via peer messages.
   """
 
   @behaviour WebSock
@@ -33,22 +36,26 @@ defmodule OnlyTTYWeb.OnlyTTYSocket do
 
   @close_normal 1000
   @close_busy 4002
+  @viewer_protocol 1
+  @relay_viewer_magic "OTV1"
 
   @impl true
   def init(%{session: session, id: id, role: :runner}) do
     {:ok, snap} = Session.join_runner(session)
-    state = %{session: session, id: id, role: :runner, peers: MapSet.new()}
+    state = base_state(session, id, :runner)
     {:push, [{:text, hello(:runner, snap)}], state}
   end
 
   def init(%{session: session, id: id, role: :viewer}) do
     case Session.join_viewer(session) do
       {:ok, snap} ->
-        state = %{session: session, id: id, role: :viewer, peers: MapSet.new()}
+        state = %{base_state(session, id, :viewer) | viewer_id: snap.viewer_id}
         frames = [{:text, hello(:viewer, snap)}]
         # If the runner is already here, tell the viewer its peer is present.
         frames =
-          if snap.runner_present, do: frames ++ [{:text, control(:peer_join)}], else: frames
+          if snap.runner_present,
+            do: frames ++ [{:text, control(:peer_join, snap.viewer_id, snap.viewers)}],
+            else: frames
 
         {:push, frames, state}
 
@@ -56,17 +63,24 @@ defmodule OnlyTTYWeb.OnlyTTYSocket do
         # Single-viewer lock held: report busy, then close. The runner and the
         # existing viewer are untouched.
         {:stop, :normal, {@close_busy, "busy"}, [{:text, control(:busy)}],
-         %{session: session, id: id, role: :viewer, peers: MapSet.new()}}
+         base_state(session, id, :viewer)}
     end
   end
 
   @impl true
-  # Binary = opaque E2E payload: forward verbatim to every peer, never inspect it.
-  # A runner's peer set is all viewers (so output broadcasts); a viewer's is the
-  # runner. An empty set drops the frame (the runner buffers; that is its job).
+  # Binary = opaque E2E payload. Runner output broadcasts byte-for-byte to viewers.
+  # Viewer input is optionally relay-labeled with viewer id for new runners, while the
+  # encrypted payload itself remains opaque to the relay.
   def handle_in({data, opcode: :binary}, state) do
-    if state.role == :runner, do: Session.runner_active(state.session)
-    Enum.each(state.peers, &send(&1, {:onlytty_binary, data}))
+    case state.role do
+      :runner ->
+        Session.runner_active(state.session)
+        Enum.each(state.peers, &send(&1, {:onlytty_binary, data}))
+
+      :viewer ->
+        Enum.each(state.peers, &send(&1, {:onlytty_binary, state.viewer_id, data}))
+    end
+
     {:ok, state}
   end
 
@@ -76,6 +90,14 @@ defmodule OnlyTTYWeb.OnlyTTYSocket do
     case decode_control(data) do
       {:ok, %{"t" => "bye"} = msg} when state.role == :runner ->
         Session.close(state.session, Map.get(msg, "reason", "closed"))
+        {:ok, state}
+
+      {:ok, %{"t" => "runner_ready", "viewer_protocol" => @viewer_protocol}}
+      when state.role == :runner ->
+        {:ok, %{state | viewer_protocol: true}}
+
+      {:ok, %{"t" => "to_viewer"} = msg} when state.role == :runner ->
+        send_to_viewer(msg, state)
         {:ok, state}
 
       {:ok, %{"t" => "bye"}} ->
@@ -92,6 +114,11 @@ defmodule OnlyTTYWeb.OnlyTTYSocket do
     {:push, [{:binary, data}], state}
   end
 
+  def handle_info({:onlytty_binary, viewer_id, data}, state) do
+    data = if state.viewer_protocol, do: relay_viewer_frame(viewer_id, data), else: data
+    {:push, [{:binary, data}], state}
+  end
+
   # Control-plane JSON from the Session (peer_join / peer_left).
   def handle_info({:onlytty_control, json}, state) do
     {:push, [{:text, json}], state}
@@ -102,9 +129,29 @@ defmodule OnlyTTYWeb.OnlyTTYSocket do
     {:ok, %{state | peers: MapSet.put(state.peers, pid)}}
   end
 
+  def handle_info({:add_peer, pid, viewer_id}, state) do
+    {:ok,
+     %{
+       state
+       | peers: MapSet.put(state.peers, pid),
+         viewer_peers: Map.put(state.viewer_peers, viewer_id, pid),
+         peer_ids: Map.put(state.peer_ids, pid, viewer_id)
+     }}
+  end
+
   # A peer left; stop relaying binary to it.
   def handle_info({:del_peer, pid}, state) do
-    {:ok, %{state | peers: MapSet.delete(state.peers, pid)}}
+    viewer_id = Map.get(state.peer_ids, pid)
+
+    state = %{
+      state
+      | peers: MapSet.delete(state.peers, pid),
+        peer_ids: Map.delete(state.peer_ids, pid),
+        viewer_peers:
+          if(viewer_id, do: Map.delete(state.viewer_peers, viewer_id), else: state.viewer_peers)
+    }
+
+    {:ok, state}
   end
 
   # The Session is closing us (TTL / idle): send {"t":"bye",reason} then close.
@@ -136,20 +183,56 @@ defmodule OnlyTTYWeb.OnlyTTYSocket do
 
   # --- control-plane JSON (metadata only, never terminal content) ------------
 
+  defp base_state(session, id, role) do
+    %{
+      session: session,
+      id: id,
+      role: role,
+      peers: MapSet.new(),
+      viewer_peers: %{},
+      peer_ids: %{},
+      viewer_id: nil,
+      viewer_protocol: false
+    }
+  end
+
   defp hello(role, snap) do
-    Jason.encode!(%{
+    %{
       t: "hello",
       role: Atom.to_string(role),
       viewers: snap.viewers,
       locked: snap.locked,
       expires_at: snap.expires_at
-    })
+    }
+    |> maybe_put(:viewer_id, Map.get(snap, :viewer_id))
+    |> maybe_put(:viewer_protocol, if(role == :runner, do: @viewer_protocol))
+    |> Jason.encode!()
   end
 
-  defp control(:peer_join), do: Jason.encode!(%{t: "peer_join"})
+  defp control(:peer_join, viewer_id, viewers) do
+    Jason.encode!(%{t: "peer_join", viewer_id: viewer_id, viewers: viewers})
+  end
+
   defp control(:busy), do: Jason.encode!(%{t: "busy"})
 
   defp bye(reason), do: Jason.encode!(%{t: "bye", reason: reason})
+
+  defp send_to_viewer(%{"viewer_id" => viewer_id, "frame" => frame64}, state)
+       when is_binary(viewer_id) and is_binary(frame64) do
+    with pid when is_pid(pid) <- Map.get(state.viewer_peers, viewer_id),
+         {:ok, frame} <- Base.decode64(frame64) do
+      send(pid, {:onlytty_binary, frame})
+    end
+  end
+
+  defp send_to_viewer(_msg, _state), do: :ok
+
+  defp relay_viewer_frame(viewer_id, data) when is_binary(viewer_id) do
+    <<@relay_viewer_magic::binary, byte_size(viewer_id), viewer_id::binary, data::binary>>
+  end
+
+  defp maybe_put(map, _key, nil), do: map
+  defp maybe_put(map, key, value), do: Map.put(map, key, value)
 
   defp decode_control(data) do
     case Jason.decode(data) do
