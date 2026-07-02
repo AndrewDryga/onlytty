@@ -17,6 +17,11 @@ defmodule OnlyTTYWeb.Site.Tools do
     * `:category` — one of `categories/0`, used to group the grid and index.
     * `:what`     — one sentence: what the tool is.
     * `:why`      — one sentence: why driving it from your phone is worth it.
+
+  Every tool renders a `/control/:slug` page, but only the higher-intent ones are
+  search-indexable — the long-tail slugs in `@noindex_slugs` render `noindex` and
+  are left out of the sitemap (see `indexable?/1`) to keep a large set of
+  near-duplicate pages from dragging on site-wide quality signals.
   """
 
   @categories [
@@ -40,7 +45,7 @@ defmodule OnlyTTYWeb.Site.Tools do
       what:
         "Anthropic's agentic coding assistant that edits files, runs commands, and ships whole features from your terminal.",
       why:
-        "Kick off a refactor at your desk, then approve its plan and steer it from your phone — even mid-flush."
+        "Start a refactor at your desk, then approve its plan and answer its questions from your phone while it keeps working."
     },
     %{
       slug: "codex",
@@ -48,7 +53,8 @@ defmodule OnlyTTYWeb.Site.Tools do
       cmd: "codex",
       category: "AI coding agents",
       what: "OpenAI's command-line coding agent that reads your repo and writes code on request.",
-      why: "Queue a task before you get up and answer its questions the moment they pop up."
+      why:
+        "Queue a task, then reply to its prompts the moment they appear instead of waiting at the keyboard."
     },
     %{
       slug: "gemini",
@@ -56,7 +62,8 @@ defmodule OnlyTTYWeb.Site.Tools do
       cmd: "gemini",
       category: "AI coding agents",
       what: "Google's open-source AI agent that brings Gemini models into your terminal.",
-      why: "Approve tool calls and nudge its reasoning without breaking your bathroom break."
+      why:
+        "Approve each tool call and redirect its reasoning on the spot, so a long run never stalls waiting on you."
     },
     %{
       slug: "aider",
@@ -66,7 +73,7 @@ defmodule OnlyTTYWeb.Site.Tools do
       what:
         "An AI pair programmer that edits code in your local git repo and commits as it goes.",
       why:
-        "Confirm each diff from the couch — aider waits politely for your tap before it commits."
+        "Read every diff before it lands — aider waits for your tap to commit, so you stay the reviewer from anywhere."
     },
     %{
       slug: "opencode",
@@ -74,7 +81,7 @@ defmodule OnlyTTYWeb.Site.Tools do
       cmd: "opencode",
       category: "AI coding agents",
       what: "An open-source terminal coding agent you can point at any model.",
-      why: "Let it grind through a backlog while you supervise from a six-inch screen."
+      why: "Point it at any model and let it work a backlog while you supervise from your pocket."
     },
     %{
       slug: "crush",
@@ -82,7 +89,8 @@ defmodule OnlyTTYWeb.Site.Tools do
       cmd: "crush",
       category: "AI coding agents",
       what: "Charm's glamorous AI coding agent for the terminal.",
-      why: "It looks gorgeous on a phone and takes your one-word approvals from the throne."
+      why:
+        "Its polished TUI stays legible on a small screen, so one-tap approvals are quick on a phone."
     },
     %{
       slug: "goose",
@@ -90,7 +98,8 @@ defmodule OnlyTTYWeb.Site.Tools do
       cmd: "goose",
       category: "AI coding agents",
       what: "An on-machine AI agent that automates engineering tasks end to end.",
-      why: "Authorize the risky step from your phone instead of sprinting back to your laptop."
+      why:
+        "Authorize the risky step the instant it asks, instead of walking back to your laptop to unblock it."
     },
     %{
       slug: "cursor-agent",
@@ -98,7 +107,7 @@ defmodule OnlyTTYWeb.Site.Tools do
       cmd: "cursor-agent",
       category: "AI coding agents",
       what: "Cursor's headless agent that runs your coding tasks from the command line.",
-      why: "Keep the agent moving from anywhere — answer its prompts the second they appear."
+      why: "Keep the agent moving between meetings — answer its prompts the second they surface."
     },
     %{
       slug: "amp",
@@ -106,7 +115,7 @@ defmodule OnlyTTYWeb.Site.Tools do
       cmd: "amp",
       category: "AI coding agents",
       what: "An agentic coding tool that works across your whole codebase.",
-      why: "Review its plan and unblock it on the go, no laptop required."
+      why: "Review its cross-repo plan and unblock it away from your desk, no laptop required."
     },
 
     # ── AI on the command line ──────────────────────────────────────────────
@@ -116,7 +125,8 @@ defmodule OnlyTTYWeb.Site.Tools do
       cmd: "llm chat",
       category: "AI on the command line",
       what: "A CLI for prompting models and piping the results anywhere.",
-      why: "Run a long generation and read it on your phone the second it finishes."
+      why:
+        "Kick off a long generation and read the result the moment it lands, without staying at the keyboard."
     },
     %{
       slug: "ollama",
@@ -125,7 +135,7 @@ defmodule OnlyTTYWeb.Site.Tools do
       category: "AI on the command line",
       what: "Run open large language models locally with a single command.",
       why:
-        "Chat with your self-hosted model from the bathroom — your GPU does the sweating, not you."
+        "Chat with a model your own GPU is running, from anywhere on your network — the weights never leave your box."
     },
     %{
       slug: "sgpt",
@@ -133,7 +143,7 @@ defmodule OnlyTTYWeb.Site.Tools do
       cmd: "sgpt --repl temp",
       category: "AI on the command line",
       what: "A command-line tool that turns prompts into shell commands and answers.",
-      why: "Ask it for the command you forgot without getting up."
+      why: "Ask for the exact command you forgot and drop it straight back into your shell."
     },
     %{
       slug: "mods",
@@ -141,7 +151,7 @@ defmodule OnlyTTYWeb.Site.Tools do
       cmd: "mods",
       category: "AI on the command line",
       what: "AI for the command line that pipes model output straight into your workflow.",
-      why: "Glance at the answer on your phone while the pipeline keeps flowing."
+      why: "Watch the model's answer stream into your pipeline while you're away from the desk."
     },
     %{
       slug: "copilot",
@@ -150,7 +160,8 @@ defmodule OnlyTTYWeb.Site.Tools do
       category: "AI on the command line",
       what:
         "GitHub's agentic AI assistant for the terminal that fixes bugs, builds features, and runs tasks on your code.",
-      why: "Start a task at your desk, then approve its steps from your phone."
+      why:
+        "Start a task at your desk and approve each step it takes against your repo from your phone."
     },
 
     # ── Editors ─────────────────────────────────────────────────────────────
@@ -161,7 +172,7 @@ defmodule OnlyTTYWeb.Site.Tools do
       category: "Editors",
       what: "The ubiquitous modal text editor that lives in every terminal.",
       why:
-        "Fix that one typo in a config from your phone — you'll still need to remember how to quit."
+        "Fix a one-line config or a commit message on a remote box — assuming you still remember how to quit."
     },
     %{
       slug: "nvim",
@@ -169,7 +180,8 @@ defmodule OnlyTTYWeb.Site.Tools do
       cmd: "nvim",
       category: "Editors",
       what: "A hyperextensible, Lua-powered fork of Vim.",
-      why: "Drive your fully-loaded IDE-in-a-terminal from the smallest screen you own."
+      why:
+        "Drive your fully-configured IDE-in-a-terminal, plugins and LSP and all, from the smallest screen you own."
     },
     %{
       slug: "emacs",
@@ -177,7 +189,8 @@ defmodule OnlyTTYWeb.Site.Tools do
       cmd: "emacs -nw",
       category: "Editors",
       what: "The extensible, self-documenting editor that's basically an operating system.",
-      why: "Check your org-agenda or run an M-x command without leaving the bathroom."
+      why:
+        "Check your org-agenda or run an M-x command against your live session while you're out."
     },
     %{
       slug: "nano",
@@ -185,7 +198,7 @@ defmodule OnlyTTYWeb.Site.Tools do
       cmd: "nano",
       category: "Editors",
       what: "The friendly, no-modes terminal editor for quick edits.",
-      why: "Make a one-line change on the go without a cheat sheet."
+      why: "Make a quick edit to a remote file without memorizing a single keybinding."
     },
     %{
       slug: "helix",
@@ -193,7 +206,8 @@ defmodule OnlyTTYWeb.Site.Tools do
       cmd: "hx",
       category: "Editors",
       what: "A post-modern modal editor with multiple selections and tree-sitter built in.",
-      why: "Pop into a file and edit it from your phone with zero plugins to configure."
+      why:
+        "Open a file and edit it with multiple selections — nothing to install or configure on a fresh box."
     },
     %{
       slug: "micro",
@@ -201,7 +215,7 @@ defmodule OnlyTTYWeb.Site.Tools do
       cmd: "micro",
       category: "Editors",
       what: "A modern terminal editor with mouse support and sane keybindings.",
-      why: "Edit a file remotely with shortcuts your thumbs already know."
+      why: "Edit a remote file with the plain Ctrl-key shortcuts your thumbs already know."
     },
 
     # ── Shells & multiplexers ───────────────────────────────────────────────
@@ -211,7 +225,7 @@ defmodule OnlyTTYWeb.Site.Tools do
       cmd: "tmux attach",
       category: "Shells & multiplexers",
       what: "A terminal multiplexer that keeps your sessions alive across disconnects.",
-      why: "Reattach to everything you were running and check on it from the loo."
+      why: "Reattach to every session you left running and check on all of it from your phone."
     },
     %{
       slug: "screen",
@@ -219,7 +233,7 @@ defmodule OnlyTTYWeb.Site.Tools do
       cmd: "screen -r",
       category: "Shells & multiplexers",
       what: "The original terminal multiplexer for persistent sessions.",
-      why: "Peek at a long-running job from anywhere without SSH gymnastics."
+      why: "Peek at a long-running job in a detached session without opening a fresh SSH login."
     },
     %{
       slug: "zellij",
@@ -227,7 +241,7 @@ defmodule OnlyTTYWeb.Site.Tools do
       cmd: "zellij",
       category: "Shells & multiplexers",
       what: "A modern terminal workspace with panes, tabs, and layouts.",
-      why: "Carry your whole workspace in your pocket and glance at any pane."
+      why: "Carry your whole paned workspace in your pocket and jump between panes with a tap."
     },
     %{
       slug: "bash",
@@ -235,7 +249,7 @@ defmodule OnlyTTYWeb.Site.Tools do
       cmd: "bash",
       category: "Shells & multiplexers",
       what: "The shell that runs the world.",
-      why: "Run one quick command on your box without opening a laptop."
+      why: "Run a quick one-off command on your box without booting up a laptop."
     },
     %{
       slug: "zsh",
@@ -243,7 +257,7 @@ defmodule OnlyTTYWeb.Site.Tools do
       cmd: "zsh",
       category: "Shells & multiplexers",
       what: "A powerful shell with great completion and a thriving plugin scene.",
-      why: "Your fully-themed shell, now reachable from the bathroom."
+      why: "Reach your fully-themed shell, completions and history and all, from your phone."
     },
     %{
       slug: "fish",
@@ -251,7 +265,7 @@ defmodule OnlyTTYWeb.Site.Tools do
       cmd: "fish",
       category: "Shells & multiplexers",
       what: "The friendly interactive shell with autosuggestions out of the box.",
-      why: "Type a command and let fish finish it for you — from your phone."
+      why: "Let autosuggestions finish each command as you tap it out on a small keyboard."
     },
     %{
       slug: "nushell",
@@ -259,7 +273,7 @@ defmodule OnlyTTYWeb.Site.Tools do
       cmd: "nu",
       category: "Shells & multiplexers",
       what: "A shell that treats your data as structured tables.",
-      why: "Query a log as a table and scroll the results on your phone."
+      why: "Query a log as a structured table and scroll the rows on a phone screen."
     },
 
     # ── Git & ops TUIs ──────────────────────────────────────────────────────
@@ -269,7 +283,7 @@ defmodule OnlyTTYWeb.Site.Tools do
       cmd: "lazygit",
       category: "Git & ops TUIs",
       what: "A blazing-fast terminal UI for git.",
-      why: "Stage, commit, and resolve that merge from the smallest screen in the house."
+      why: "Stage hunks, write a commit, and resolve a conflict with one thumb mid-review."
     },
     %{
       slug: "gitui",
@@ -277,7 +291,7 @@ defmodule OnlyTTYWeb.Site.Tools do
       cmd: "gitui",
       category: "Git & ops TUIs",
       what: "A fast, keyboard-driven terminal UI for git, written in Rust.",
-      why: "Blast through your staging area with one thumb."
+      why: "Work through your staging area with its keyboard-first flow, now on a touch screen."
     },
     %{
       slug: "tig",
@@ -285,7 +299,7 @@ defmodule OnlyTTYWeb.Site.Tools do
       cmd: "tig",
       category: "Git & ops TUIs",
       what: "A text-mode interface for browsing git history.",
-      why: "Scroll the commit log on your phone to find the change that broke things."
+      why: "Scroll the commit history on your phone to pinpoint the change that broke the build."
     },
     %{
       slug: "lazydocker",
@@ -293,7 +307,7 @@ defmodule OnlyTTYWeb.Site.Tools do
       cmd: "lazydocker",
       category: "Git & ops TUIs",
       what: "A terminal UI for managing Docker and docker-compose.",
-      why: "Restart a flailing container from anywhere — the bathroom counts as on-call."
+      why: "Restart a flailing container the moment the alert fires, away from your desk."
     },
     %{
       slug: "k9s",
@@ -301,7 +315,7 @@ defmodule OnlyTTYWeb.Site.Tools do
       cmd: "k9s",
       category: "Git & ops TUIs",
       what: "A terminal UI to observe and manage your Kubernetes clusters.",
-      why: "Watch pods and tail logs during an incident, wherever you are."
+      why: "Watch pods and tail logs through an incident without scrambling for a laptop."
     },
     %{
       slug: "htop",
@@ -309,7 +323,7 @@ defmodule OnlyTTYWeb.Site.Tools do
       cmd: "htop",
       category: "Git & ops TUIs",
       what: "An interactive process viewer for the terminal.",
-      why: "Spot the runaway process and kill it before it eats your server — no desk required."
+      why: "Spot a runaway process and send it a signal before it eats the box."
     },
     %{
       slug: "btop",
@@ -317,7 +331,7 @@ defmodule OnlyTTYWeb.Site.Tools do
       cmd: "btop",
       category: "Git & ops TUIs",
       what: "A gorgeous resource monitor for CPU, memory, disk, and network.",
-      why: "Keep one eye on your server's vitals from the throne."
+      why: "Keep an eye on CPU, memory, and network while a heavy job runs on the server."
     },
     %{
       slug: "glances",
@@ -325,7 +339,7 @@ defmodule OnlyTTYWeb.Site.Tools do
       cmd: "glances",
       category: "Git & ops TUIs",
       what: "A cross-platform system monitor that shows everything at a glance.",
-      why: "Check your box's health on a screen that fits in your hand."
+      why: "See a box's whole health at once on a screen that fits in your hand."
     },
 
     # ── REPLs & databases ───────────────────────────────────────────────────
@@ -335,7 +349,7 @@ defmodule OnlyTTYWeb.Site.Tools do
       cmd: "python",
       category: "REPLs & databases",
       what: "The interactive Python interpreter.",
-      why: "Test a snippet or poke at an object from your phone."
+      why: "Test a snippet or inspect a live object without getting back to your desk."
     },
     %{
       slug: "ipython",
@@ -343,7 +357,7 @@ defmodule OnlyTTYWeb.Site.Tools do
       cmd: "ipython",
       category: "REPLs & databases",
       what: "A rich interactive Python shell with magic commands.",
-      why: "Re-run a cell and read the output from the couch."
+      why: "Re-run a cell and read its output remotely, magics and all."
     },
     %{
       slug: "node",
@@ -351,7 +365,8 @@ defmodule OnlyTTYWeb.Site.Tools do
       cmd: "node",
       category: "REPLs & databases",
       what: "The interactive JavaScript runtime.",
-      why: "Try a one-liner without opening your laptop."
+      why:
+        "Try a JavaScript one-liner against the live runtime while you're away from the keyboard."
     },
     %{
       slug: "irb",
@@ -359,7 +374,7 @@ defmodule OnlyTTYWeb.Site.Tools do
       cmd: "irb",
       category: "REPLs & databases",
       what: "Ruby's interactive console.",
-      why: "Inspect an object or run a quick experiment on the go."
+      why: "Poke at a Ruby object or run a quick experiment between other things."
     },
     %{
       slug: "iex",
@@ -367,7 +382,7 @@ defmodule OnlyTTYWeb.Site.Tools do
       cmd: "iex",
       category: "REPLs & databases",
       what: "Elixir's interactive shell, great for poking at a running system.",
-      why: "Connect to your app and run a command from anywhere."
+      why: "Connect to your running app and run a diagnostic command from your phone."
     },
     %{
       slug: "psql",
@@ -375,7 +390,7 @@ defmodule OnlyTTYWeb.Site.Tools do
       cmd: "psql",
       category: "REPLs & databases",
       what: "PostgreSQL's interactive terminal.",
-      why: "Run that read-only query you forgot before the deploy — from your phone."
+      why: "Run that read-only query you forgot before the deploy, straight from your phone."
     },
     %{
       slug: "mysql",
@@ -383,7 +398,7 @@ defmodule OnlyTTYWeb.Site.Tools do
       cmd: "mysql",
       category: "REPLs & databases",
       what: "The MySQL command-line client.",
-      why: "Check a row count without firing up a GUI."
+      why: "Check a row count or a slow query without booting up a database GUI."
     },
     %{
       slug: "redis-cli",
@@ -391,7 +406,7 @@ defmodule OnlyTTYWeb.Site.Tools do
       cmd: "redis-cli",
       category: "REPLs & databases",
       what: "The Redis command-line interface.",
-      why: "Inspect a key or flush a cache from anywhere."
+      why: "Inspect a key or flush a cache the moment on-call needs it done."
     },
     %{
       slug: "mongosh",
@@ -399,7 +414,7 @@ defmodule OnlyTTYWeb.Site.Tools do
       cmd: "mongosh",
       category: "REPLs & databases",
       what: "The modern MongoDB shell.",
-      why: "Run a quick find() from the smallest device you own."
+      why: "Run a quick find() against a collection from the smallest device you own."
     },
     %{
       slug: "sqlite3",
@@ -407,7 +422,7 @@ defmodule OnlyTTYWeb.Site.Tools do
       cmd: "sqlite3 app.db",
       category: "REPLs & databases",
       what: "The SQLite command-line shell.",
-      why: "Query a local database without leaving the bathroom."
+      why: "Query a database file in place on the box, without copying it anywhere first."
     },
 
     # ── Infra & remote ──────────────────────────────────────────────────────
@@ -417,7 +432,7 @@ defmodule OnlyTTYWeb.Site.Tools do
       cmd: "docker stats",
       category: "Infra & remote",
       what: "Build, run, and manage containers from the command line.",
-      why: "Bounce a service from your phone when the pager goes off."
+      why: "Bounce a service or read its live stats the moment the pager goes off."
     },
     %{
       slug: "kubectl",
@@ -425,7 +440,7 @@ defmodule OnlyTTYWeb.Site.Tools do
       cmd: "kubectl get pods -w",
       category: "Infra & remote",
       what: "The Kubernetes command-line tool.",
-      why: "Scale a deployment or read events during an incident, wherever you are."
+      why: "Scale a deployment or read cluster events during an incident, away from your laptop."
     },
     %{
       slug: "terraform",
@@ -433,7 +448,8 @@ defmodule OnlyTTYWeb.Site.Tools do
       cmd: "terraform plan",
       category: "Infra & remote",
       what: "Provision and change infrastructure as code.",
-      why: "Review a plan and type 'yes' to apply — from the bathroom, if you're brave."
+      why:
+        "Read the plan carefully and type the apply with the diff in front of you, not from memory."
     },
     %{
       slug: "ansible",
@@ -441,7 +457,7 @@ defmodule OnlyTTYWeb.Site.Tools do
       cmd: "ansible-playbook site.yml",
       category: "Infra & remote",
       what: "Automate configuration across your fleet with playbooks.",
-      why: "Kick off a playbook and watch it roll out from your phone."
+      why: "Kick off a playbook and follow it rolling across your fleet, task by task."
     },
     %{
       slug: "mosh",
@@ -449,7 +465,7 @@ defmodule OnlyTTYWeb.Site.Tools do
       cmd: "mosh user@host",
       category: "Infra & remote",
       what: "A resilient remote shell that survives flaky connections.",
-      why: "Stay connected to your server even on bathroom Wi-Fi."
+      why: "Stay attached to your server through flaky mobile signal and network roaming."
     },
     %{
       slug: "watch",
@@ -457,7 +473,7 @@ defmodule OnlyTTYWeb.Site.Tools do
       cmd: "watch -n1 'kubectl get pods'",
       category: "Infra & remote",
       what: "Run a command repeatedly and watch the output update.",
-      why: "Babysit a number that needs to change before you can relax."
+      why: "Keep an eye on a number that has to change before you can call the job done."
     },
 
     # ── File managers & fun ─────────────────────────────────────────────────
@@ -467,7 +483,7 @@ defmodule OnlyTTYWeb.Site.Tools do
       cmd: "ranger",
       category: "File managers & fun",
       what: "A Vim-inspired terminal file manager with previews.",
-      why: "Browse your files from your phone like it's a tiny Finder."
+      why: "Browse and preview files on the box like a pocket-sized file manager."
     },
     %{
       slug: "nnn",
@@ -475,7 +491,7 @@ defmodule OnlyTTYWeb.Site.Tools do
       cmd: "nnn",
       category: "File managers & fun",
       what: "A blazing-fast, lightweight terminal file manager.",
-      why: "Find and move a file without touching a mouse."
+      why: "Find and move a file fast, no mouse and no lag."
     },
     %{
       slug: "mc",
@@ -483,7 +499,7 @@ defmodule OnlyTTYWeb.Site.Tools do
       cmd: "mc",
       category: "File managers & fun",
       what: "The classic two-pane terminal file manager.",
-      why: "Copy files between folders from the comfort of the couch."
+      why: "Copy files between its two panes on a remote box, one tap at a time."
     },
     %{
       slug: "weechat",
@@ -491,7 +507,7 @@ defmodule OnlyTTYWeb.Site.Tools do
       cmd: "weechat",
       category: "File managers & fun",
       what: "A fast, extensible terminal chat client for IRC and more.",
-      why: "Stay in the channel from your phone without a separate app."
+      why: "Stay in your IRC channels through your own client, no separate chat app to install."
     },
     %{
       slug: "irssi",
@@ -499,7 +515,7 @@ defmodule OnlyTTYWeb.Site.Tools do
       cmd: "irssi",
       category: "File managers & fun",
       what: "The venerable terminal IRC client.",
-      why: "Lurk in your favorite channels from anywhere."
+      why: "Lurk in your favorite channels and fire off a reply between other things."
     },
     %{
       slug: "neomutt",
@@ -507,7 +523,7 @@ defmodule OnlyTTYWeb.Site.Tools do
       cmd: "neomutt",
       category: "File managers & fun",
       what: "A powerful terminal email client.",
-      why: "Triage your inbox with keyboard shortcuts on a phone — ironically."
+      why: "Triage your inbox with keyboard shortcuts — yes, on a phone."
     },
     %{
       slug: "newsboat",
@@ -515,7 +531,7 @@ defmodule OnlyTTYWeb.Site.Tools do
       cmd: "newsboat",
       category: "File managers & fun",
       what: "An RSS/Atom feed reader for the terminal.",
-      why: "Catch up on your feeds during a quick break."
+      why: "Catch up on your RSS feeds in a spare few minutes."
     },
     %{
       slug: "taskwarrior",
@@ -523,7 +539,7 @@ defmodule OnlyTTYWeb.Site.Tools do
       cmd: "task",
       category: "File managers & fun",
       what: "A command-line to-do manager that's surprisingly powerful.",
-      why: "Add the task you just thought of before you forget it."
+      why: "Capture the task you just thought of before it slips away."
     },
     %{
       slug: "cmus",
@@ -531,7 +547,7 @@ defmodule OnlyTTYWeb.Site.Tools do
       cmd: "cmus",
       category: "File managers & fun",
       what: "A small, fast terminal music player.",
-      why: "Skip a track without unlocking your phone's music app."
+      why: "Skip a track or requeue an album without leaving the terminal."
     },
     %{
       slug: "cmatrix",
@@ -539,7 +555,7 @@ defmodule OnlyTTYWeb.Site.Tools do
       cmd: "cmatrix",
       category: "File managers & fun",
       what: "Falling green code, just like the movie.",
-      why: "Look extremely busy from the bathroom. We won't tell."
+      why: "Summon a wall of falling green code on your desktop from across the room."
     },
     %{
       slug: "cointop",
@@ -547,9 +563,22 @@ defmodule OnlyTTYWeb.Site.Tools do
       cmd: "cointop",
       category: "File managers & fun",
       what: "A fast terminal UI for tracking cryptocurrency prices.",
-      why: "Watch the charts melt down in real time, wherever you are."
+      why: "Watch crypto prices tick over in real time between other things."
     }
   ]
+
+  # Slugs whose `/control/:slug` page is intentionally kept out of the search index
+  # (noindex + dropped from the sitemap). These are near-duplicate long-tail pages
+  # with low standalone search intent — generic shells (that's just `onlytty`
+  # sharing your whole shell), plain REPLs, duplicative TUIs, and the whole
+  # "File managers & fun" set. They STILL render and stay linked from `/tools`, so
+  # nothing is orphaned; they just don't dilute the indexable set. The high-intent
+  # pages (all AI agents, big editors/multiplexers/ops TUIs, DB + core infra) stay
+  # indexable. See `sitemap/0` and the tool page's `robots` handling in `Page`.
+  @noindex_slugs MapSet.new(~w(sgpt mods nano micro bash zsh fish nushell gitui tig glances
+                      python ipython node irb iex mongosh sqlite3 ansible mosh watch
+                      ranger nnn mc weechat irssi neomutt newsboat taskwarrior cmus
+                      cmatrix cointop))
 
   @doc "All tools, in catalog order."
   def all, do: @tools
@@ -559,6 +588,18 @@ defmodule OnlyTTYWeb.Site.Tools do
 
   @doc "Look up a tool by slug, or `nil` if there's no such tool."
   def get(slug), do: Enum.find(@tools, &(&1.slug == slug))
+
+  @doc """
+  Whether a tool's `/control/:slug` page should be search-indexable. Long-tail,
+  near-duplicate pages (see `@noindex_slugs`) return `false` — they still render
+  and stay linked from `/tools`, but carry `noindex` and are left out of the sitemap.
+  Accepts a tool map or a slug string.
+  """
+  def indexable?(%{slug: slug}), do: indexable?(slug)
+  def indexable?(slug) when is_binary(slug), do: not MapSet.member?(@noindex_slugs, slug)
+
+  @doc "The tools whose pages are search-indexable, in catalog order."
+  def indexable, do: Enum.filter(@tools, &indexable?/1)
 
   @doc "Tools grouped by category, returned in `categories/0` order."
   def by_category do

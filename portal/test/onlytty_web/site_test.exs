@@ -92,6 +92,15 @@ defmodule OnlyTTYWeb.SiteTest do
       end
     end
 
+    test "a long-tail tool page still renders but is noindex (kept out of the search index)",
+         %{conn: conn} do
+      # `cmatrix` is in @noindex_slugs — it renders and stays usable, just noindex.
+      refute Tools.indexable?("cmatrix")
+      body = conn |> get(~p"/control/cmatrix") |> html_response(200)
+      assert body =~ "cmatrix"
+      assert body =~ ~s(name="robots" content="noindex,follow")
+    end
+
     test "an unknown slug returns a branded, noindex 404 and does not echo the slug", %{
       conn: conn
     } do
@@ -116,6 +125,8 @@ defmodule OnlyTTYWeb.SiteTest do
       end
 
       assert body =~ ~s(href="/control/htop")
+      # noindex long-tail tools stay linked here, so nothing is orphaned.
+      assert body =~ ~s(href="/control/cmatrix")
       assert body =~ ~s(rel="canonical")
     end
   end
@@ -155,9 +166,12 @@ defmodule OnlyTTYWeb.SiteTest do
       assert body =~ "/tools</loc>"
       assert body =~ "/privacy</loc>"
 
-      # one <loc> per tool, plus home, the index, self-hosting, and the 3 legal pages.
+      # one <loc> per indexable tool, plus home, the index, self-hosting, and the
+      # 3 legal pages. Long-tail noindex tool pages are intentionally omitted.
       loc_count = body |> String.split("<loc>") |> length() |> Kernel.-(1)
-      assert loc_count == length(Tools.all()) + 6
+      assert loc_count == length(Tools.indexable()) + 6
+      # and the sitemap really is thinned — not every catalog page is listed.
+      assert length(Tools.indexable()) < length(Tools.all())
     end
   end
 

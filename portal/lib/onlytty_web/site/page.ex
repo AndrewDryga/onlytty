@@ -66,6 +66,8 @@ defmodule OnlyTTYWeb.Site.Page do
       description:
         "Run #{tool.name} on your machine and drive it from your phone with OnlyTTY. #{tool.why} End-to-end encrypted, opens view-only but anyone with the link can take control, nothing stored.",
       path: "/control/#{tool.slug}",
+      # Long-tail, near-duplicate tool pages render but stay out of the index.
+      noindex: not Tools.indexable?(tool),
       json_ld: [tool_software_ld(tool), breadcrumb_ld(tool)],
       body: tool_body(tool)
     )
@@ -174,9 +176,11 @@ defmodule OnlyTTYWeb.Site.Page do
   def sitemap do
     # No <priority>/<changefreq> — major engines ignore them — and no <lastmod>
     # since there's no real per-URL timestamp source to back it (faking it is worse).
+    # Only the indexable tool pages go in the sitemap; the long-tail noindex ones
+    # are omitted (they still render and stay linked from /tools).
     urls =
       ["/", "/tools", "/self-hosting", "/terms", "/privacy", "/acceptable-use"] ++
-        Enum.map(Tools.all(), &"/control/#{&1.slug}")
+        Enum.map(Tools.indexable(), &"/control/#{&1.slug}")
 
     entries =
       Enum.map_join(urls, "\n", fn path ->
