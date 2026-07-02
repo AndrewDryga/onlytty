@@ -23,19 +23,43 @@ defmodule OnlyTTYWeb.ClientIP do
   because `OnlyTTYWeb.MetricsAccess` relies on that being the real TCP peer for its
   loopback gate — resolving a spoofed `X-Forwarded-For` into it would let an attacker
   claim `127.0.0.1` and read `/metrics`.
+
+  The key is bucketed to the client's routing prefix so it can't be sidestepped by
+  address rotation: IPv6 is masked to its /64 (the last 4 of the 8 16-bit groups zeroed),
+  since a single client is routinely handed a whole /64 — keying on the full /128 would
+  let one host rotate through its prefix to dodge "N creates/min per IP" and bloat the
+  limiter's ETS table with an entry per address. IPv4 (one address = one host) is
+  unchanged. The masking is scoped to the returned key; `conn.remote_ip` is never touched.
   """
+
+  # IPv6 clients get a whole /64; bucket the rate-limit key to that prefix.
+  @ipv6_prefix_groups 4
 
   @doc "The client IP to throttle on, per the configured trusted-proxy hop count."
   @spec resolve(Plug.Conn.t()) :: :inet.ip_address()
   def resolve(%Plug.Conn{} = conn) do
     hops = Application.get_env(:onlytty, :trusted_proxy_hops, 0)
 
-    if is_integer(hops) and hops > 0 do
-      from_forwarded_for(conn, hops) || conn.remote_ip
-    else
-      conn.remote_ip
-    end
+    ip =
+      if is_integer(hops) and hops > 0 do
+        from_forwarded_for(conn, hops) || conn.remote_ip
+      else
+        conn.remote_ip
+      end
+
+    mask(ip)
   end
+
+  # Bucket an IPv6 address to its /64 (zero groups 5–8); IPv4 is one host, so pass through.
+  defp mask({_, _, _, _, _, _, _, _} = ipv6) do
+    ipv6
+    |> Tuple.to_list()
+    |> Enum.with_index()
+    |> Enum.map(fn {group, i} -> if i < @ipv6_prefix_groups, do: group, else: 0 end)
+    |> List.to_tuple()
+  end
+
+  defp mask(ip), do: ip
 
   # The client is the entry `hops` positions before the end of X-Forwarded-For (the last
   # `hops` entries are our own trusted proxies). Returns nil — so resolve/1 falls back to

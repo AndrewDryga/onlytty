@@ -62,12 +62,38 @@ defmodule OnlyTTYWeb.ClientIPTest do
     end)
   end
 
-  test "IPv6: a bracketed client literal is parsed" do
+  test "IPv6: a bracketed client literal is parsed and masked to its /64" do
     with_runtime_env(%{"ONLYTTY_TRUSTED_PROXY_HOPS" => "1"}, fn ->
       peer = {0, 0, 0, 0, 0, 0xFFFF, 0x8213, 1}
 
+      # The full /128 (…::1) collapses to its /64 (groups 5–8 zeroed).
       assert ClientIP.resolve(conn(peer, "[2001:db8::1], 2001:db8::2")) ==
-               {0x2001, 0x0DB8, 0, 0, 0, 0, 0, 1}
+               {0x2001, 0x0DB8, 0, 0, 0, 0, 0, 0}
+    end)
+  end
+
+  test "IPv6: two addresses in the same /64 collapse to one key" do
+    with_runtime_env(%{"ONLYTTY_TRUSTED_PROXY_HOPS" => "0"}, fn ->
+      a = ClientIP.resolve(conn({0x2001, 0x0DB8, 1, 2, 0, 0, 0, 0x1111}, nil))
+      b = ClientIP.resolve(conn({0x2001, 0x0DB8, 1, 2, 0xFFFF, 0xFFFF, 0xFFFF, 0x2222}, nil))
+
+      assert a == b
+      assert a == {0x2001, 0x0DB8, 1, 2, 0, 0, 0, 0}
+    end)
+  end
+
+  test "IPv6: addresses in different /64s stay distinct" do
+    with_runtime_env(%{"ONLYTTY_TRUSTED_PROXY_HOPS" => "0"}, fn ->
+      a = ClientIP.resolve(conn({0x2001, 0x0DB8, 1, 2, 0, 0, 0, 1}, nil))
+      b = ClientIP.resolve(conn({0x2001, 0x0DB8, 1, 3, 0, 0, 0, 1}, nil))
+
+      refute a == b
+    end)
+  end
+
+  test "IPv4 keys are unchanged by masking (full /32)" do
+    with_runtime_env(%{"ONLYTTY_TRUSTED_PROXY_HOPS" => "0"}, fn ->
+      assert ClientIP.resolve(conn({198, 51, 100, 7}, nil)) == {198, 51, 100, 7}
     end)
   end
 end
