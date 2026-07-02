@@ -159,7 +159,7 @@ defmodule OnlyTTY.Session do
   end
 
   def handle_call({:valid_runner_token?, presented}, _from, state) do
-    {:reply, secure_equal?(presented, state.runner_token), state}
+    {:reply, OnlyTTY.SecureCompare.equal?(presented, state.runner_token), state}
   end
 
   def handle_call(:expires_at, _from, state) do
@@ -368,12 +368,4 @@ defmodule OnlyTTY.Session do
   # The session id is the viewer connect capability; log only a short prefix so a
   # leaked log can't be used to connect to live sessions.
   defp short(id), do: String.slice(id, 0, 8)
-
-  # Constant-time compare so a wrong token can't be guessed by timing.
-  defp secure_equal?(a, b) when is_binary(a) and is_binary(b) do
-    :crypto.hash_equals(a, b)
-  rescue
-    # hash_equals raises on length mismatch on some OTPs; treat as not-equal.
-    ArgumentError -> false
-  end
 end

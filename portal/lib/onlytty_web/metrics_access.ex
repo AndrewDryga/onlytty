@@ -39,7 +39,7 @@ defmodule OnlyTTYWeb.MetricsAccess do
     case Application.get_env(:onlytty, :metrics_token) do
       token when is_binary(token) and token != "" ->
         case get_req_header(conn, "authorization") do
-          ["Bearer " <> presented] -> Plug.Crypto.secure_compare(presented, token)
+          ["Bearer " <> presented] -> OnlyTTY.SecureCompare.equal?(presented, token)
           _ -> false
         end
 

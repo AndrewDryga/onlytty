@@ -102,17 +102,12 @@ defmodule OnlyTTYWeb.SocketController do
     token = Session.runner_token(session)
 
     case get_req_header(conn, "authorization") do
-      ["Bearer " <> presented] -> if secure_equal?(presented, token), do: :ok, else: :unauthorized
-      _ -> :unauthorized
-    end
-  end
+      ["Bearer " <> presented] ->
+        if OnlyTTY.SecureCompare.equal?(presented, token), do: :ok, else: :unauthorized
 
-  # Constant-time compare so a wrong token can't be guessed by timing.
-  defp secure_equal?(a, b) when is_binary(a) and is_binary(b) do
-    :crypto.hash_equals(a, b)
-  rescue
-    # hash_equals raises on length mismatch on some OTPs; treat as not-equal.
-    ArgumentError -> false
+      _ ->
+        :unauthorized
+    end
   end
 
   defp reject(conn, status, message) do
