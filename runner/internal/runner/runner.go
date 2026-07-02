@@ -37,9 +37,9 @@ const (
 type ControlMode int
 
 const (
-	// ControlAsk grants control on every request — the default, for the
-	// "my phone drives my own shell" case.
-	ControlAsk ControlMode = iota
+	// ControlAuto auto-grants control on every request — no host prompt — the
+	// default, for the "my phone drives my own shell" case.
+	ControlAuto ControlMode = iota
 	// ControlViewOnly never grants control; viewers may only watch.
 	ControlViewOnly
 	// ControlOnce grants the first request, then denies later ones once that grant

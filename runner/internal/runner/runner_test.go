@@ -74,7 +74,7 @@ func grantControl(o *Orchestrator, viewerID string) {
 // A resize from a viewer that does not hold control must be ignored (it would
 // otherwise SIGWINCH the host — a write-side effect a read-only viewer must not have).
 func TestResizeRequiresControl(t *testing.T) {
-	o, v2r, ps := newTestOrch(t, ControlAsk)
+	o, v2r, ps := newTestOrch(t, ControlAuto)
 
 	o.handleBinary(seal(t, v2r, 1, protocol.KindResize, protocol.EncodeResize(120, 40)))
 	if c, r := ps.Size(); c == 120 || r == 40 {
@@ -96,7 +96,7 @@ func TestReadOnlyNeverGrantsControl(t *testing.T) {
 		t.Fatal("read-only session granted control")
 	}
 
-	rw, v2r2, _ := newTestOrch(t, ControlAsk)
+	rw, v2r2, _ := newTestOrch(t, ControlAuto)
 	rw.handleBinary(seal(t, v2r2, 1, protocol.KindCtrlReq, nil))
 	if !rw.viewerHasControl("") {
 		t.Fatal("writable session did not grant control on request")
@@ -106,7 +106,7 @@ func TestReadOnlyNeverGrantsControl(t *testing.T) {
 // The session-long seq floor must reject a replayed (or stale) frame — the defense
 // against a relay re-running a viewer's past keystrokes.
 func TestReplayRejected(t *testing.T) {
-	o, v2r, ps := newTestOrch(t, ControlAsk)
+	o, v2r, ps := newTestOrch(t, ControlAuto)
 	grantControl(o, "")
 
 	o.handleBinary(seal(t, v2r, 5, protocol.KindResize, protocol.EncodeResize(100, 30)))
@@ -130,7 +130,7 @@ func TestReplayRejected(t *testing.T) {
 // current screen-busy state: idle → the renderer shows it; while the child draws its
 // own UI → busy, so the renderer stays silent.
 func TestControlNotifiesHostWithScreenState(t *testing.T) {
-	o, v2r, _ := newTestOrch(t, ControlAsk)
+	o, v2r, _ := newTestOrch(t, ControlAuto)
 
 	var busy []bool
 	o.notify = func(_ string, b bool) { busy = append(busy, b) }
@@ -153,7 +153,7 @@ func TestControlNotifiesHostWithScreenState(t *testing.T) {
 // after) and flip true while the child draws its own UI — a bare CR line rewrite, cursor
 // or erase moves, or the alternate screen — so notices don't corrupt it.
 func TestScreenBusyDetection(t *testing.T) {
-	o, _, _ := newTestOrch(t, ControlAsk)
+	o, _, _ := newTestOrch(t, ControlAuto)
 
 	// Plain text + SGR color is not screen-owning.
 	o.markScreenActivity([]byte("hello \x1b[31mred\x1b[0m world\n"))
@@ -226,7 +226,7 @@ func assertControlTarget(t *testing.T, c *connState, target string, want byte) {
 // text frame, so a viewer that missed EXIT still transitions to a terminal state
 // instead of hanging on "runner disconnected".
 func TestExitSignalsByeTextFrame(t *testing.T) {
-	o, _, _ := newTestOrch(t, ControlAsk)
+	o, _, _ := newTestOrch(t, ControlAuto)
 	c := withConn(o)
 
 	o.signalExit()
@@ -276,7 +276,7 @@ func TestControlOnceGrantsThenDenies(t *testing.T) {
 }
 
 func TestMultipleViewersSingleControlOwner(t *testing.T) {
-	o, v2r, ps := newTestOrch(t, ControlAsk)
+	o, v2r, ps := newTestOrch(t, ControlAuto)
 	c := withConn(o)
 
 	o.handleBinary(sealViewer(t, v2r, "viewer-a", 1, protocol.KindCtrlReq, nil))
@@ -321,7 +321,7 @@ func TestMultipleViewersSingleControlOwner(t *testing.T) {
 // the value it cannot forge. The reply still routes to the relay's label so it reaches
 // the socket.
 func TestControlOwnershipKeyedOnEncryptedId(t *testing.T) {
-	o, v2r, _ := newTestOrch(t, ControlAsk)
+	o, v2r, _ := newTestOrch(t, ControlAuto)
 	c := withConn(o)
 
 	o.handleBinary(sealViewerSplit(t, v2r, "route-x", "self-a", 1, protocol.KindCtrlReq, nil))
@@ -374,7 +374,7 @@ func TestDuplicateRelayIdCannotShareControl(t *testing.T) {
 // Replay floors are per self id: a viewer's own replayed frame is rejected, while a
 // second viewer reusing the same seq numbers is unaffected (independent floors).
 func TestReplayFloorsPerSelfId(t *testing.T) {
-	o, v2r, _ := newTestOrch(t, ControlAsk)
+	o, v2r, _ := newTestOrch(t, ControlAuto)
 	c := withConn(o)
 
 	o.handleBinary(sealViewerSplit(t, v2r, "route-a", "self-a", 1, protocol.KindCtrlReq, nil))
@@ -397,7 +397,7 @@ func TestReplayFloorsPerSelfId(t *testing.T) {
 // Revoke takes control back: it clears the grant and tells the viewer it is read-only;
 // a second revoke with nobody in control is a silent no-op.
 func TestRevokeTakesControlBack(t *testing.T) {
-	o, _, _ := newTestOrch(t, ControlAsk)
+	o, _, _ := newTestOrch(t, ControlAuto)
 	c := withConn(o)
 	grantControl(o, "")
 

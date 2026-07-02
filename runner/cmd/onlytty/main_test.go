@@ -98,10 +98,11 @@ func TestResolveControl(t *testing.T) {
 		want     runner.ControlMode
 		wantErr  bool
 	}{
-		{"default ask", "ask", false, false, runner.ControlAsk, false},
+		{"default auto", "auto", false, false, runner.ControlAuto, false},
+		{"ask is a deprecated alias for auto", "ask", false, true, runner.ControlAuto, false},
 		{"explicit view-only", "view-only", false, true, runner.ControlViewOnly, false},
 		{"once", "once", false, true, runner.ControlOnce, false},
-		{"read-only alias maps to view-only", "ask", true, false, runner.ControlViewOnly, false},
+		{"read-only alias maps to view-only", "auto", true, false, runner.ControlViewOnly, false},
 		{"read-only with matching view-only is fine", "view-only", true, true, runner.ControlViewOnly, false},
 		{"read-only conflicts with once", "once", true, true, 0, true},
 		{"unknown mode errors", "bogus", false, true, 0, true},

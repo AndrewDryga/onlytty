@@ -51,7 +51,7 @@ func main() { os.Exit(run()) }
 
 func run() int {
 	server := flag.String("server", envOr("ONLYTTY_SERVER", defaultPublicRelay), "relay origin (or ONLYTTY_SERVER); e.g. a self-hosted https://relay.example.com")
-	control := flag.String("control", "ask", "viewer control policy: ask (auto-grant control to any viewer that requests it — no host prompt; revoke with SIGUSR1), view-only (never), once (auto-grant the first request only)")
+	control := flag.String("control", "auto", "viewer control policy: auto (auto-grant control to any viewer that requests it — no host prompt; revoke with SIGUSR1), view-only (never), once (auto-grant the first request only)")
 	readOnly := flag.Bool("read-only", false, "deprecated alias for --control view-only")
 	multiViewer := flag.Bool("multi-viewer", false, "allow multiple browser viewers; only one viewer may control the terminal at a time")
 	ttl := flag.Duration("ttl", 0, "session lifetime before the link expires; 0 (default) = no expiry — the session lives as long as onlytty runs and ends when the command exits (the relay may impose a maximum)")
@@ -208,14 +208,14 @@ func resolveControl(controlFlag string, readOnly, controlSet bool) (runner.Contr
 		return runner.ControlViewOnly, nil
 	}
 	switch controlFlag {
-	case "ask":
-		return runner.ControlAsk, nil
+	case "auto", "ask": // "ask" is a deprecated alias — it never prompted the host.
+		return runner.ControlAuto, nil
 	case "view-only":
 		return runner.ControlViewOnly, nil
 	case "once":
 		return runner.ControlOnce, nil
 	default:
-		return 0, fmt.Errorf("--control must be ask, view-only, or once (got %q)", controlFlag)
+		return 0, fmt.Errorf("--control must be auto, view-only, or once (got %q)", controlFlag)
 	}
 }
 

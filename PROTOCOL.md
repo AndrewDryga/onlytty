@@ -123,7 +123,7 @@ viewer → runner (sealed with `k_v2r`):
 
 `CONTROL.state` is per viewer. In multi-viewer sessions, only the current owner sees
 `granted`; a requester denied because another viewer owns the terminal sees state `2`.
-The host's `--control` policy (`ask` / `view-only` / `once`) and the `SIGUSR1` revoke
+The host's `--control` policy (`auto` / `view-only` / `once`; `ask` is a deprecated alias for `auto`) and the `SIGUSR1` revoke
 decide when ownership is granted or cleared.
 
 `HELLO` is the first frame the runner sends to a newly-joined viewer; `baseline` is
