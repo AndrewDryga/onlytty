@@ -81,7 +81,9 @@ func run() int {
 		return 2
 	}
 
-	argv := resolveCommand(flag.Args())
+	args := flag.Args()
+	shellMode := len(args) == 0
+	argv := resolveCommand(args)
 	client, err := relayclient.New(*server, *allowInsecure)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "onlytty:", err)
@@ -145,7 +147,7 @@ func run() int {
 	link := client.ViewerURL(id, secretB64, passphrase != "")
 
 	// Show the expiry the relay actually assigned (it clamps the TTL), not the raw flag.
-	printBanner(link, formatFingerprint(keys.Fingerprint), expiryLine(sess.ExpiresAt), controlMode, *multiViewer, passphrase, *genPass, *noQR)
+	printBanner(link, formatFingerprint(keys.Fingerprint), expiryLine(sess.ExpiresAt), controlMode, *multiViewer, passphrase, *genPass, *noQR, shellMode)
 
 	// 3) Start the command in a PTY and mirror it locally.
 	psess, err := ptysession.Start(argv, os.Environ())
@@ -185,8 +187,9 @@ func run() int {
 	// SIGUSR1 revokes control (take it back from a viewer) without touching stdin.
 	go watchRevoke(ctx, orch)
 
+	printStartNotice(argv, shellMode)
 	code := orch.Run(ctx)
-	fmt.Fprintf(os.Stderr, "\r\n%s\r\n", dim("onlytty: session ended (exit "+itoa(code)+")"))
+	fmt.Fprintf(os.Stderr, "\r\n%s\r\n", bold(sessionStoppedText(code)))
 	return code
 }
 
@@ -310,7 +313,7 @@ func expiryLine(expiresAt int64) string {
 	return "in " + remaining(expiresAt, time.Now()).String()
 }
 
-func printBanner(link, fingerprint string, expiry string, control runner.ControlMode, multiViewer bool, passphrase string, generated, noQR bool) {
+func printBanner(link, fingerprint string, expiry string, control runner.ControlMode, multiViewer bool, passphrase string, generated, noQR bool, shellMode bool) {
 	w := os.Stderr
 	fmt.Fprintf(w, "\n  %s\n\n", bold("onlytty — this session is shared, end-to-end encrypted"))
 	if !noQR {
@@ -341,7 +344,33 @@ func printBanner(link, fingerprint string, expiry string, control runner.Control
 		fmt.Fprintf(w, "  Passphrase   %s\n", dim("required in the browser (the link alone won't decrypt)"))
 	}
 	fmt.Fprintf(w, "\n  %s\n", dim("Scan the QR or open the link. The relay only ever sees ciphertext."))
-	fmt.Fprintf(w, "  %s\n\n", dim("Use the command normally here; exit it to stop sharing."))
+	fmt.Fprintf(w, "  %s\n\n", dim(sessionInstruction(shellMode)))
+}
+
+func printStartNotice(argv []string, shellMode bool) {
+	fmt.Fprintf(os.Stderr, "\r\n%s\r\n", bold(sessionActiveText(argv, shellMode)))
+	fmt.Fprintf(os.Stderr, "%s\r\n\r\n", dim(sessionInstruction(shellMode)))
+}
+
+func sessionInstruction(shellMode bool) string {
+	if shellMode {
+		return "You are now inside a shared shell. Press Ctrl-D or type exit to stop sharing."
+	}
+	return "Use the command normally here; when it exits, sharing stops."
+}
+
+func sessionActiveText(argv []string, shellMode bool) string {
+	if shellMode {
+		return "onlytty: sharing is ACTIVE — this shell is now shared"
+	}
+	if len(argv) == 0 {
+		return "onlytty: sharing is ACTIVE"
+	}
+	return "onlytty: sharing is ACTIVE — running: " + strings.Join(argv, " ")
+}
+
+func sessionStoppedText(code int) string {
+	return "OnlyTTY sharing stopped. Browser viewers are disconnected. Exit code: " + itoa(code) + "."
 }
 
 // generatePassphrase builds a strong, unambiguous host-side passphrase: 80 random

@@ -117,3 +117,45 @@ func TestResolveControl(t *testing.T) {
 		}
 	}
 }
+
+func TestSessionInstruction(t *testing.T) {
+	shell := sessionInstruction(true)
+	for _, want := range []string{"shared shell", "Ctrl-D", "exit", "stop sharing"} {
+		if !strings.Contains(shell, want) {
+			t.Fatalf("shell instruction %q missing %q", shell, want)
+		}
+	}
+
+	cmd := sessionInstruction(false)
+	for _, want := range []string{"command", "exits", "sharing stops"} {
+		if !strings.Contains(cmd, want) {
+			t.Fatalf("command instruction %q missing %q", cmd, want)
+		}
+	}
+	if strings.Contains(cmd, "shared shell") {
+		t.Fatalf("command instruction should not claim shell mode: %q", cmd)
+	}
+}
+
+func TestSessionActiveAndStoppedText(t *testing.T) {
+	shell := sessionActiveText([]string{"/bin/zsh"}, true)
+	for _, want := range []string{"ACTIVE", "shell", "shared"} {
+		if !strings.Contains(shell, want) {
+			t.Fatalf("shell active text %q missing %q", shell, want)
+		}
+	}
+
+	cmd := sessionActiveText([]string{"top", "-o", "cpu"}, false)
+	for _, want := range []string{"ACTIVE", "running: top -o cpu"} {
+		if !strings.Contains(cmd, want) {
+			t.Fatalf("command active text %q missing %q", cmd, want)
+		}
+	}
+
+	stopped := sessionStoppedText(7)
+	for _, want := range []string{"sharing stopped", "Browser viewers are disconnected", "Exit code: 7"} {
+		if !strings.Contains(stopped, want) {
+			t.Fatalf("stopped text %q missing %q", stopped, want)
+		}
+	}
+}
