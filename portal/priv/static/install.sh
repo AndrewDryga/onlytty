@@ -4,7 +4,8 @@
 # config files, no sudo. You are piping this to a shell, so it says what it does.
 #
 #   curl -fsSL https://onlytty.com/install.sh | sh
-#   curl -fsSL https://onlytty.com/install.sh | sh -s -- --version 0.1.0
+#   curl -fsSL https://onlytty.com/install.sh | sh -s -- claude
+#   curl -fsSL https://onlytty.com/install.sh | sh -s -- --version 0.1.0 claude
 #
 # Manual / audited path (don't trust a pipe): download the matching
 # onlytty-<version>-<os>-<arch>.tar.gz and SHA256SUMS from the Releases page,
@@ -24,16 +25,20 @@ usage() {
   cat <<EOF
 OnlyTTY installer
 
-Usage: install.sh [--version X.Y.Z] [--prefix DIR]
+Usage: install.sh [--version X.Y.Z] [--prefix DIR] [COMMAND...]
 
   --version   install a specific release (default: the latest)
   --prefix    install directory (default: \$PREFIX or ~/.local/bin)
+  COMMAND...  after installing, run: onlytty -- COMMAND...
   -h, --help  show this help
 
 It downloads onlytty-<version>-<os>-<arch>.tar.gz from
 https://github.com/$REPO/releases, verifies its SHA-256 against the release's
 SHA256SUMS, and installs the binary to the prefix. It never uses sudo; if the
 prefix is not writable it tells you and stops.
+
+When piping to sh, use sh -s -- to pass installer arguments:
+  curl -fsSL https://onlytty.com/install.sh | sh -s -- claude
 EOF
 }
 
@@ -44,7 +49,9 @@ while [ $# -gt 0 ]; do
     --prefix) [ $# -ge 2 ] || err "--prefix needs a value"; PREFIX="$2"; shift 2;;
     --prefix=*) PREFIX="${1#*=}"; shift;;
     -h|--help) usage; exit 0;;
-    *) err "unknown option: $1 (see --help)";;
+    --) shift; break;;
+    -*) err "unknown option: $1 (see --help)";;
+    *) break;;
   esac
 done
 
@@ -123,6 +130,11 @@ mv "$tmp/$BIN" "$PREFIX/$BIN" 2>/dev/null ||
 chmod 0755 "$PREFIX/$BIN"
 
 say "Installed $BIN $VERSION → $PREFIX/$BIN"
+if [ $# -gt 0 ]; then
+  say "Starting: $PREFIX/$BIN -- $*"
+  exec "$PREFIX/$BIN" -- "$@"
+fi
+
 case ":$PATH:" in
   *":$PREFIX:"*) say "Run: $BIN -- claude" ;;
   *) say "Note: $PREFIX is not on your PATH. Add it, e.g.:"

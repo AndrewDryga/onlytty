@@ -22,7 +22,10 @@ web-check: ## Web viewer: syntax-check first-party JS + Node interop/unit tests
 server-check: ## Relay server: format check + warnings-as-errors + tests
 	@cd portal && mix format --check-formatted && mix compile --warnings-as-errors && mix test
 
-check: runner-check web-check server-check ## Full gate: runner + web + server
+install-check: ## Installer: shell-level install and run-after-install tests
+	@sh dev/test/install.sh
+
+check: runner-check install-check web-check server-check ## Full gate: runner + installer + web + server
 
 e2e: ## Boot the relay and run the end-to-end test (runner ↔ relay ↔ viewer)
 	@bash dev/scripts/e2e.sh
@@ -82,4 +85,4 @@ clean: ## Remove build artifacts
 help: ## List targets
 	@grep -hE '^[a-z0-9-]+:.*##' $(MAKEFILE_LIST) | sed -E 's/:.*## / — /' | sort
 
-.PHONY: build install runner-check web-check server-check check e2e deploy-check selfhost-check audit audit-go audit-web audit-server viewer-hash fuzz load doctor clean help
+.PHONY: build install runner-check install-check web-check server-check check e2e deploy-check selfhost-check audit audit-go audit-web audit-server viewer-hash fuzz load doctor clean help

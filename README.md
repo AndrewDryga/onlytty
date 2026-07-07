@@ -53,13 +53,15 @@ between is ciphertext. See [PROTOCOL.md](PROTOCOL.md) for the exact wire format.
 
 ```bash
 curl -fsSL https://onlytty.com/install.sh | sh
+curl -fsSL https://onlytty.com/install.sh | sh -s -- claude  # install, then share claude
 ```
 
 It detects your OS/arch, downloads the matching release binary **and its
 `SHA256SUMS`, verifies the SHA-256 before installing** (aborts on mismatch), and
 drops `onlytty` in `~/.local/bin` (override with `PREFIX=…`; pin a release with
-`sh -s -- --version X.Y.Z`). Piping to a shell is itself a trust decision — to
-audit instead, read [`install.sh`](install.sh), or download the
+`sh -s -- --version X.Y.Z`). If you pass a command after the installer options,
+it starts it as `onlytty -- <command>` immediately after install. Piping to a
+shell is itself a trust decision — to audit instead, read [`install.sh`](install.sh), or download the
 `onlytty-<ver>-<os>-<arch>.tar.gz` + `SHA256SUMS` from
 [Releases](https://github.com/AndrewDryga/onlytty/releases), run
 `shasum -a 256 -c SHA256SUMS`, then extract and move `onlytty` onto your PATH.

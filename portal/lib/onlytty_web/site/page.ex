@@ -329,7 +329,7 @@ defmodule OnlyTTYWeb.Site.Page do
             <a class="btn btn-primary" href="#start">Get started — it's free</a>
             <a class="btn btn-ghost" href="#how">See how it works</a>
           </div>
-          <div class="hero-snippet">#{snippet("curl -fsSL https://onlytty.com/install.sh | sh")}</div>
+          <div class="hero-snippet">#{snippet("curl -fsSL https://onlytty.com/install.sh | sh -s -- claude")}</div>
         </div>
         <div class="hero-demo">#{term_demo("claude", "Claude Code", agent: true)}</div>
       </div>
@@ -487,7 +487,7 @@ defmodule OnlyTTYWeb.Site.Page do
         </div>
         <div class="start-card">
           <div class="examples">
-            #{example_row("Install", "curl -fsSL https://onlytty.com/install.sh | sh")}
+            #{example_row("Install + run", "curl -fsSL https://onlytty.com/install.sh | sh -s -- claude")}
             #{example_row("Your whole shell", "onlytty")}
             #{example_row("One command", "onlytty -- claude")}
             #{example_row("Watch-only", "onlytty --control view-only -- htop")}
@@ -676,7 +676,7 @@ defmodule OnlyTTYWeb.Site.Page do
         </div>
         <div class="start-card">
           <div class="examples">
-            #{example_row("Install the CLI", "curl -fsSL https://onlytty.com/install.sh | sh")}
+            #{example_row("Install + share #{t.name}", "curl -fsSL https://onlytty.com/install.sh | sh -s -- #{t.cmd}")}
             #{example_row("Share #{t.name}", "onlytty -- #{t.cmd}")}
           </div>
         </div>

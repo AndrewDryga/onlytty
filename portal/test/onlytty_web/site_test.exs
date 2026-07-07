@@ -13,9 +13,9 @@ defmodule OnlyTTYWeb.SiteTest do
       assert body =~ "onlytty -- claude"
     end
 
-    test "shows the one-line installer (curl onlytty.com/install.sh)", %{conn: conn} do
+    test "shows the install-and-run one-liner", %{conn: conn} do
       body = conn |> get(~p"/") |> html_response(200)
-      assert body =~ "curl -fsSL https://onlytty.com/install.sh | sh"
+      assert body =~ "curl -fsSL https://onlytty.com/install.sh | sh -s -- claude"
     end
 
     test "shows the end-to-end-encrypted ciphertext proof section", %{conn: conn} do
@@ -78,8 +78,8 @@ defmodule OnlyTTYWeb.SiteTest do
       assert body =~ "/control/claude"
       assert body =~ ~s("@type":"BreadcrumbList")
       assert body =~ ~s(name="robots" content="index,follow")
-      # the tool page converts: it offers the one-line installer
-      assert body =~ "curl -fsSL https://onlytty.com/install.sh | sh"
+      # the tool page converts: it offers install-and-share for the selected tool
+      assert body =~ "curl -fsSL https://onlytty.com/install.sh | sh -s -- claude"
     end
 
     test "every catalog tool renders a 200 page", %{conn: conn} do
