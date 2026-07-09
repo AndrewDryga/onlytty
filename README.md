@@ -7,8 +7,8 @@
 </div>
 
 ```bash
-onlytty -- claude          # share one command
-onlytty                  # share your whole shell
+onlytty -- claude          # share one command — it starts when you press Enter
+onlytty                    # share your whole shell
 # → prints a link + QR.  Scan it, and an xterm in your browser is the same session.
 ```
 
@@ -92,7 +92,8 @@ and point the runner at it with `--server` or `ONLYTTY_SERVER`.
 ```bash
 onlytty -- htop
 # → shares through the hosted relay at onlytty.com; prints a link + QR.
-#   Open it (same machine) or scan it (phone) to watch htop live.
+#   Open it (same machine) or scan it (phone), then press Enter to start htop —
+#   the QR stays on screen until you do, so a full-screen app can't wipe it.
 ```
 
 That's it — `onlytty` uses the hosted relay at `https://onlytty.com` by default, and

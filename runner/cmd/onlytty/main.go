@@ -3,6 +3,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/base32"
@@ -10,6 +11,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
 	"runtime/debug"
@@ -147,7 +149,17 @@ func run() int {
 	link := client.ViewerURL(id, secretB64, passphrase != "")
 
 	// Show the expiry the relay actually assigned (it clamps the TTL), not the raw flag.
-	printBanner(link, formatFingerprint(keys.Fingerprint), expiryLine(sess.ExpiresAt), controlMode, *multiViewer, passphrase, *genPass, *noQR, shellMode)
+	printBanner(link, formatFingerprint(keys.Fingerprint), expiryLine(sess.ExpiresAt), controlMode, *multiViewer, passphrase, *genPass, *noQR)
+
+	// Hold the launch until the host confirms: a full-screen command (claude, htop,
+	// vim) takes over the screen within its first frames, wiping the QR/link above
+	// before anyone can scan them — and nothing can re-print them mid-session.
+	if gateIn, closeGate := startGateInput(shellMode); gateIn != nil {
+		waitForStart(gateIn, argv)
+		if closeGate {
+			_ = gateIn.Close()
+		}
+	}
 
 	// 3) Start the command in a PTY and mirror it locally.
 	psess, err := ptysession.Start(argv, os.Environ())
@@ -313,7 +325,7 @@ func expiryLine(expiresAt int64) string {
 	return "in " + remaining(expiresAt, time.Now()).String()
 }
 
-func printBanner(link, fingerprint string, expiry string, control runner.ControlMode, multiViewer bool, passphrase string, generated, noQR bool, shellMode bool) {
+func printBanner(link, fingerprint string, expiry string, control runner.ControlMode, multiViewer bool, passphrase string, generated, noQR bool) {
 	w := os.Stderr
 	fmt.Fprintf(w, "\n  %s\n\n", bold("onlytty — this session is shared, end-to-end encrypted"))
 	if !noQR {
@@ -343,8 +355,46 @@ func printBanner(link, fingerprint string, expiry string, control runner.Control
 	case passphrase != "":
 		fmt.Fprintf(w, "  Passphrase   %s\n", dim("required in the browser (the link alone won't decrypt)"))
 	}
-	fmt.Fprintf(w, "\n  %s\n", dim("Scan the QR or open the link. The relay only ever sees ciphertext."))
-	fmt.Fprintf(w, "  %s\n\n", dim(sessionInstruction(shellMode)))
+	fmt.Fprintf(w, "\n  %s\n\n", dim("Scan the QR or open the link. The relay only ever sees ciphertext."))
+}
+
+// startGateInput returns the terminal to read the pre-launch "press Enter"
+// confirmation from, or nil when the run must not block: a shared shell leaves
+// the banner visible anyway, and without a TTY on stderr nobody is looking at
+// a QR. Prefer stdin; fall back to /dev/tty for `curl … | sh -s -- claude`,
+// where stdin is the consumed installer pipe but a human is still at the
+// terminal. The bool reports whether the caller owns (must close) the file.
+func startGateInput(shellMode bool) (*os.File, bool) {
+	if shellMode || !term.IsTerminal(int(os.Stderr.Fd())) {
+		return nil, false
+	}
+	if term.IsTerminal(int(os.Stdin.Fd())) {
+		return os.Stdin, false
+	}
+	f, err := os.Open("/dev/tty")
+	if err != nil {
+		return nil, false
+	}
+	return f, true
+}
+
+func startPrompt(argv []string) string {
+	return "Press Enter to start: " + strings.Join(argv, " ")
+}
+
+// waitForStart blocks until Enter (or EOF) on in, keeping the QR/link on
+// screen until the host is done with them. The terminal is still in cooked
+// mode here, so reads return whole lines.
+func waitForStart(in io.Reader, argv []string) {
+	fmt.Fprintf(os.Stderr, "  %s %s", bold(startPrompt(argv)), dim("(the QR stays visible until you do)"))
+	buf := make([]byte, 256)
+	for {
+		n, err := in.Read(buf)
+		if err != nil || bytes.ContainsAny(buf[:n], "\r\n") {
+			break
+		}
+	}
+	fmt.Fprintln(os.Stderr)
 }
 
 func printStartNotice(argv []string, shellMode bool) {

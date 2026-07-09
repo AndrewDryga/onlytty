@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"io"
 	"strings"
 	"testing"
 	"time"
@@ -114,6 +115,67 @@ func TestResolveControl(t *testing.T) {
 			t.Errorf("%s: unexpected error: %v", c.name, err)
 		} else if got != c.want {
 			t.Errorf("%s: got %v, want %v", c.name, got, c.want)
+		}
+	}
+}
+
+// The launch gate must never arm for a shared shell (the prompt does not clear
+// the banner, so gating would be pure friction). The interactive arm/skip cases
+// depend on real TTYs and are exercised by the browser e2e suite, which spawns
+// the binary over pipes and would hang if the gate misfired.
+func TestStartGateInputShellMode(t *testing.T) {
+	if in, _ := startGateInput(true); in != nil {
+		t.Fatalf("shell mode must not gate the launch, got %v", in)
+	}
+}
+
+// waitForStart holds the child launch (so a full-screen app cannot wipe the
+// QR/link banner) until the host presses Enter — and must not hang forever on
+// a terminal that closes instead.
+func TestWaitForStart(t *testing.T) {
+	done := make(chan struct{})
+	pr, pw := io.Pipe()
+	go func() {
+		waitForStart(pr, []string{"claude"})
+		close(done)
+	}()
+
+	if _, err := pw.Write([]byte("abc")); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-done:
+		t.Fatal("returned before Enter was pressed")
+	case <-time.After(50 * time.Millisecond):
+	}
+
+	if _, err := pw.Write([]byte("\n")); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("did not return after Enter")
+	}
+
+	// EOF (e.g. the terminal went away) releases the gate rather than hanging.
+	eofDone := make(chan struct{})
+	go func() {
+		waitForStart(strings.NewReader("no newline at all"), []string{"claude"})
+		close(eofDone)
+	}()
+	select {
+	case <-eofDone:
+	case <-time.After(2 * time.Second):
+		t.Fatal("did not return on EOF")
+	}
+}
+
+func TestStartPrompt(t *testing.T) {
+	p := startPrompt([]string{"claude", "--continue"})
+	for _, want := range []string{"Press Enter", "claude --continue"} {
+		if !strings.Contains(p, want) {
+			t.Fatalf("start prompt %q missing %q", p, want)
 		}
 	}
 }
