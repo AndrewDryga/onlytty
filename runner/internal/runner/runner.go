@@ -466,18 +466,37 @@ func (o *Orchestrator) sender(ctx context.Context, c *connState) {
 	}
 }
 
-// sendRepaint brings a joining or resynced viewer up to date: size + seq baseline,
-// a terminal reset, the recent output, and the current control state.
-func (o *Orchestrator) sendRepaint(ctx context.Context, c *connState, viewerID string) error {
+// repaintFrames is the ordered set of frames that bring a viewer up to date: size +
+// seq baseline, a terminal reset, the recent output, and — only for a targeted
+// repaint — that viewer's control state.
+//
+// A broadcast repaint (viewerID "") is the drop-recovery resync sent to every viewer
+// after the send queue overflowed; it must NOT carry a control frame. controlState("")
+// resolves to Taken whenever anyone owns control, so broadcasting it would tell the
+// current owner it lost control (its viewer gates input on the last CONTROL frame),
+// making control flap for the duration of any heavy-output burst. Control is inherently
+// per-viewer and unchanged by a dropped OUTPUT frame, so a broadcast resync repaints
+// HELLO+OUTPUT only; each viewer already learned its control state on join.
+func (o *Orchestrator) repaintFrames(viewerID string) []outMsg {
 	cols, rows := o.sess.Size()
-	if err := o.writeMsg(ctx, c, viewerID, protocol.KindHello, protocol.EncodeHello(o.baseline(viewerID), cols, rows)); err != nil {
-		return err
+	frames := []outMsg{
+		{target: viewerID, kind: protocol.KindHello, payload: protocol.EncodeHello(o.baseline(viewerID), cols, rows)},
+		{target: viewerID, kind: protocol.KindOutput, payload: append([]byte("\x1bc"), o.ring.Snapshot()...)}, // RIS reset, then replay
 	}
-	repaint := append([]byte("\x1bc"), o.ring.Snapshot()...) // RIS reset, then replay
-	if err := o.writeMsg(ctx, c, viewerID, protocol.KindOutput, repaint); err != nil {
-		return err
+	if viewerID != "" {
+		frames = append(frames, outMsg{target: viewerID, kind: protocol.KindControl, payload: []byte{o.controlState(viewerID)}})
 	}
-	return o.writeMsg(ctx, c, viewerID, protocol.KindControl, []byte{o.controlState(viewerID)})
+	return frames
+}
+
+// sendRepaint writes the repaint frames for viewerID to the wire in order.
+func (o *Orchestrator) sendRepaint(ctx context.Context, c *connState, viewerID string) error {
+	for _, m := range o.repaintFrames(viewerID) {
+		if err := o.writeMsg(ctx, c, m.target, m.kind, m.payload); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // writeMsg seals one message and writes it. Only the sender goroutine calls this, so

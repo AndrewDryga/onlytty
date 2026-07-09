@@ -324,6 +324,35 @@ func TestMultipleViewersSingleControlOwner(t *testing.T) {
 	assertControlTarget(t, c, "viewer-b", protocol.ControlGranted)
 }
 
+// A broadcast repaint (the drop-recovery resync after the send queue overflows) must
+// NOT include a CONTROL frame: controlState("") is Taken whenever anyone owns control,
+// so broadcasting it would tell the current owner it lost control and flap its input
+// off during heavy output. A targeted repaint still carries the viewer's own state.
+func TestBroadcastRepaintOmitsControl(t *testing.T) {
+	o, _, _ := newTestOrch(t, ControlAuto)
+	grantControl(o, "viewer-a")
+
+	// Broadcast (viewerID ""): HELLO + OUTPUT only, no CONTROL.
+	for _, m := range o.repaintFrames("") {
+		if m.kind == protocol.KindControl {
+			t.Fatalf("broadcast repaint emitted a control frame (state %v)", m.payload)
+		}
+		if m.target != "" {
+			t.Fatalf("broadcast repaint frame targeted %q, want broadcast", m.target)
+		}
+	}
+
+	// Targeted repaint still resends the viewer's control state (Taken for a non-owner).
+	frames := o.repaintFrames("viewer-b")
+	last := frames[len(frames)-1]
+	if last.kind != protocol.KindControl || last.target != "viewer-b" {
+		t.Fatalf("targeted repaint last frame = kind %d target %q, want control for viewer-b", last.kind, last.target)
+	}
+	if len(last.payload) != 1 || last.payload[0] != protocol.ControlTaken {
+		t.Fatalf("targeted repaint control = %v, want Taken", last.payload)
+	}
+}
+
 // Ownership binds to the sealed self id (OVP1), not the relay's plaintext routing
 // label (OTV1): a relay may relabel routing metadata, but the runner keys control on
 // the value it cannot forge. The reply still routes to the relay's label so it reaches
