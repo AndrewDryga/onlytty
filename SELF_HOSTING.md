@@ -135,8 +135,9 @@ have working defaults. The source of truth is
 | `ONLYTTY_MAX_SESSIONS` | `2000` | cap on concurrent in-memory sessions (bounds create-spam) |
 | `ONLYTTY_MAX_FRAME_BYTES` | `1048576` | max size of one WebSocket frame (1 MiB); over-cap closes the socket |
 | `ONLYTTY_ALLOWED_ORIGINS` | _(same host)_ | comma-separated **extra** browser-viewer origins; the relay's own host is always allowed |
-| `ONLYTTY_RATELIMIT_MAX` | `30` | max `POST /api/sessions` per window per IP (`0` disables) |
+| `ONLYTTY_RATELIMIT_MAX` | `30` | max `POST /api/sessions` per window per client IP (`0` disables). Behind a proxy this is per **client** only if `ONLYTTY_TRUSTED_PROXY_HOPS` is set — see below |
 | `ONLYTTY_RATELIMIT_WINDOW` | `60` | rate-limit window length (seconds) |
+| `ONLYTTY_TRUSTED_PROXY_HOPS` | `0` | number of trusted proxies that append to `X-Forwarded-For` **after** the client, so the relay can find the real client IP to throttle on. `0` = no proxy: key on the direct TCP peer. See the note below |
 | `ONLYTTY_METRICS_TOKEN` | — | bearer token for `GET /metrics` from off-host; unset → loopback-only |
 | `SENTRY_DSN` | — | optional backend-only error reporting; no-op unless set |
 
@@ -144,6 +145,18 @@ TTL is opt-in: by default a session has no expiry and lives as long as `onlytty`
 ends when the command exits or the runner disconnects). A runner can request a bound with
 `--ttl 30m`; a positive request is floored at 60s. Set `ONLYTTY_MAX_TTL` to impose a
 ceiling on a shared relay — it forces even no-expiry sessions down to that bound.
+
+**Per-client rate limiting behind a proxy.** The create limit keys on the direct TCP
+peer. Behind a TLS proxy that peer is the *proxy*, so every client would share one
+bucket — `ONLYTTY_TRUSTED_PROXY_HOPS` tells the relay to instead read the real client
+from `X-Forwarded-For`. It reads a fixed offset from the **right** (infra-controlled) end,
+which is spoof-resistant, but only when your proxy appends its *own* address after the
+client — the load-balancer shape `X-Forwarded-For: <client>, <proxy>`, which is `hops=1`
+(what the hosted relay uses behind the Google HTTPS LB). A single edge proxy that appends
+only the client as the last entry — the default for the bundled Caddy and for nginx's
+`$proxy_add_x_forwarded_for` — can't be singled out safely by this setting yet, so
+per-client create-limiting there is a known gap; the limit still applies as a shared cap
+and `ONLYTTY_MAX_SESSIONS` bounds total concurrent sessions regardless.
 
 ## Operating it
 
