@@ -93,6 +93,7 @@ type Orchestrator struct {
 
 	onceUsed atomic.Bool // ControlOnce: the one-time grant has been consumed
 	viewers  atomic.Int32
+	exitCode atomic.Int32 // child exit code, stored once by the exit watcher; -1 until set
 
 	altScreen atomic.Bool  // child is in the alternate screen buffer (vim/htop/less/…)
 	lastCtl   atomic.Int64 // unixnano of the child's last cursor/line-control output
@@ -136,7 +137,7 @@ func New(cfg Config) (*Orchestrator, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Orchestrator{
+	o := &Orchestrator{
 		client: cfg.Client, sess: cfg.Session, id: cfg.SessionID, tok: cfg.Token, ttl: cfg.TTL,
 		multiViewer: cfg.MultiViewer,
 		expiresAt:   cfg.ExpiresAt,
@@ -148,7 +149,9 @@ func New(cfg Config) (*Orchestrator, error) {
 		fp:            cfg.Fingerprint,
 		inSeqByViewer: make(map[string]uint64),
 		selfByRoute:   make(map[string]string),
-	}, nil
+	}
+	o.exitCode.Store(-1) // -1 until the exit watcher records the child's real code
+	return o, nil
 }
 
 // Run executes the session until the command exits (or parent is cancelled) and
@@ -163,6 +166,10 @@ func (o *Orchestrator) Run(parent context.Context) int {
 	// flush window before teardown — best-effort, since the relay/TTL ends it anyway.
 	go func() {
 		_ = o.sess.Wait()
+		// Record the code once, here, after Wait() has set ProcessState. Run reads it
+		// via the atomic after wg.Wait(); reading o.sess.ExitCode() there instead would
+		// race this goroutine's cmd.Wait() write (confirmed under `go test -race`).
+		o.exitCode.Store(int32(o.sess.ExitCode()))
 		o.signalExit()
 		time.Sleep(exitFlush)
 		cancel()
@@ -186,7 +193,11 @@ func (o *Orchestrator) Run(parent context.Context) int {
 
 	o.connectLoop(ctx)
 	wg.Wait()
-	return o.sess.ExitCode()
+	// On a clean child exit the watcher stored the real code before it triggered the
+	// teardown that unblocks pumpOutput, so this observes it. On a parent cancel
+	// (SIGTERM/SIGHUP) the child may not be reaped yet, so this is -1 — a deterministic
+	// "terminated, no clean exit code" rather than the old torn/racy read.
+	return int(o.exitCode.Load())
 }
 
 // Resize applies a local terminal resize and tells the viewer the new size.

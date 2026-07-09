@@ -537,14 +537,35 @@ func TestRunReturnsOnCancelWithLongChild(t *testing.T) {
 	}
 }
 
-// Normal command-exit teardown still works: a child that exits on its own ends Run.
+// Normal command-exit teardown still works and returns the child's real exit code.
+// The code is read from an atomic the exit watcher stores after cmd.Wait(); reading
+// the PTY session's ExitCode() directly in Run would race that write (run under -race).
 func TestRunReturnsOnChildExit(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	_, done := runOrch(t, ctx, []string{"true"})
 
 	select {
-	case <-done:
+	case code := <-done:
+		if code != 0 {
+			t.Fatalf("exit code = %d, want 0", code)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("Run did not return after the child exited")
+	}
+}
+
+// A non-zero child exit code propagates through Run unchanged.
+func TestRunPropagatesNonZeroExit(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	_, done := runOrch(t, ctx, []string{"sh", "-c", "exit 7"})
+
+	select {
+	case code := <-done:
+		if code != 7 {
+			t.Fatalf("exit code = %d, want 7", code)
+		}
 	case <-time.After(5 * time.Second):
 		t.Fatal("Run did not return after the child exited")
 	}

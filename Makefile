@@ -11,9 +11,9 @@ install: ## Build + install the runner to ~/.local/bin/onlytty
 	@go build -trimpath -ldflags "$(LDFLAGS)" -o "$(HOME)/.local/bin/onlytty" ./runner/cmd/onlytty
 	@echo "installed $(HOME)/.local/bin/onlytty ($(VERSION))"
 
-runner-check: ## Runner: gofmt + vet + tests
+runner-check: ## Runner: gofmt + vet + race-enabled tests
 	@gofmt -l runner | (! grep .) || { echo "gofmt: run gofmt -w runner"; exit 1; }
-	@cd runner && go vet ./... && go test ./...
+	@cd runner && go vet ./... && go test -race ./...
 
 web-check: ## Web viewer: syntax-check first-party JS + Node interop/unit tests
 	@for f in portal/priv/static/assets/*.js; do node --check "$$f" || exit 1; done
