@@ -142,7 +142,9 @@ test("browser viewer: pin a custom shortcut — it sends, persists across reload
     browser = await chromium.launch();
     const page = await browser.newPage();
     const errors = [];
+    const dialogs = [];
     page.on("pageerror", (e) => errors.push(String(e)));
+    page.on("dialog", async (d) => { dialogs.push(d.message()); await d.dismiss(); });
 
     await page.goto(link);
     await dismissVerify(page);
@@ -177,6 +179,7 @@ test("browser viewer: pin a custom shortcut — it sends, persists across reload
       () => document.querySelector(".xterm-rows")?.innerText.includes("SC_OK"),
       null, { timeout: 8000 },
     );
+    assert.deepEqual(dialogs, [], "shortcut tap does not prompt like an accidental paste");
 
     // It survives a reload (persisted in localStorage, device-level). Re-assert the
     // touch class — a reload resets the DOM and the desktop test viewport isn't a
@@ -594,6 +597,56 @@ test("browser viewer: a large single-line paste is confirmed and only sent on ac
     dialogMsg = null;
     await page.keyboard.type("ok");
     assert.equal(dialogMsg, null, "small input is not gated by a confirm");
+  } finally {
+    if (browser) await browser.close();
+    proc.kill("SIGKILL");
+  }
+});
+
+test("browser viewer: a newline-terminated paste is confirmed, not auto-executed", async (t) => {
+  let chromium;
+  try { ({ chromium } = await import("playwright")); } catch { t.skip("playwright not installed"); return; }
+  if (!(await healthy())) { t.skip("relay not reachable at " + base); return; }
+
+  const { proc, link } = await startRunner(["--", "bash", "--norc", "--noprofile", "-i"]);
+  let browser;
+  try {
+    browser = await chromium.launch();
+    const page = await browser.newPage();
+
+    let dialogMsg = null, accept = false;
+    page.on("dialog", async (d) => { dialogMsg = d.message(); accept ? await d.accept() : await d.dismiss(); });
+
+    await page.goto(link);
+    await dismissVerify(page);
+    await page.click("#control");
+    await page.waitForFunction(
+      () => document.getElementById("control").classList.contains("live"),
+      null, { timeout: 8000 },
+    );
+
+    // A single-line command ending in a newline — the classic paste-injection case.
+    // xterm normalizes the \n to \r; the guard must still confirm before it executes.
+    const marker = "PASTEEXEC", cmd = "echo " + marker + "\n";
+    const paste = (text) => page.evaluate((t) => {
+      const ta = document.querySelector(".xterm-helper-textarea");
+      const dt = new DataTransfer(); dt.setData("text/plain", t);
+      ta.dispatchEvent(new ClipboardEvent("paste", { clipboardData: dt, bubbles: true, cancelable: true }));
+    }, text);
+    const onScreen = () => page.evaluate((m) => document.querySelector(".xterm-rows")?.innerText.includes(m), marker);
+
+    // Dismissed → the guard fired (mentions lines) and the command never ran.
+    accept = false; dialogMsg = null;
+    await paste(cmd);
+    await page.waitForFunction(() => true, null, { timeout: 600 }).catch(() => {});
+    assert.match(dialogMsg || "", /line/, "newline-terminated paste prompts a line-count confirm");
+    assert.equal(await onScreen(), false, "a dismissed newline paste is not sent (no auto-exec)");
+
+    // Accepted → it reaches the terminal and runs.
+    accept = true; dialogMsg = null;
+    await paste(cmd);
+    await page.waitForFunction((m) => document.querySelector(".xterm-rows")?.innerText.includes(m),
+      marker, { timeout: 5000 });
   } finally {
     if (browser) await browser.close();
     proc.kill("SIGKILL");

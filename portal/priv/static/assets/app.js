@@ -418,14 +418,23 @@ async function send(kind, payload) {
 // without newlines (a giant one-liner is as risky as a multi-line block).
 const PASTE_CONFIRM_LEN = 1024;
 
-async function sendInput(data) {
+async function sendInput(data, { confirmPaste = true } = {}) {
   if (!hasControl) return;
-  // Guard accidental pastes: a multi-line block, or a large single-line chunk.
-  const multiline = data.length > 2 && /[\n\r]/.test(data.slice(0, -1));
-  if (multiline) {
-    const lines = data.split(/\r?\n/).length;
-    if (!confirm(`Send ${lines} lines to the terminal?`)) return;
-  } else if (data.length > PASTE_CONFIRM_LEN) {
+  // Guard accidental pastes: a chunk containing a newline (it would submit a command),
+  // or a large single-line chunk. Test the WHOLE string — a trailing newline is the
+  // dangerous case (it auto-executes), so it must not be exempt. Typed input arrives
+  // one keystroke per onData (a lone Enter is "\r", length 1), so the length>2 floor
+  // keeps ordinary typing and IME dead-keys unconfirmed while catching batched pastes.
+  const hasNewline = data.length > 2 && /[\n\r]/.test(data);
+  if (confirmPaste && hasNewline) {
+    // Count lines of actual content. xterm may wrap a paste in bracketed-paste markers
+    // (ESC[200~ … ESC[201~) when the child enabled the mode — strip them first, then
+    // collapse runs of \r/\n and drop the empty segments a trailing newline produces,
+    // so a single command ending in Enter reads as "1 line".
+    const clean = data.replace(/\x1b\[20[01]~/g, "");
+    const n = Math.max(1, clean.split(/[\r\n]+/).filter(Boolean).length);
+    if (!confirm(`Send ${n} line${n === 1 ? "" : "s"} to the terminal?`)) return;
+  } else if (confirmPaste && data.length > PASTE_CONFIRM_LEN) {
     if (!confirm(`Send ${data.length} characters to the terminal?`)) return;
   }
   await send(Kind.Input, enc.encode(data));
@@ -592,8 +601,8 @@ new MutationObserver(() => $("ctrl").setAttribute("aria-pressed", String($("ctrl
 // Users pin their own labeled keys (Ctrl-R, a `|` pipe, a short snippet) without
 // bloating the default bar. Stored device-wide in localStorage — never per-session,
 // and never anything from the URL (the secret stays out of storage). Sending goes
-// through sendInput, so it stays gated by control + the multi-line paste confirm:
-// a pinned key grants no capability a controlling viewer doesn't already have.
+// through sendInput, so it stays gated by control. The accidental-paste prompt is
+// reserved for browser/clipboard input; tapping a saved shortcut is explicit.
 const SHORTCUTS_KEY = "onlytty.shortcuts";
 let shortcuts = loadShortcuts();
 
@@ -619,7 +628,7 @@ function renderShortcuts() {
     b.className = "user-key";
     b.textContent = sc.label;
     b.title = sc.payload;
-    b.onclick = () => { term.focus(); sendInput(parsePayload(sc.payload)); };
+    b.onclick = () => { term.focus(); sendInput(parsePayload(sc.payload), { confirmPaste: false }); };
     bar.insertBefore(b, edit);
   }
   updateKeysFade();
