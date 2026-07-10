@@ -9,10 +9,13 @@ import Config
 
 config :onlytty,
   generators: [timestamp_type: :utc_datetime],
-  # Per-IP throttle for POST /api/sessions. :infinity disables it. Tunable at
-  # runtime via ONLYTTY_RATELIMIT_MAX / ONLYTTY_RATELIMIT_WINDOW (see runtime.exs).
+  # Per-IP throttle for POST /api/sessions and WS upgrades. :infinity disables it.
+  # Tunable at runtime via ONLYTTY_RATELIMIT_MAX / ONLYTTY_RATELIMIT_WINDOW (see runtime.exs).
   rate_limit_max: 30,
-  rate_limit_window_ms: 60_000
+  rate_limit_window_ms: 60_000,
+  # Cap on concurrent viewers of one multi_viewer session (locked sessions are always 1).
+  # Bounds the runner→viewer fan-out and the session's monitor set. ONLYTTY_MAX_VIEWERS.
+  max_viewers: 16
 
 # Configures the endpoint
 config :onlytty, OnlyTTYWeb.Endpoint,

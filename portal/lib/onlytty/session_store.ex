@@ -62,6 +62,7 @@ defmodule OnlyTTY.SessionStore do
        runner_token: runner_token,
        ttl_seconds: ttl,
        idle_ms: idle_ms(),
+       max_viewers: max_viewers(),
        locked: Keyword.get(opts, :locked, true)}
 
     case DynamicSupervisor.start_child(@supervisor, child) do
@@ -131,5 +132,9 @@ defmodule OnlyTTY.SessionStore do
 
   defp idle_ms do
     Application.get_env(:onlytty, :idle_timeout_ms, 10 * 60 * 1000)
+  end
+
+  defp max_viewers do
+    Application.get_env(:onlytty, :max_viewers, 16)
   end
 end

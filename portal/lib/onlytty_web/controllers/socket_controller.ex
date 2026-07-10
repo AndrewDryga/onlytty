@@ -6,6 +6,7 @@ defmodule OnlyTTYWeb.SocketController do
   Auth and session existence are enforced *here, before the upgrade*, because
   `WebSock.init/1` only runs after the handshake has already succeeded:
 
+    * over the per-IP upgrade rate limit -> 429 (checked first, cheapest to reject)
     * unknown / expired session  -> 404 (the handshake fails; no socket opens)
     * runner with wrong/missing token -> 401
 
@@ -32,10 +33,12 @@ defmodule OnlyTTYWeb.SocketController do
   end
 
   def runner(conn, %{"id" => id}) do
-    with {:ok, pid} <- SessionStore.lookup(id),
+    with :ok <- throttle(conn),
+         {:ok, pid} <- SessionStore.lookup(id),
          :ok <- authorize_runner(conn, pid) do
       upgrade(conn, %{session: pid, id: id, role: :runner})
     else
+      {:error, retry_after} -> reject_throttled(conn, retry_after)
       :error -> reject(conn, 404, "unknown session")
       :unauthorized -> reject(conn, 401, "unauthorized")
     end
@@ -47,13 +50,39 @@ defmodule OnlyTTYWeb.SocketController do
     # It is NOT the security boundary (E2E + the fragment secret are), so a missing
     # Origin (non-browser clients) is allowed; only a present, foreign Origin is
     # rejected. The runner path is never gated — it is a non-browser client.
-    with :ok <- authorize_origin(conn),
+    with :ok <- throttle(conn),
+         :ok <- authorize_origin(conn),
          {:ok, pid} <- SessionStore.lookup(id) do
       upgrade(conn, %{session: pid, id: id, role: :viewer})
     else
+      {:error, retry_after} -> reject_throttled(conn, retry_after)
       :forbidden -> reject(conn, 403, "forbidden origin")
       :error -> reject(conn, 404, "unknown session")
     end
+  end
+
+  # Per-IP throttle on WS upgrades, before the handshake completes, so a scripted flood
+  # of viewer (or runner) connects can't exhaust the node's connection budget and lock out
+  # legit clients. Reuses the same fixed-window limiter and per-client key as POST
+  # /api/sessions (OnlyTTY.RateLimit + ClientIP.resolve/1), under a separate `:ws` bucket so
+  # the two paths don't share a counter. `:infinity` (the default in :test) disables it.
+  defp throttle(conn) do
+    case OnlyTTY.RateLimit.check({:ws, OnlyTTYWeb.ClientIP.resolve(conn)}) do
+      :ok ->
+        :ok
+
+      {:error, _retry_after} = err ->
+        OnlyTTY.Metrics.inc(:ws_rate_limit_rejects)
+        err
+    end
+  end
+
+  defp reject_throttled(conn, retry_after) do
+    conn
+    |> put_resp_header("retry-after", Integer.to_string(retry_after))
+    |> put_resp_content_type("text/plain")
+    |> send_resp(429, "rate limited")
+    |> halt()
   end
 
   defp upgrade(conn, state) do

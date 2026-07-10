@@ -134,8 +134,9 @@ have working defaults. The source of truth is
 | `ONLYTTY_IDLE_TIMEOUT` | `600` | close a session after this many seconds with no runner traffic |
 | `ONLYTTY_MAX_SESSIONS` | `2000` | cap on concurrent in-memory sessions (bounds create-spam) |
 | `ONLYTTY_MAX_FRAME_BYTES` | `1048576` | max size of one WebSocket frame (1 MiB); over-cap closes the socket |
+| `ONLYTTY_MAX_VIEWERS` | `16` | max concurrent viewers of one `multi_viewer` session (bounds the runner→viewer fan-out); default single-viewer sessions are always 1 |
 | `ONLYTTY_ALLOWED_ORIGINS` | _(same host)_ | comma-separated **extra** browser-viewer origins; the relay's own host is always allowed |
-| `ONLYTTY_RATELIMIT_MAX` | `30` | max `POST /api/sessions` per window per client IP (`0` disables). Behind a proxy this is per **client** only if `ONLYTTY_TRUSTED_PROXY_HOPS` is set — see below |
+| `ONLYTTY_RATELIMIT_MAX` | `30` | max `POST /api/sessions` **and** WS upgrades per window per client IP (`0` disables; separate buckets). Behind a proxy this is per **client** only if `ONLYTTY_TRUSTED_PROXY_HOPS` is set — see below |
 | `ONLYTTY_RATELIMIT_WINDOW` | `60` | rate-limit window length (seconds) |
 | `ONLYTTY_TRUSTED_PROXY_HOPS` | `0` | how the relay finds the real client IP to throttle on. `0` = no proxy: key on the direct TCP peer. `edge` = a single trusted proxy that overwrites/appends the client as the LAST `X-Forwarded-For` entry (the bundled Caddy sets this for you). `N` = a chain of N proxies that each append their own address after the client (`1` = the Google HTTPS LB). See the note below |
 | `ONLYTTY_METRICS_TOKEN` | — | bearer token for `GET /metrics` from off-host; unset → loopback-only |

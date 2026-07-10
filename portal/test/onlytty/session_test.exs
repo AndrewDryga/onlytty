@@ -96,6 +96,16 @@ defmodule OnlyTTY.SessionTest do
       assert :busy == Session.join_viewer(session)
     end
 
+    test "unlocked rejects the (max_viewers + 1)th viewer as busy" do
+      session = start_session(60_000, locked: false, max_viewers: 2)
+
+      assert {_v1, {:ok, %{viewers: 1}}} = spawn_viewer(session)
+      assert {_v2, {:ok, %{viewers: 2}}} = spawn_viewer(session)
+
+      # The cap is reached: a third viewer is turned away just like the locked case.
+      assert :busy == Session.join_viewer(session)
+    end
+
     test "unlocked holds several viewers, wiring each to the runner independently" do
       session = start_session(60_000, locked: false)
 

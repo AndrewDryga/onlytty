@@ -143,6 +143,7 @@ defmodule OnlyTTY.Session do
       runner_ref: nil,
       viewers: %{},
       locked: Keyword.get(opts, :locked, true),
+      max_viewers: Keyword.get(opts, :max_viewers, 16),
       idle_ms: idle_ms,
       idle_timer: nil,
       unconnected_ms: unconnected_ms,
@@ -199,9 +200,14 @@ defmodule OnlyTTY.Session do
   end
 
   def handle_call({:join_viewer, pid}, _from, state) do
+    # A locked (single-viewer) session admits one; an unlocked (multi_viewer) one admits
+    # up to max_viewers, so a scripted flood of viewer connects can't grow the monitor set
+    # or the runner→viewer fan-out without bound. Either overflow is reported the same way:
+    # the caller sends {"t":"busy"} and closes.
+    cap = if state.locked, do: 1, else: state.max_viewers
+
     cond do
-      state.locked and map_size(state.viewers) > 0 ->
-        # Single-viewer lock held: caller will send {"t":"busy"} and close.
+      map_size(state.viewers) >= cap ->
         OnlyTTY.Metrics.inc(:viewer_busy_rejects)
         {:reply, :busy, state}
 

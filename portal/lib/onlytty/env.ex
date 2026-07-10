@@ -70,6 +70,9 @@ defmodule OnlyTTY.Env do
     |> put_if_present(:max_viewer_queue, get_env.("ONLYTTY_MAX_VIEWER_QUEUE"), fn value ->
       pos_int!("ONLYTTY_MAX_VIEWER_QUEUE", value)
     end)
+    |> put_if_present(:max_viewers, get_env.("ONLYTTY_MAX_VIEWERS"), fn value ->
+      pos_int!("ONLYTTY_MAX_VIEWERS", value)
+    end)
     |> put_if_present(:allowed_origins, get_env.("ONLYTTY_ALLOWED_ORIGINS"), fn value ->
       String.split(value, ",", trim: true)
     end)

@@ -98,6 +98,32 @@ defmodule OnlyTTYWeb.OnlyTTYSocketTest do
     end
   end
 
+  describe "per-IP WS upgrade throttle" do
+    test "repeated viewer upgrades from one IP are throttled with 429 + Retry-After", %{
+      port: port
+    } do
+      # WSClient connects from loopback, so every upgrade shares one client-IP bucket.
+      # With a limit of 1, the first upgrade is admitted and the second is refused at the
+      # handshake (429) — before any socket opens.
+      with_runtime_env(
+        %{"ONLYTTY_RATELIMIT_MAX" => "1", "ONLYTTY_RATELIMIT_WINDOW" => "60"},
+        fn ->
+          s = new_session(locked: false)
+
+          v1 = WSClient.open(port)
+          assert {:ok, ref} = WSClient.upgrade(v1, "/ws/viewer/#{s.id}", [])
+          assert WSClient.recv_json(v1, ref)["t"] == "hello"
+
+          v2 = WSClient.open(port)
+          assert {:error, 429} = WSClient.upgrade(v2, "/ws/viewer/#{s.id}", [])
+
+          WSClient.close(v1)
+          WSClient.close(v2)
+        end
+      )
+    end
+  end
+
   describe "viewer Origin check (defense-in-depth)" do
     test "a foreign Origin is rejected (403)", %{port: port} do
       s = new_session()

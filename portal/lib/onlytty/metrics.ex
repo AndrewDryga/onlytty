@@ -26,13 +26,15 @@ defmodule OnlyTTY.Metrics do
     {:runners_connected, "Runner WebSocket connections accepted (includes reconnects)."},
     {:viewers_connected, "Viewer WebSocket connections accepted."},
     {:viewer_busy_rejects,
-     "Viewer connections refused because the single-viewer lock was already held."},
+     "Viewer connections refused because the session was full (single-viewer lock, or the multi-viewer cap)."},
     {:upgrade_unauthorized, "WebSocket upgrades rejected 401 (bad or missing runner token)."},
     {:upgrade_not_found, "WebSocket upgrades rejected 404 (unknown or expired session)."},
     {:sessions_ttl_expired,
      "Sessions closed by TTL expiry (includes reaping a session whose runner never connected)."},
     {:sessions_idle_expired, "Sessions closed by the idle timeout."},
     {:rate_limit_rejects, "Session-create requests refused by the per-IP rate limiter."},
+    {:ws_rate_limit_rejects,
+     "WebSocket upgrades refused by the per-IP rate limiter (before the handshake completes)."},
     # Counted in OnlyTTYSocket.terminate/2 when Bandit closes a socket (1009) for an
     # over-cap frame (ONLYTTY_MAX_FRAME_BYTES).
     {:frame_size_rejects, "Frames rejected for exceeding the maximum frame size."},
