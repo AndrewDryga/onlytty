@@ -1,0 +1,35 @@
+name: Selfhost check
+
+# Proves the EXACT shipped self-host bundle (selfhost/compose.yml + Caddyfile) still boots
+# and pairs a session end-to-end over real HTTPS — the "twenty minutes, start to finish"
+# path SELF_HOSTING.md sells. A compose env-var rename or a Caddyfile change would ship
+# broken and be found by a user instead of CI; this catches it. Advisory (not a required
+# check): it runs only when the bundle or its relay-image source changes.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths:
+      - "selfhost/**"
+      - "portal/**"
+      - "dev/scripts/selfhost-check.sh"
+      - ".github/workflows/selfhost-check.yml"
+
+concurrency:
+  group: selfhost-check-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  selfhost-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          go-version-file: runner/go.mod
+          cache-dependency-path: runner/go.sum
+      - run: make selfhost-check
