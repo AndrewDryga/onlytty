@@ -86,7 +86,7 @@ type Orchestrator struct {
 	outSeq uint64
 
 	stateMu       sync.Mutex
-	inSeqByViewer map[string]uint64 // viewer→runner replay floor, keyed by viewer-chosen id
+	inSeqByViewer map[string]uint64 // viewer→runner replay floor, keyed by viewer-chosen id; never reset for the Orchestrator's lifetime (see clearControlOwner)
 	selfByRoute   map[string]string // relay routing id → viewer-chosen id, for peer_left cleanup
 	controlOwner  string            // viewer-chosen id that may write; "" = no owner
 	ownerRoute    string            // owner's relay routing id, for addressing its control frames
@@ -679,13 +679,20 @@ func (o *Orchestrator) controlState(viewerID string) byte {
 	}
 }
 
-// clearControlOwner wipes all per-viewer state on a full connection teardown (the last
-// viewer is gone), so a reconnect starts from a clean slate.
+// clearControlOwner drops control ownership and the per-connection routing map on a
+// full connection teardown (the last viewer is gone), so a reconnect starts from a clean
+// slate. It deliberately does NOT reset inSeqByViewer: those replay floors must stay
+// monotonic for the Orchestrator's whole lifetime. A hostile relay can force a reconnect,
+// and if the floor reset to 0 it could then replay a controlling viewer's previously
+// captured, still-valid CtrlReq+INPUT frames — re-granting control and re-running its
+// keystrokes on the host (the "relay cannot replay" guarantee in SECURITY.md/PROTOCOL.md).
+// Legit viewers pick a fresh 128-bit self id per connection, so a retained floor never
+// bites them; a replayed old id stays pinned above its last seq. (selfByRoute is safe to
+// reset — routing ids are per-connection and re-bound on the next frame.)
 func (o *Orchestrator) clearControlOwner() {
 	o.stateMu.Lock()
 	o.controlOwner = ""
 	o.ownerRoute = ""
-	o.inSeqByViewer = make(map[string]uint64)
 	o.selfByRoute = make(map[string]string)
 	o.stateMu.Unlock()
 }
@@ -695,7 +702,10 @@ func (o *Orchestrator) forgetViewer(routeID string) {
 	defer o.stateMu.Unlock()
 	if self, ok := o.selfByRoute[routeID]; ok {
 		delete(o.selfByRoute, routeID)
-		delete(o.inSeqByViewer, self)
+		// Keep inSeqByViewer[self] on purpose: a leaving viewer's floor must persist for
+		// the Orchestrator's lifetime, or a hostile relay could replay that viewer's
+		// captured frames against a reset floor of 0 (see clearControlOwner). A fresh
+		// self id per connection means retaining it never blocks a legitimate reconnect.
 		if o.controlOwner == self {
 			o.controlOwner = ""
 			o.ownerRoute = ""

@@ -431,6 +431,71 @@ func TestReplayFloorsPerSelfId(t *testing.T) {
 	assertControlTarget(t, c, "route-b", protocol.ControlTaken)
 }
 
+// A replay floor must survive both a viewer leaving (peer_left → forgetViewer) and a
+// full runner reconnect (serveConn teardown → clearControlOwner). Otherwise a hostile
+// relay — which controls the socket and can force a reconnect — could replay a
+// controlling viewer's still-valid CtrlReq+INPUT frames against a reset floor of 0,
+// re-granting control to the ghost id and re-running its keystrokes on the host. The
+// floor is retained for the Orchestrator's lifetime, so the replay stays rejected.
+func TestReplayRejectedAfterFloorResetPaths(t *testing.T) {
+	o, v2r, ps := newTestOrch(t, ControlAuto)
+	c := withConn(o)
+
+	// The controlling viewer's two captured frames: a CtrlReq (re-grants in auto mode)
+	// and an input that has a host effect (a resize we can observe). This is exactly the
+	// pair a hostile relay records off the wire to replay later.
+	recordedReq := sealViewerSplit(t, v2r, "route-a", "self-a", 1, protocol.KindCtrlReq, nil)
+	recordedResize := sealViewerSplit(t, v2r, "route-a", "self-a", 2, protocol.KindResize, protocol.EncodeResize(100, 30))
+
+	o.handleBinary(recordedReq)
+	assertControlTarget(t, c, "route-a", protocol.ControlGranted)
+	o.handleBinary(recordedResize)
+	if cols, rows := ps.Size(); cols != 100 || rows != 30 {
+		t.Fatalf("owner resize not applied: %dx%d", cols, rows)
+	}
+	// A later, higher-seq resize moves the host to a distinct current size, so a replayed
+	// seq-2 frame reverting to 100x30 would be visible.
+	o.handleBinary(sealViewerSplit(t, v2r, "route-a", "self-a", 3, protocol.KindResize, protocol.EncodeResize(111, 41)))
+	if cols, rows := ps.Size(); cols != 111 || rows != 41 {
+		t.Fatalf("current resize not applied: %dx%d", cols, rows)
+	}
+
+	// The viewer leaves, then the runner's connection is torn down and rebuilt — both
+	// paths that previously wiped self-a's floor back to 0. drain the join/control queue.
+	o.forgetViewer("route-a")
+	o.clearControlOwner()
+	drain(c)
+
+	// The relay replays the captured CtrlReq. With a retained floor (seq 1 ≤ 3) it is
+	// dropped: control is NOT re-granted to the ghost id, and no control frame is emitted.
+	o.handleBinary(recordedReq)
+	if o.viewerHasControl("self-a") {
+		t.Fatal("replayed CtrlReq re-granted control to the ghost viewer after floor reset")
+	}
+	select {
+	case m := <-c.send:
+		t.Fatalf("replayed CtrlReq after reset produced a control emit: %+v", m)
+	default:
+	}
+	// And the replayed input is dropped too — the host size stays at its current value,
+	// not reverted to the ghost's earlier 100x30.
+	o.handleBinary(recordedResize)
+	if cols, rows := ps.Size(); cols != 111 || rows != 41 {
+		t.Fatalf("replayed input was re-executed on the host after floor reset: %dx%d", cols, rows)
+	}
+}
+
+// drain empties any pending frames on a test connection's send queue.
+func drain(c *connState) {
+	for {
+		select {
+		case <-c.send:
+		default:
+			return
+		}
+	}
+}
+
 // Revoke takes control back: it clears the grant and tells the viewer it is read-only;
 // a second revoke with nobody in control is a silent no-op.
 func TestRevokeTakesControlBack(t *testing.T) {

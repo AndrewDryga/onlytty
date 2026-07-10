@@ -177,6 +177,12 @@ The relay forwards `frame` as binary only to that viewer.
   It accepts a v2r frame iff `seq` is above that viewer's floor, then updates only that
   floor. Replayed old input is therefore rejected without one viewer's sequence stream
   causing another viewer's valid frames to be dropped.
+- A floor is **retained for the runner's whole lifetime** — it is not cleared when a
+  viewer leaves or when the runner reconnects (the relay can force either). Clearing it
+  would reset the floor to 0, letting a hostile relay replay that viewer's captured,
+  still-valid `CtrlReq`+`INPUT` frames to re-grant control and re-run its keystrokes on
+  the host. A retained floor keeps the replayed old id pinned above its last seq; legit
+  viewers pick a fresh id per connection, so retention never blocks a reconnect.
 - The runner sends `HELLO.baseline = floor + 1`; the viewer starts its outgoing counter
   there. Because a self id is fresh per connection, the runner has never seen it and the
   floor is 0, so the baseline is 1 — a reconnect is a fresh viewer that just repaints.
