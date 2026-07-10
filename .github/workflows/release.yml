@@ -1,17 +1,16 @@
 name: Release
 
-# Tag-driven. Push v0.1.0 (or run manually) to publish the onlytty runner binaries
-# (+ SHA256SUMS) as a GitHub Release and the portal server image to GHCR. Uses only
-# GITHUB_TOKEN — no external secrets.
+# Tag-driven. Push v0.1.0 to publish the onlytty runner binaries (+ SHA256SUMS) as a
+# GitHub Release and the portal server image to GHCR. Uses only GITHUB_TOKEN — no
+# external secrets. To re-run manually, dispatch this workflow WITH THE TAG SELECTED as
+# the ref (the "Use workflow from" dropdown / `gh workflow run release.yml --ref vX.Y.Z`):
+# the version, release tag, and image tag all derive from the run ref, so dispatching on a
+# branch would mislabel every artifact.
 
 on:
   push:
     tags: ["v*.*.*"]
   workflow_dispatch:
-    inputs:
-      ref:
-        description: "tag to release (e.g. v0.1.0)"
-        required: true
 
 concurrency:
   group: release-${{ github.ref }}
@@ -27,7 +26,7 @@ jobs:
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
-          ref: ${{ inputs.ref || github.ref }}
+          ref: ${{ github.ref }}
       - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
         with:
           go-version-file: runner/go.mod
@@ -60,7 +59,7 @@ jobs:
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
-          ref: ${{ inputs.ref || github.ref }}
+          ref: ${{ github.ref }}
       - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
         with:
           go-version-file: runner/go.mod
@@ -106,7 +105,7 @@ jobs:
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
-          ref: ${{ inputs.ref || github.ref }}
+          ref: ${{ github.ref }}
       - name: Image name (GHCR requires lowercase)
         id: img
         run: echo "name=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/onlytty" >> "$GITHUB_OUTPUT"
