@@ -23,6 +23,7 @@ jobs:
           go-version-file: runner/go.mod
           cache-dependency-path: runner/go.sum
       - run: make runner-check
+      - run: make install-check
 
   web:
     name: web (node)

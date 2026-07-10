@@ -221,6 +221,21 @@ Contributions welcome. `make check` runs the full test gate (Go runner + Elixir 
 Node viewer) and `make e2e` drives a real session end-to-end; the wire and crypto
 contract every component obeys is in [PROTOCOL.md](PROTOCOL.md).
 
+## CI
+
+Every push and pull request runs [`.github/workflows/ci.yml`](.github/workflows/ci.yml),
+whose jobs together cover everything in `make check` plus `make e2e`:
+
+- **`runner (go)`** — `make runner-check` (gofmt + vet + race tests) and `make
+  install-check` (the `install.sh` / run-after-install shell tests).
+- **`web (node)`** — `make web-check` (viewer JS syntax check + Node unit tests).
+- **`portal (elixir)`** — `make server-check` (format check + warnings-as-errors +
+  relay tests).
+- **`e2e (runner ↔ relay ↔ viewer)`** — `make e2e` against a real booted relay.
+
+Those four job names are the required status checks on `main`; keep them stable so branch
+protection keeps matching.
+
 ## License
 
 [MIT](LICENSE)
