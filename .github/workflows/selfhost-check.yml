@@ -9,6 +9,11 @@ name: Selfhost check
 on:
   push:
     branches: [main]
+    paths:
+      - "selfhost/**"
+      - "portal/**"
+      - "dev/scripts/selfhost-check.sh"
+      - ".github/workflows/selfhost-check.yml"
   pull_request:
     paths:
       - "selfhost/**"
