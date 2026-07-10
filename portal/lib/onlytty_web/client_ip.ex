@@ -4,20 +4,29 @@ defmodule OnlyTTYWeb.ClientIP do
   is proxy-aware WITHOUT trusting a spoofable `X-Forwarded-For` from arbitrary clients.
 
   The knob is `ONLYTTY_TRUSTED_PROXY_HOPS` (app env `:trusted_proxy_hops`, default 0):
-  the number of trusted reverse proxies between the client and this relay.
+  the number of trusted reverse proxies between the client and this relay, or `:edge`.
 
     * `0` (default) — no proxy. Key on `conn.remote_ip` (the direct TCP peer) and ignore
-      `X-Forwarded-For` entirely. This is the self-host / bare deployment behavior.
+      `X-Forwarded-For` entirely. This is the bare (no reverse proxy) deployment behavior.
     * `N > 0` — the last `N` `X-Forwarded-For` entries were appended by your own infra, so
       the real client is the entry `N` positions from the RIGHT. Behind the Google HTTPS
       LB set it to `1`: the LB appends `<client>, <GFE>`, so the client is the
       second-to-last entry.
+    * `:edge` — a SINGLE trusted edge proxy that puts the real client as the LAST
+      `X-Forwarded-For` entry, rather than appending its own address after the client.
+      This is the shape a lone reverse proxy produces — the bundled Caddy
+      (`header_up X-Forwarded-For {client}`) and nginx
+      (`proxy_set_header X-Forwarded-For $remote_addr`). Key on that last entry. This is
+      the self-host default: `hops=0` collapses every client behind such a proxy into one
+      shared bucket, `:edge` restores per-client limiting.
 
   Why this is spoof-resistant: we read a FIXED offset from the right (infra-controlled)
-  end of the list, not a fixed position from the left. A client can prepend arbitrary
-  `X-Forwarded-For` entries, but your proxy always appends the real values after them, so
-  the spoofed entries only push the real client further left — they never land on the
-  offset we read. A short or malformed header falls back to the direct peer.
+  end of the list, not a fixed position from the left. For `N > 0`, a client can prepend
+  arbitrary `X-Forwarded-For` entries, but your proxy always appends the real values after
+  them, so the spoofed entries only push the real client further left — they never land on
+  the offset we read. For `:edge` the last entry is the one the proxy set/overwrote to the
+  verified client, so a client-supplied prefix is either dropped or pushed left and never
+  reaches the last position. A short or malformed header falls back to the direct peer.
 
   This is deliberately scoped to the rate-limit key. It never rewrites `conn.remote_ip`,
   because `OnlyTTYWeb.MetricsAccess` relies on that being the real TCP peer for its
@@ -35,20 +44,23 @@ defmodule OnlyTTYWeb.ClientIP do
   # IPv6 clients get a whole /64; bucket the rate-limit key to that prefix.
   @ipv6_prefix_groups 4
 
-  @doc "The client IP to throttle on, per the configured trusted-proxy hop count."
+  @doc "The client IP to throttle on, per the configured trusted-proxy setting."
   @spec resolve(Plug.Conn.t()) :: :inet.ip_address()
   def resolve(%Plug.Conn{} = conn) do
-    hops = Application.get_env(:onlytty, :trusted_proxy_hops, 0)
-
-    ip =
-      if is_integer(hops) and hops > 0 do
-        from_forwarded_for(conn, hops) || conn.remote_ip
-      else
-        conn.remote_ip
-      end
-
-    mask(ip)
+    mask(client_ip(conn, Application.get_env(:onlytty, :trusted_proxy_hops, 0)))
   end
+
+  # A single trusted edge proxy sets the client as the LAST X-Forwarded-For entry (offset
+  # 0 from the right) rather than appending its own address after it.
+  defp client_ip(conn, :edge), do: from_forwarded_for(conn, 0) || conn.remote_ip
+
+  # N trusted proxies each appended their own address after the client (LB shape).
+  defp client_ip(conn, hops) when is_integer(hops) and hops > 0 do
+    from_forwarded_for(conn, hops) || conn.remote_ip
+  end
+
+  # No proxy (hops = 0): the direct peer IS the client; ignore X-Forwarded-For entirely.
+  defp client_ip(conn, _hops), do: conn.remote_ip
 
   # Bucket an IPv6 address to its /64 (zero groups 5–8); IPv4 is one host, so pass through.
   defp mask({_, _, _, _, _, _, _, _} = ipv6) do
@@ -62,8 +74,9 @@ defmodule OnlyTTYWeb.ClientIP do
   defp mask(ip), do: ip
 
   # The client is the entry `hops` positions before the end of X-Forwarded-For (the last
-  # `hops` entries are our own trusted proxies). Returns nil — so resolve/1 falls back to
-  # the direct peer — when the header is too short for that offset or the entry isn't an IP.
+  # `hops` entries are our own trusted proxies; `hops=0`, edge mode, reads the last entry).
+  # Returns nil — so resolve/1 falls back to the direct peer — when the header is too short
+  # for that offset or the entry isn't an IP.
   defp from_forwarded_for(conn, hops) do
     entries =
       conn

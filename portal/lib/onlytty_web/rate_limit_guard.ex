@@ -8,9 +8,10 @@ defmodule OnlyTTYWeb.RateLimitGuard do
   Reuses `OnlyTTY.RateLimit` (the same fixed-window limiter the controller used to
   call). The throttle key is `OnlyTTYWeb.ClientIP.resolve/1`: the direct peer
   (`conn.remote_ip`) by default, or — when `ONLYTTY_TRUSTED_PROXY_HOPS` is set for a
-  reverse-proxied deployment — the real client IP pulled from `X-Forwarded-For` without
-  trusting a spoofed header. Behind the Google HTTPS LB that keeps "N creates/min per
-  IP" per-client instead of collapsing into one global bucket.
+  reverse-proxied deployment (`edge` for a single trusted proxy, `N` for the Google HTTPS
+  LB shape) — the real client IP pulled from `X-Forwarded-For` without trusting a spoofed
+  header. That keeps "N creates/min per IP" per-client instead of collapsing every client
+  behind the proxy into one global bucket.
   """
   @behaviour Plug
   import Plug.Conn

@@ -19,6 +19,10 @@ services:
       SECRET_KEY_BASE: ${SECRET_KEY_BASE:?set SECRET_KEY_BASE in .env — openssl rand -base64 64}
       PHX_HOST: ${ONLYTTY_DOMAIN:?set ONLYTTY_DOMAIN in .env}
       PORT: "4000"
+      # The bundled Caddy overwrites X-Forwarded-For with the verified client, so the last
+      # entry is a trustworthy client IP — key the create-rate limit on it, per client,
+      # instead of collapsing everyone behind the proxy into one shared bucket.
+      ONLYTTY_TRUSTED_PROXY_HOPS: "edge"
       # Optional tuning (see SELF_HOSTING.md → Configuration). Defaults are sensible;
       # uncomment only what you change:
       # ONLYTTY_MAX_TTL: "604800"       # cap session lifetime at 7 days (default: no cap)

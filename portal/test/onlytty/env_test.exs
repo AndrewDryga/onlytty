@@ -53,4 +53,18 @@ defmodule OnlyTTY.EnvTest do
              rate_limit_max: :infinity
            ]
   end
+
+  test "runtime_overrides parses the trusted-proxy edge sentinel" do
+    assert Env.runtime_overrides(&Map.get(%{"ONLYTTY_TRUSTED_PROXY_HOPS" => "edge"}, &1)) == [
+             trusted_proxy_hops: :edge
+           ]
+  end
+
+  test "runtime_overrides rejects a non-integer, non-edge trusted-proxy value" do
+    get_env = &Map.get(%{"ONLYTTY_TRUSTED_PROXY_HOPS" => "x"}, &1)
+
+    assert_raise ArgumentError,
+                 ~r/ONLYTTY_TRUSTED_PROXY_HOPS must be a non-negative integer/,
+                 fn -> Env.runtime_overrides(get_env) end
+  end
 end

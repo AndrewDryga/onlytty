@@ -42,6 +42,44 @@ defmodule OnlyTTYWeb.ClientIPTest do
     end)
   end
 
+  test "edge: keys on the LAST X-Forwarded-For entry (a single trusted edge proxy)" do
+    with_runtime_env(%{"ONLYTTY_TRUSTED_PROXY_HOPS" => "edge"}, fn ->
+      # A lone reverse proxy (Caddy/nginx) appends the real client as the last entry;
+      # the direct peer is the proxy.
+      assert ClientIP.resolve(conn({10, 0, 0, 1}, "203.0.113.9")) == {203, 0, 113, 9}
+    end)
+  end
+
+  test "edge: a spoofed leading XFF entry cannot move the read position" do
+    with_runtime_env(%{"ONLYTTY_TRUSTED_PROXY_HOPS" => "edge"}, fn ->
+      # The client prepends 1.2.3.4; the proxy still appends (or overwrites to) the real
+      # client as the LAST entry, so reading the last position lands on the real client.
+      assert ClientIP.resolve(conn({10, 0, 0, 1}, "1.2.3.4, 203.0.113.9")) == {203, 0, 113, 9}
+    end)
+  end
+
+  test "edge: two different clients get two different keys" do
+    with_runtime_env(%{"ONLYTTY_TRUSTED_PROXY_HOPS" => "edge"}, fn ->
+      proxy = {10, 0, 0, 1}
+      a = ClientIP.resolve(conn(proxy, "203.0.113.9"))
+      b = ClientIP.resolve(conn(proxy, "198.51.100.7"))
+
+      refute a == b
+      assert a == {203, 0, 113, 9}
+      assert b == {198, 51, 100, 7}
+    end)
+  end
+
+  test "edge: absent or malformed X-Forwarded-For falls back to the peer" do
+    with_runtime_env(%{"ONLYTTY_TRUSTED_PROXY_HOPS" => "edge"}, fn ->
+      peer = {10, 0, 0, 1}
+
+      assert ClientIP.resolve(conn(peer, nil)) == peer
+      assert ClientIP.resolve(conn(peer, "")) == peer
+      assert ClientIP.resolve(conn(peer, "garbage")) == peer
+    end)
+  end
+
   test "hops=2: a chain of two trusted proxies" do
     with_runtime_env(%{"ONLYTTY_TRUSTED_PROXY_HOPS" => "2"}, fn ->
       assert ClientIP.resolve(conn({10, 0, 0, 1}, "203.0.113.9, 172.16.0.1, 10.0.0.1")) ==

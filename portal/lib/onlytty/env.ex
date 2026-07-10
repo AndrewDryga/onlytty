@@ -80,8 +80,11 @@ defmodule OnlyTTY.Env do
     |> put_if_present(:rate_limit_window_ms, get_env.("ONLYTTY_RATELIMIT_WINDOW"), fn value ->
       pos_int!("ONLYTTY_RATELIMIT_WINDOW", value) * 1000
     end)
-    |> put_if_present(:trusted_proxy_hops, get_env.("ONLYTTY_TRUSTED_PROXY_HOPS"), fn value ->
-      non_neg_int!("ONLYTTY_TRUSTED_PROXY_HOPS", value)
+    |> put_if_present(:trusted_proxy_hops, get_env.("ONLYTTY_TRUSTED_PROXY_HOPS"), fn
+      # `edge` — a single trusted edge proxy that sets the client as the LAST
+      # X-Forwarded-For entry (see OnlyTTYWeb.ClientIP).
+      "edge" -> :edge
+      value -> non_neg_int!("ONLYTTY_TRUSTED_PROXY_HOPS", value)
     end)
     |> put_if_present(:metrics_token, get_env.("ONLYTTY_METRICS_TOKEN"), & &1)
     |> Enum.reverse()

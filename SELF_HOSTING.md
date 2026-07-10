@@ -137,7 +137,7 @@ have working defaults. The source of truth is
 | `ONLYTTY_ALLOWED_ORIGINS` | _(same host)_ | comma-separated **extra** browser-viewer origins; the relay's own host is always allowed |
 | `ONLYTTY_RATELIMIT_MAX` | `30` | max `POST /api/sessions` per window per client IP (`0` disables). Behind a proxy this is per **client** only if `ONLYTTY_TRUSTED_PROXY_HOPS` is set — see below |
 | `ONLYTTY_RATELIMIT_WINDOW` | `60` | rate-limit window length (seconds) |
-| `ONLYTTY_TRUSTED_PROXY_HOPS` | `0` | number of trusted proxies that append to `X-Forwarded-For` **after** the client, so the relay can find the real client IP to throttle on. `0` = no proxy: key on the direct TCP peer. See the note below |
+| `ONLYTTY_TRUSTED_PROXY_HOPS` | `0` | how the relay finds the real client IP to throttle on. `0` = no proxy: key on the direct TCP peer. `edge` = a single trusted proxy that overwrites/appends the client as the LAST `X-Forwarded-For` entry (the bundled Caddy sets this for you). `N` = a chain of N proxies that each append their own address after the client (`1` = the Google HTTPS LB). See the note below |
 | `ONLYTTY_METRICS_TOKEN` | — | bearer token for `GET /metrics` from off-host; unset → loopback-only |
 | `SENTRY_DSN` | — | optional backend-only error reporting; no-op unless set |
 
@@ -149,14 +149,22 @@ ceiling on a shared relay — it forces even no-expiry sessions down to that bou
 **Per-client rate limiting behind a proxy.** The create limit keys on the direct TCP
 peer. Behind a TLS proxy that peer is the *proxy*, so every client would share one
 bucket — `ONLYTTY_TRUSTED_PROXY_HOPS` tells the relay to instead read the real client
-from `X-Forwarded-For`. It reads a fixed offset from the **right** (infra-controlled) end,
-which is spoof-resistant, but only when your proxy appends its *own* address after the
-client — the load-balancer shape `X-Forwarded-For: <client>, <proxy>`, which is `hops=1`
-(what the hosted relay uses behind the Google HTTPS LB). A single edge proxy that appends
-only the client as the last entry — the default for the bundled Caddy and for nginx's
-`$proxy_add_x_forwarded_for` — can't be singled out safely by this setting yet, so
-per-client create-limiting there is a known gap; the limit still applies as a shared cap
-and `ONLYTTY_MAX_SESSIONS` bounds total concurrent sessions regardless.
+from `X-Forwarded-For`, spoof-resistantly:
+
+- **`edge`** — a single trusted edge proxy that puts the real client as the **last**
+  `X-Forwarded-For` entry. The relay keys on that last entry. This is the shape a lone
+  reverse proxy produces, and it's what the **bundled Caddy sets by default** (it
+  overwrites `X-Forwarded-For` with the verified client, dropping any client-supplied
+  value, so the last entry can't be spoofed). If you bring your own proxy, use `edge` and
+  make the proxy set `X-Forwarded-For` to the connecting client (nginx:
+  `proxy_set_header X-Forwarded-For $remote_addr;`).
+- **`N` (a positive integer)** — a chain of N proxies that each append their *own* address
+  after the client, so the client is N positions from the **right** (`hops=1` is the
+  load-balancer shape `<client>, <proxy>`, what the hosted relay uses behind the Google
+  HTTPS LB).
+
+In both modes a client-supplied `X-Forwarded-For` can't move the position the relay reads.
+`ONLYTTY_MAX_SESSIONS` still bounds total concurrent sessions regardless.
 
 ## Operating it
 
@@ -213,9 +221,14 @@ location / {
     proxy_set_header Connection "upgrade";
     proxy_set_header Host $host;                  # origin check
     proxy_set_header X-Forwarded-Proto https;     # force_ssl
+    proxy_set_header X-Forwarded-For $remote_addr;  # verified client (for edge rate-limit)
     proxy_read_timeout 86400s;                    # long-lived sockets
 }
 ```
+
+`X-Forwarded-For $remote_addr` overwrites any client-supplied value with the connecting
+client, so pair it with `ONLYTTY_TRUSTED_PROXY_HOPS=edge` for per-client create-limiting
+(see [Configuration](#configuration)); the bundled Caddy does the equivalent for you.
 
 The bare `docker run` form (no proxy bundled — you supply TLS). It binds `:4000` to
 loopback so only a proxy on this host can reach it, never the public net (see the note

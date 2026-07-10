@@ -8,8 +8,15 @@
 #   - upgrades WebSocket connections    → /ws/runner/:id and /ws/viewer/:id just work,
 #   - redirects :80 → :443.
 #
+# It also OVERWRITES X-Forwarded-For with the verified client address, dropping anything
+# the client sent. That makes the last (and only) entry a trustworthy client IP, so the
+# relay's per-client create-rate limit (ONLYTTY_TRUSTED_PROXY_HOPS=edge, set in
+# compose.yml) can't be spoofed by a client-supplied X-Forwarded-For.
+#
 # Set ONLYTTY_DOMAIN to "localhost" and Caddy serves https with its own local CA — handy
 # for a smoke test before you have DNS pointed at the host.
 {$ONLYTTY_DOMAIN} {
-	reverse_proxy onlytty:4000
+	reverse_proxy onlytty:4000 {
+		header_up X-Forwarded-For {http.request.remote.host}
+	}
 }
