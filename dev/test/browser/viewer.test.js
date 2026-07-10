@@ -653,6 +653,100 @@ test("browser viewer: a newline-terminated paste is confirmed, not auto-executed
   }
 });
 
+test("browser viewer: typing while read-only requests control — the first key asks, it is not silently dropped", async (t) => {
+  let chromium;
+  try { ({ chromium } = await import("playwright")); } catch { t.skip("playwright not installed"); return; }
+  if (!(await healthy())) { t.skip("relay not reachable at " + base); return; }
+
+  const { proc, link } = await startRunner(["--", "bash", "--norc", "--noprofile", "-i"]);
+  let browser;
+  try {
+    browser = await chromium.launch();
+    const page = await browser.newPage();
+    const errors = [];
+    page.on("pageerror", (e) => errors.push(String(e)));
+
+    await page.goto(link);
+    await dismissVerify(page);
+    await page.waitForFunction(
+      () => document.getElementById("status-text").textContent === "connected",
+      null, { timeout: 10000 },
+    );
+
+    // Tap the terminal (what raises the phone keyboard) and type WITHOUT ever
+    // touching the Take-control button. The keystroke must act as the request:
+    // the host auto-grants and the button goes live on its own.
+    await page.click(".xterm-screen");
+    await page.waitForFunction(
+      () => document.activeElement === document.querySelector(".xterm-helper-textarea"),
+      null, { timeout: 4000 },
+    );
+    assert.equal(await page.textContent("#control"), "Take control", "still read-only before typing");
+    await page.keyboard.type("z");
+    await page.waitForFunction(
+      () => document.getElementById("control").classList.contains("live"),
+      null, { timeout: 8000 },
+    );
+
+    // Now in control: typing reaches the shell…
+    await page.keyboard.type("echo GATE_$((20+3))\r");
+    await page.waitForFunction(
+      () => document.querySelector(".xterm-rows")?.innerText.includes("GATE_23"),
+      null, { timeout: 8000 },
+    );
+    // …and the triggering "z" was dropped, never buffered and replayed into the
+    // command line after the async grant.
+    const rows = await page.evaluate(() => document.querySelector(".xterm-rows")?.innerText || "");
+    assert.doesNotMatch(rows, /zecho/, "the keystroke that requested control is not replayed");
+
+    assert.deepEqual(errors, [], "no page errors");
+  } finally {
+    if (browser) await browser.close();
+    proc.kill("SIGKILL");
+  }
+});
+
+test("browser viewer: typing against a view-only host surfaces the denial, not a silent drop", async (t) => {
+  let chromium;
+  try { ({ chromium } = await import("playwright")); } catch { t.skip("playwright not installed"); return; }
+  if (!(await healthy())) { t.skip("relay not reachable at " + base); return; }
+
+  const { proc, link } = await startRunner(["--control", "view-only", "--", "bash", "--norc", "--noprofile", "-i"]);
+  let browser;
+  try {
+    browser = await chromium.launch();
+    const page = await browser.newPage();
+    await page.goto(link);
+    await dismissVerify(page);
+    await page.waitForFunction(
+      () => document.getElementById("status-text").textContent === "connected",
+      null, { timeout: 10000 },
+    );
+
+    // Type into the terminal with no button tap. The host is view-only, so the
+    // auto-request is answered read-only — the status must say so, and the button
+    // must never enter the controlling state.
+    await page.click(".xterm-screen");
+    await page.waitForFunction(
+      () => document.activeElement === document.querySelector(".xterm-helper-textarea"),
+      null, { timeout: 4000 },
+    );
+    await page.keyboard.type("x");
+    await page.waitForFunction(
+      () => /not granted/.test(document.getElementById("status-text").textContent),
+      null, { timeout: 5000 },
+    );
+    assert.equal(await page.textContent("#control"), "Take control", "button reverts after the denial");
+    assert.equal(await page.locator("#control.live").count(), 0, "never shows the controlling state");
+    // The keystroke itself was dropped at the gate — bash never echoed it.
+    const rows = await page.evaluate(() => document.querySelector(".xterm-rows")?.innerText || "");
+    assert.doesNotMatch(rows, /\$ x/, "the read-only keystroke never reaches the host");
+  } finally {
+    if (browser) await browser.close();
+    proc.kill("SIGKILL");
+  }
+});
+
 test("browser viewer: a denied control request shows feedback (host view-only)", async (t) => {
   let chromium;
   try { ({ chromium } = await import("playwright")); } catch { t.skip("playwright not installed"); return; }

@@ -150,7 +150,7 @@ passphrase without reloading, instead of hanging silently.
 
 The browser viewer (xterm.js, no framework, no build step) is built for phones:
 
-- **View-only by default.** Tap **Take control** to type; the host sets the policy with `--control` — `auto` (the default) **auto-grants** control to a viewer who asks, with no host prompt; `view-only` never grants; `once` auto-grants the first request only. By default the link admits one viewer; `--multi-viewer` lets several viewers watch while the runner grants control to one at a time. The host can take control back any time with `kill -USR1 <onlytty-pid>`.
+- **View-only by default.** Tap **Take control** — or just start typing — to ask for control; the host sets the policy with `--control` — `auto` (the default) **auto-grants** control to a viewer who asks, with no host prompt; `view-only` never grants; `once` auto-grants the first request only. By default the link admits one viewer; `--multi-viewer` lets several viewers watch while the runner grants control to one at a time. The host can take control back any time with `kill -USR1 <onlytty-pid>`.
 - **Touch key bar** — Esc, Tab, Ctrl (sticky, for `Ctrl-<key>`), arrows, `^C`, `^D`.
 - **Paste guard** confirms before sending a multi-line paste.
 - **Reconnect & resume** — drops are repainted from the runner's ring buffer.

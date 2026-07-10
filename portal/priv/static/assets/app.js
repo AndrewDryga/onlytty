@@ -419,7 +419,20 @@ async function send(kind, payload) {
 const PASTE_CONFIRM_LEN = 1024;
 
 async function sendInput(data, { confirmPaste = true } = {}) {
-  if (!hasControl) return;
+  if (!hasControl) {
+    // Typing while read-only is the clearest "I want control" signal there is — the
+    // soft keyboard is already up and the keys would otherwise vanish silently. Fire
+    // the same request the Take-control button sends (the host still decides) and
+    // drop the bytes: input is never buffered and replayed after the async grant —
+    // stale bytes into a live shell, with the paste confirm firing out of context.
+    // Off a live socket the status already explains itself ("reconnecting…"), so
+    // don't overwrite it with a request that can't be sent.
+    if (!ended && !controlPending && ws && ws.readyState === WebSocket.OPEN) {
+      requestControl();
+      setStatus("read-only — requesting control…", "warn");
+    }
+    return;
+  }
   // Guard accidental pastes: a chunk containing a newline (it would submit a command),
   // or a large single-line chunk. Test the WHOLE string — a trailing newline is the
   // dangerous case (it auto-executes), so it must not be exempt. Typed input arrives
@@ -506,6 +519,25 @@ function leave(line, status) {
 
 // --- controls ----------------------------------------------------------------
 $("disconnect").onclick = () => leave("disconnected", "disconnected");
+
+// Request control: show a pending state and arm a fallback timeout, so a host that
+// never answers (view-only with no reply, or no runner attached) still gets surfaced
+// instead of leaving the button stuck. A Control frame clears this first when it
+// arrives. Fired by the Take-control button and by any input attempt while read-only.
+function requestControl() {
+  send(Kind.CtrlReq, new Uint8Array(0));
+  controlPending = true;
+  updateControlUI();
+  if (controlTimer) clearTimeout(controlTimer);
+  controlTimer = setTimeout(() => {
+    if (controlPending && !hasControl) {
+      clearControlPending();
+      setStatus("control not granted — host is view-only", "warn");
+      updateControlUI();
+    }
+  }, 3000);
+}
+
 $("control").onclick = () => {
   if (ended) return;
   if (hasControl) {
@@ -516,22 +548,9 @@ $("control").onclick = () => {
     applySize();
     return;
   }
-  // Request control: show a pending state and arm a fallback timeout, so a host that
-  // never answers (view-only with no reply, or no runner attached) still gets surfaced
-  // instead of leaving the button stuck. A Control frame clears this first when it
-  // arrives. Focus now, inside the click gesture, so the mobile soft keyboard opens.
-  send(Kind.CtrlReq, new Uint8Array(0));
-  controlPending = true;
-  updateControlUI();
+  requestControl();
+  // Focus now, inside the click gesture, so the mobile soft keyboard opens.
   term.focus();
-  if (controlTimer) clearTimeout(controlTimer);
-  controlTimer = setTimeout(() => {
-    if (controlPending && !hasControl) {
-      clearControlPending();
-      setStatus("control not granted — host is view-only", "warn");
-      updateControlUI();
-    }
-  }, 3000);
 };
 
 // Overflow menu (⋯): the secondary controls live here so the top bar stays uncluttered.
