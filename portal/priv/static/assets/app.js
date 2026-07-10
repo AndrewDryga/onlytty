@@ -64,6 +64,7 @@ let ended = false, noReconnect = false, exitSeen = false;
 let backoff = 500;
 let ctrlArmed = false;
 let everConnected = false, failCount = 0;
+let busyRetries = 0, busyRetrying = false; // retryable "busy" (our own zombie socket) tracking
 
 // Give-up budgets for consecutive failed handshakes — closes with no successful open in
 // between (onopen resets failCount, so a reconnect that works clears the streak). A
@@ -220,9 +221,14 @@ function connect() {
     // A frame arriving proves the session is truly here (a live relay sends HELLO on join),
     // which a bare socket open does not — so the reconnect give-up streak resets here, not
     // in onopen. That keeps a socket that opens but never delivers a frame counting toward
-    // the missing-session budget instead of resetting every cycle.
-    everConnected = true;
-    failCount = 0;
+    // the missing-session budget instead of resetting every cycle. A "busy" rejection is
+    // the ONE exception: it's the relay turning us away, not proof the session is ours, so
+    // it must not flip everConnected — otherwise a fresh tab's very first frame (busy) would
+    // look "connected" and a genuine second viewer would never be told the session is taken.
+    if (!(typeof ev.data === "string" && isBusyControl(ev.data))) {
+      everConnected = true;
+      failCount = 0;
+    }
     queue = queue.then(() => onMessage(ev)).catch((e) => {
       console.error("dropped a frame that failed to process:", e);
       if (!ended) setStatus("a frame couldn't be processed", "warn");
@@ -231,6 +237,10 @@ function connect() {
   ws.onopen = () => { setStatus("waiting for runner…", "warn"); backoff = 500; requestWakeLock(); };
   ws.onclose = () => {
     if (ended || noReconnect) return;
+    // A retryable "busy" schedules its own reconnect (with a longer backoff to ride out our
+    // own zombie socket), and the relay closes right after sending it — so don't also
+    // schedule one here, or we'd race two sockets open.
+    if (busyRetrying) { busyRetrying = false; return; }
     // Browsers can't expose the handshake status, so a missing session (404 from an
     // unknown/expired id) just looks like a close with no preceding open. We give up
     // after a budget of consecutive such closes: fast before the first connect (a bad
@@ -311,6 +321,7 @@ async function onMessage(ev) {
     return;
   }
   everDecoded = true;
+  busyRetries = 0; // a decrypted frame means we're truly back on the session — refresh the budget
   if (mismatchTimer) { clearTimeout(mismatchTimer); mismatchTimer = null; }
   if (msg.seq <= lastSeq) return; // replay / stale
   lastSeq = msg.seq;
@@ -361,6 +372,12 @@ function dispatch({ kind, payload }) {
   }
 }
 
+// Cheap pre-dispatch check for the one control frame onmessage must treat specially:
+// a "busy" rejection must not reset the reconnect budget or everConnected (see onmessage).
+function isBusyControl(data) {
+  try { return JSON.parse(data)?.t === "busy"; } catch { return false; }
+}
+
 function onControlText(data) {
   let m;
   try { m = JSON.parse(data); } catch { return; }
@@ -372,8 +389,28 @@ function onControlText(data) {
     case "peer_left": if (!ended) setStatus("runner disconnected — waiting…", "warn"); break;
     case "going_away": if (!ended) setStatus("relay redeploying — reconnecting…", "warn"); break;
     case "busy":
-      noReconnect = true;
-      fatal("<h1>Session busy</h1><p>Another viewer is already connected. This session allows one viewer at a time.</p>");
+      if (!everConnected) {
+        // A tab that never connected getting busy is a genuine second viewer on a locked
+        // single-viewer session — the lock is doing its job. Stay fatal.
+        noReconnect = true;
+        fatal("<h1>Session busy</h1><p>Another viewer is already connected. This session allows one viewer at a time.</p>");
+        break;
+      }
+      // We connected, then lost it: a wifi→LTE hop or a frozen tab left our old relay
+      // socket a zombie that still holds the single-viewer lock, so this "busy" is almost
+      // always that zombie — not a real second viewer. Retry with a growing backoff until
+      // the relay reaps it (its socket can linger for minutes) or the budget runs out,
+      // instead of permanently locking the real user out.
+      if (++busyRetries > MISSING_SESSION_FAILS) {
+        ended = true; noReconnect = true;
+        stopTtl();
+        setStatus("session busy", "dead");
+        fatal("<h1>Session busy</h1><p>Another viewer stayed connected and this session allows one viewer at a time. If that was an old tab or a dropped connection of your own, close it and reload this link.</p>");
+        break;
+      }
+      busyRetrying = true; // we own the reconnect; keep onclose from opening a second socket
+      setStatus("another viewer is connected — retrying…", "warn");
+      setTimeout(connect, Math.min(500 * 2 ** (busyRetries - 1), 8000));
       break;
     case "bye":
       ended = true; noReconnect = true; hasControl = false;

@@ -956,3 +956,87 @@ test("browser viewer: session fingerprint is verified once, then remembered per 
     proc.kill("SIGKILL");
   }
 });
+
+test("browser viewer: a busy after connecting is retried (our own zombie socket), not fatal", async (t) => {
+  let chromium;
+  try { ({ chromium } = await import("playwright")); } catch { t.skip("playwright not installed"); return; }
+  if (!(await healthy())) { t.skip("relay not reachable at " + base); return; }
+
+  let browser, proc;
+  try {
+    browser = await chromium.launch();
+    const page = await browser.newPage();
+
+    // Model the network-switch case: the first socket really connects, then the viewer's
+    // own reconnects hit "busy" (its old socket lingers as a zombie holding the single-
+    // viewer lock) for two cycles, after which the zombie is reaped and it connects again.
+    let n = 0;
+    const opened = [];
+    await page.routeWebSocket(/\/ws\/viewer\//, (ws) => {
+      n++;
+      if (n === 1) { opened.push(ws); ws.connectToServer(); }        // real connect
+      else if (n <= 3) { ws.send('{"t":"busy"}'); ws.close(); }      // our zombie still holds the lock
+      else { ws.connectToServer(); }                                 // zombie reaped → reconnect
+    });
+
+    const r = await startRunner(["--", "bash", "--norc", "--noprofile", "-i"]);
+    proc = r.proc;
+    await page.goto(r.link);
+    await page.waitForFunction(
+      () => document.getElementById("status-text").textContent === "connected",
+      null, { timeout: 10000 },
+    );
+
+    // Drop the live socket so the viewer reconnects — and gets "busy" from the zombie.
+    for (const w of opened) { try { await w.close(); } catch {} }
+
+    // It treats busy as retryable (network switch), not a permanent lockout.
+    await page.waitForFunction(
+      () => document.getElementById("status-text").textContent === "another viewer is connected — retrying…",
+      null, { timeout: 10000 },
+    );
+
+    // Once the zombie is gone it reconnects to the still-live session instead of giving up.
+    await page.waitForFunction(
+      () => ["connected", "waiting for runner…"].includes(document.getElementById("status-text").textContent),
+      null, { timeout: 15000 },
+    );
+    const card = await page.locator("#overlay-card").textContent();
+    assert.doesNotMatch(card, /allows one viewer at a time/, "a post-connect busy must not show the fatal lockout overlay");
+  } finally {
+    if (browser) await browser.close();
+    if (proc) proc.kill("SIGKILL");
+  }
+});
+
+test("browser viewer: a busy before ever connecting stays fatal (a genuine second viewer)", async (t) => {
+  let chromium;
+  try { ({ chromium } = await import("playwright")); } catch { t.skip("playwright not installed"); return; }
+  if (!(await healthy())) { t.skip("relay not reachable at " + base); return; }
+
+  let browser, proc;
+  try {
+    browser = await chromium.launch();
+    const page = await browser.newPage();
+
+    // Every viewer socket is rejected with "busy" before a single frame flows: this tab
+    // never held the session, so it's a real second viewer on a locked single-viewer link.
+    let n = 0;
+    await page.routeWebSocket(/\/ws\/viewer\//, (ws) => { n++; ws.send('{"t":"busy"}'); ws.close(); });
+
+    const r = await startRunner(["--", "bash", "--norc", "--noprofile", "-i"]);
+    proc = r.proc;
+    await page.goto(r.link);
+
+    // It stays fatal (the lock is doing its job) — no retry loop.
+    await page.waitForFunction(
+      () => document.getElementById("overlay-card").textContent.includes("allows one viewer at a time"),
+      null, { timeout: 10000 },
+    );
+    await page.waitForTimeout(1500);
+    assert.equal(n, 1, "a never-connected busy must not open a second socket (no retry)");
+  } finally {
+    if (browser) await browser.close();
+    if (proc) proc.kill("SIGKILL");
+  }
+});
