@@ -173,7 +173,7 @@ defmodule OnlyTTYWeb.HTTPTest do
     end
 
     test "vendored (SRI-pinned) assets are immutable", %{conn: conn} do
-      c = get(conn, "/assets/vendor/xterm.1f991ac3.js")
+      c = get(conn, "/assets/vendor/xterm.14903579.js")
       assert c.status == 200
       assert [cc] = get_resp_header(c, "cache-control")
       assert cc =~ "immutable"
