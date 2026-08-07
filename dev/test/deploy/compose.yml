@@ -11,6 +11,11 @@ services:
       SECRET_KEY_BASE: ${SECRET_KEY_BASE:?set SECRET_KEY_BASE}
       PHX_HOST: localhost
       PORT: "4000"
+      # Off (= :infinity). deploy-check drives the same browser suite through this
+      # container from a single client IP, which trips the default 30-per-60s per-IP
+      # throttle on creates and WS upgrades and makes the run nondeterministic — see
+      # the note in dev/scripts/e2e.sh. Production keeps the default.
+      ONLYTTY_RATELIMIT_MAX: "0"
     expose:
       - "4000"
     ports:

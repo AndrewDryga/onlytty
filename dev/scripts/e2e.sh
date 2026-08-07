@@ -39,7 +39,15 @@ else
     echo "e2e: relay failed to compile — log:"; tail -30 /tmp/relay-e2e-server.log; exit 1
   fi
   echo "e2e: starting relay…"
-  ( cd "$ROOT/portal" && exec mix phx.server ) >>/tmp/relay-e2e-server.log 2>&1 &
+  # ONLYTTY_RATELIMIT_MAX=0 (= :infinity) — the per-IP throttle guards POST /api/sessions
+  # AND both WebSocket upgrades, defaulting to 30 per 60s. The whole browser suite is one
+  # client IP making 22 sessions' worth of creates, runner upgrades and viewer reconnects
+  # in well under a minute, so it trips the limit partway through and the relay 429s the
+  # runner's upgrade — the runner never attaches, the viewer sits at "waiting for runner…",
+  # and whichever tests land in that window time out. Anti-abuse limits key on client IP;
+  # a local harness is inherently one client, so it must opt out or it is nondeterministic.
+  # The throttle itself stays covered by rate_limit_test.exs + onlytty_socket_test.exs.
+  ( cd "$ROOT/portal" && ONLYTTY_RATELIMIT_MAX=0 exec mix phx.server ) >>/tmp/relay-e2e-server.log 2>&1 &
   started=$!
   for i in $(seq 1 60); do
     if curl -fsS "$HEALTH" >/dev/null 2>&1; then break; fi
