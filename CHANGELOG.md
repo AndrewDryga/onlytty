@@ -2,6 +2,24 @@
 
 All notable changes to OnlyTTY are recorded here.
 
+## [0.4.12] - 2026-08-06
+
+Includes everything in 0.4.11, which was tagged but never published as a release.
+
+### Security
+
+- Refresh the relay image to Elixir 1.20.3 on OTP 29.0.5 and a current Debian
+  bookworm base, so it carries the latest base-OS security updates.
+
+### Changed
+
+- Upgrade the browser viewer's vendored xterm.js to 6.0.0 and its fit addon to
+  0.11.0. Upstream reimplemented the terminal viewport and scroll bar; the
+  vendored bundle is about 196 KB larger, served immutably under a
+  content-hashed URL, so it costs one extra first load and nothing after.
+- Update the runner's Go modules, the relay's Hex packages, the Terraform
+  provider, and the pinned Node, Go and Terraform toolchains.
+
 ## [0.4.11] - 2026-07-10
 
 ### Security
