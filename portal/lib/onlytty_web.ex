@@ -20,7 +20,7 @@ defmodule OnlyTTYWeb do
   # install.sh: a copy of the canonical repo-root installer, served so the site's
   # `curl onlytty.com/install.sh | sh` one-liner resolves in production (a test keeps
   # the two in sync). The Docker image ships ./portal, so the copy must live here.
-  def static_paths, do: ~w(assets fonts images favicon.ico robots.txt install.sh)
+  def static_paths, do: ~w(assets demos fonts images favicon.ico robots.txt install.sh)
 
   def router do
     quote do

@@ -77,6 +77,29 @@ defmodule OnlyTTYWeb.SiteTest do
     end
   end
 
+  describe "browser demo assets" do
+    test "serves every image and test record linked by the example", %{conn: conn} do
+      body = conn |> get(~p"/examples/browser-edit") |> html_response(200)
+
+      paths =
+        Regex.scan(~r/(?:src|href)="(\/demos\/browser-edit\/[^"]+)"/, body,
+          capture: :all_but_first
+        )
+        |> List.flatten()
+        |> Enum.uniq()
+
+      assert length(paths) == 5
+
+      for path <- paths do
+        asset = get(conn, path)
+        assert byte_size(response(asset, 200)) > 0
+
+        expected_type = if String.ends_with?(path, ".jpg"), do: "image/jpeg", else: "text/plain"
+        assert hd(get_resp_header(asset, "content-type")) =~ expected_type
+      end
+    end
+  end
+
   describe "GET /control/:slug" do
     test "renders a known tool page with a tailored, indexable heading", %{conn: conn} do
       conn = get(conn, ~p"/control/claude")

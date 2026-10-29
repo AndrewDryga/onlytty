@@ -2,6 +2,13 @@
 
 All notable changes to OnlyTTY are recorded here.
 
+## [0.4.16] - 2026-10-29
+
+### Fixed
+
+- Serve the browser-edit example's screenshots and test record. The files were
+  included in the release but missing from the relay's static-file allowlist.
+
 ## [0.4.15] - 2026-10-29
 
 ### Security
