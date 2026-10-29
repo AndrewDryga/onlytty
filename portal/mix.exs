@@ -43,7 +43,7 @@ defmodule OnlyTTY.MixProject do
       {:bandit, "~> 1.5"},
       # Backend-only error reporting; no-ops unless SENTRY_DSN is set. The config
       # pins Sentry to Hackney instead of Finch to keep one HTTP client dependency.
-      {:sentry, "~> 13.2"},
+      {:sentry, "~> 14.0"},
       {:hackney, "~> 4.4"}
     ]
   end
