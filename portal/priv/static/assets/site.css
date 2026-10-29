@@ -21,7 +21,8 @@
   /* text — dimmed white, never pure #fff (full contrast on black "buzzes") */
   --fg: #f0f3f9;
   --fg-2: #a8b3c5;
-  --dim: #6c7689;
+  /* Readable small text, including on the lightest opaque surface. */
+  --dim: #9facc1;
 
   /* brand — cyan signal, pink spark */
   --accent: #22d3ee;
@@ -389,7 +390,7 @@ p { margin: 0 0 1rem; }
 .cp-dot.ok { background: var(--ok); } .cp-dot.warn { background: var(--accent); }
 .cp-body { margin: 0; flex: 1 1 auto; font-family: ui-monospace, monospace; font-size: .72rem;
   line-height: 1.7; color: var(--fg-2); white-space: pre-wrap; word-break: break-word; }
-.cp-body .cipher { color: var(--accent); opacity: .42; word-break: break-all; }
+.cp-body .cipher { color: var(--accent); opacity: .82; word-break: break-all; }
 .cp-note { margin: 0; font-size: .72rem; color: var(--dim); font-weight: 500; }
 .cipher-arrow { flex: 0 0 auto; align-self: center; color: var(--accent); font-size: 1.4rem; opacity: .65; }
 @media (max-width: 760px) {
@@ -419,6 +420,10 @@ p { margin: 0 0 1rem; }
 .tool-points { list-style: none; padding: 0; margin: 1.5rem 0; display: flex; flex-direction: column; gap: .85rem; }
 .tool-points li { display: flex; gap: .65rem; align-items: flex-start; color: var(--fg-2); }
 .tool-points li svg { width: 18px; height: 18px; color: var(--accent); flex: 0 0 auto; margin-top: .2rem; }
+
+/* ── tool page: walkthrough steps — numbered; items stay list-items so inline <code> flows ── */
+.tool-steps { padding-left: 1.3rem; margin: 1.5rem 0; display: flex; flex-direction: column; gap: .85rem; color: var(--fg-2); }
+.tool-steps li::marker { color: var(--accent); font-weight: 700; }
 
 /* ── faq ── */
 .faq { max-width: var(--narrow); margin: 2.5rem auto 0; border-top: 1px solid var(--line); }

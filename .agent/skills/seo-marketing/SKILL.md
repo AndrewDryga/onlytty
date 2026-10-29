@@ -1,6 +1,6 @@
 ---
 name: seo-marketing
-description: Put on the SEO/marketing hat for the OnlyTTY site and positioning — clear honest value prop, crawlable server-rendered pages, titles/meta/structured data, internal linking, sitemap, and the /control/:slug long-tail tool pages. Use when editing server/lib/relay_web/site (page.ex, tools.ex), writing positioning/copy, or improving how pages rank and convert.
+description: Put on the SEO/marketing hat for the OnlyTTY site and positioning — clear honest value prop, crawlable server-rendered pages, titles/meta/structured data, internal linking, sitemap, and the /control/:slug tool pages. Use when editing portal/lib/onlytty_web/site (page.ex, tools.ex), writing positioning/copy, or improving how pages rank and convert.
 effort: medium
 allowed-tools: Read, Grep, Glob, Bash, Write, Edit
 ---
@@ -17,13 +17,14 @@ real.** Sell the joke; never let it undercut the credibility.
 
 ## The site already has the machinery — feed it, don't rebuild it
 
-`server/lib/relay_web/site/page.ex` is the whole site as **server-rendered HTML strings**
+`portal/lib/onlytty_web/site/page.ex` is the whole site as **server-rendered HTML strings**
 (no LiveView, no template engine), with `layout/1` emitting the full SEO payload:
 canonical, Open Graph, Twitter, and JSON-LD (`WebSite`, `SoftwareApplication`, `FAQPage`,
 `BreadcrumbList`). Pages: home, `/tools` (index), **`/control/:slug`** (per-tool),
 `/terms`, `/privacy`, `/acceptable-use`, and `/sitemap.xml` (built from the `Tools`
-catalog so it can't drift). New tool? Add it to `RelayWeb.Site.Tools` and the page, links,
-and sitemap entry generate themselves.
+catalog so it can't drift). New tool? Add it to `OnlyTTYWeb.Site.Tools` and the page and
+links generate themselves. Only the current indexability allowlist enters the sitemap;
+inspect `Tools.indexable?/1` before changing it.
 
 ## Hard rule: keep it server-rendered
 
@@ -35,8 +36,10 @@ fragment secret.)
 
 ## The /control/:slug pages are the SEO strategy
 
-Each tool page targets a real query — "control <tool> from your phone", "run <tool>
-remotely". That long tail is the growth engine. When adding or expanding tools:
+Each tool page proposes an intent — "control <tool> from your phone", "run <tool>
+remotely". Validate demand with Search Console and actual visitors. Improve useful
+existing pages before expanding the catalog; a templated heading is not evidence of
+search demand. When adding or expanding tools:
 - A unique `<title>` + meta + `<h1>` per tool intent — use the tool's own `why`/`what`
   copy, no boilerplate dupes (thin, near-identical pages hurt the whole catalog).
 - Its `SoftwareApplication` + `BreadcrumbList` JSON-LD (already wired via the catalog).

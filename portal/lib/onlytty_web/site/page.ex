@@ -196,6 +196,7 @@ defmodule OnlyTTYWeb.Site.Page do
     <p>Operational logs carry metadata only: an 8-character session-id prefix, the role (runner or viewer), and a timestamp. We do <strong>not</strong> log IP addresses or any terminal content.</p>
     <h2>Analytics — on the marketing site only</h2>
     <p>These public marketing pages load <a href="https://mixpanel.com/legal/privacy-policy/" rel="noopener">Mixpanel</a> for product analytics: which pages are viewed, the referring link, and coarse device and usage data, kept in your browser’s local storage. Like any web request, Mixpanel receives your IP address (used for approximate location). There is no advertising and no ad-network tracking, and it honors your browser’s “Do Not Track” setting.</p>
+    <p>On these public pages we also count successful copies of an install or share command. The event records which kind of command was copied, plus the same page and device details as a page view — never the copied text itself. It measures interest, not a completed installation or session.</p>
     <h2>Never in the viewer</h2>
     <p>The terminal viewer (the <code>/s/…</code> pages) loads no analytics and no third-party scripts at all. A tracker there could leak the link’s <code>#fragment</code> secret, so the viewer’s Content-Security-Policy forbids any off-origin script or connection — by design.</p>
     <h2>Contact</h2>
@@ -302,6 +303,7 @@ defmodule OnlyTTYWeb.Site.Page do
     <link rel="stylesheet" href="/assets/site.css?v=#{@assets_vsn}">
     #{Keyword.get(opts, :extra_head, "")}
     #{ld_tags}
+    <noscript><style>[data-copy] { display: none; }</style></noscript>
     </head>
     <body>
     #{nav()}
@@ -728,6 +730,8 @@ defmodule OnlyTTYWeb.Site.Page do
       </div>
     </section>
 
+    #{tool_walkthrough(t.slug)}
+
     #{related_html}
 
     <section id="start" class="section">
@@ -748,6 +752,48 @@ defmodule OnlyTTYWeb.Site.Page do
     </section>
     """
   end
+
+  defp tool_walkthrough("nvim") do
+    """
+    <section class="section">
+      <div class="wrap narrow">
+        <h2>Edit a file in Neovim from your phone</h2>
+        <p class="lede">Install Neovim and OnlyTTY on the machine that holds your files. Your configuration, plugins and language servers run there; the phone opens the terminal in its browser.</p>
+        <p>From the project directory, try a scratch file first:</p>
+        #{snippet("onlytty -- nvim phone-check.txt")}
+        <ol class="tool-steps">
+          <li>Open the printed link or scan its QR code on your phone. Check that it shows the file you launched.</li>
+          <li>Tap <strong>Take control</strong>, then press <code>i</code> to enter Insert mode. Type a short line and press <code>Esc</code> to return to Normal mode.</li>
+          <li>Use <code>ZZ</code> to save and exit. To discard this scratch edit instead, type <code>:q!</code> and press Enter. Ending Neovim ends this shared command.</li>
+        </ol>
+        <p>A phone screen is useful for a small edit, not a replacement for reviewing a large diff. Keep the host awake and connected. OnlyTTY starts the command you give it; it does not attach to an arbitrary editor process that was already running.</p>
+        <p class="muted">For the editor's own commands, see <a href="https://neovim.io/doc/user/usr_02/" rel="noopener">Neovim's first-steps guide</a>. To let someone watch without typing, launch with <code>onlytty --control view-only -- nvim phone-check.txt</code>.</p>
+      </div>
+    </section>
+    """
+  end
+
+  defp tool_walkthrough("k9s") do
+    """
+    <section class="section">
+      <div class="wrap narrow">
+        <h2>Inspect Kubernetes with K9s from your phone</h2>
+        <p class="lede">Run K9s on a machine that already has the right cluster access and kubeconfig. OnlyTTY shares that terminal; it does not set up Kubernetes credentials on your phone.</p>
+        <p>For an inspection session, start K9s with its modification commands disabled:</p>
+        #{snippet("onlytty -- k9s --readonly")}
+        <ol class="tool-steps">
+          <li>Open the printed link or scan its QR code on your phone. Check the cluster context K9s shows, then tap <strong>Take control</strong>.</li>
+          <li>Enter <code>:pods</code> to open the pod view. Select a pod and press <code>l</code> for logs; press <code>?</code> for the active view's shortcuts.</li>
+          <li>Use <code>:q</code> to leave K9s when finished. Review any intended cluster change through your normal operational workflow.</li>
+        </ol>
+        <p>K9s <code>--readonly</code> disables modification commands in K9s. It does not change the Kubernetes permissions held by the host. OnlyTTY's <code>--control view-only</code> is a different control: viewers cannot type, so they cannot navigate K9s themselves.</p>
+        <p class="muted">Use <a href="https://k9scli.io/topics/commands/" rel="noopener">K9s's command reference</a> for context and namespace options. Treat the OnlyTTY link as access to this session; share it only with the people who should see it.</p>
+      </div>
+    </section>
+    """
+  end
+
+  defp tool_walkthrough(_slug), do: ""
 
   # ── Tools index ───────────────────────────────────────────────────────────
 
@@ -903,8 +949,14 @@ defmodule OnlyTTYWeb.Site.Page do
   end
 
   defp snippet(text) do
-    ~s(<div class="snippet"><code><span class="prompt">$</span> #{h(text)}</code><button class="copy" type="button" data-copy="#{h(text)}" aria-label="Copy command">Copy</button></div>)
+    ~s(<div class="snippet"><code><span class="prompt">$</span> #{h(text)}</code><button class="copy" type="button" data-copy="#{h(text)}" data-copy-kind="#{copy_kind(text)}" aria-label="Copy command">Copy</button></div>)
   end
+
+  # The category the copy-intent analytics event reports. mixpanel.js counts only
+  # "install" and "share", so a snippet that is neither can't inflate either count.
+  defp copy_kind("curl -fsSL https://onlytty.com/install.sh" <> _), do: "install"
+  defp copy_kind("onlytty " <> _), do: "share"
+  defp copy_kind(_), do: "other"
 
   # The hero visual: a terminal sharing `onlytty -- cmd` + a phone showing the same
   # session live. Parameterized by the command/name so each tool page shows its own.

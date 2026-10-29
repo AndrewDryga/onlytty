@@ -4,8 +4,8 @@ defmodule OnlyTTYWeb.Site.Tools do
 
   This is the single source of truth: the home-page tool grid, the per-tool
   landing pages at `/control/:slug`, the `/tools` index, and the sitemap all read
-  from `all/0`. Adding a tool here adds a fully-formed, indexable landing page —
-  no template or route changes required.
+  from `all/0`. Adding a tool here adds a landing page; `indexable?/1` controls
+  whether it is included in the sitemap and eligible for indexing.
 
   Each entry is a plain map:
 
@@ -73,7 +73,7 @@ defmodule OnlyTTYWeb.Site.Tools do
       what:
         "An AI pair programmer that edits code in your local git repo and commits as it goes.",
       why:
-        "Read every diff before it lands — aider waits for your tap to commit, so you stay the reviewer from anywhere."
+        "Follow aider's changes and review its diffs from your phone, using the Git and approval settings you chose on the host."
     },
     %{
       slug: "opencode",

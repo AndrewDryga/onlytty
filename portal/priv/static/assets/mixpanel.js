@@ -10,8 +10,10 @@
 // 'mixpanel object not initialized'. The one edit to the snippet: the library URL is
 // pinned to https:// (Mixpanel ships it protocol-relative, which would downgrade to
 // http:// and trip our https-only CSP). Events go to api.mixpanel.com. Token is a
-// public client token. Honors Do Not Track.
+// public client token. Honors Do Not Track. Runs only on onlytty.com: self-hosted
+// relays and local previews serve these same pages and must not report into it.
 (function () {
+  if (location.hostname !== "onlytty.com") return;
   var dnt = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
   if (dnt === "1" || dnt === "yes") return;
 
@@ -20,5 +22,16 @@
   mixpanel.init("63b2ad585d813e71396ff3b94be44789", {
     track_pageview: true,
     persistence: "localStorage",
+  });
+
+  // Public command-copy intent only; never terminal content or session links.
+  document.addEventListener("onlytty:copy-success", function (event) {
+    var kind = event.detail && event.detail.kind;
+    if (kind !== "install" && kind !== "share") return;
+    mixpanel.track("content_copy_succeeded", {
+      kind: kind,
+      page: location.pathname,
+      measurement_version: 1,
+    });
   });
 })();

@@ -102,6 +102,32 @@ defmodule OnlyTTYWeb.SiteTest do
       end
     end
 
+    test "the Neovim and K9s pages carry their own numbered walkthrough; others don't", %{
+      conn: conn
+    } do
+      nvim = conn |> get(~p"/control/nvim") |> html_response(200)
+      assert nvim =~ "Edit a file in Neovim from your phone"
+      assert nvim =~ ~s(<ol class="tool-steps">)
+
+      k9s = conn |> get(~p"/control/k9s") |> html_response(200)
+      assert k9s =~ "Inspect Kubernetes with K9s from your phone"
+      assert k9s =~ "onlytty -- k9s --readonly"
+
+      refute conn |> get(~p"/control/claude") |> html_response(200) =~ "tool-steps"
+    end
+
+    test "copy buttons tag the command kind the copy-intent event reports", %{conn: conn} do
+      body = conn |> get(~p"/control/claude") |> html_response(200)
+      assert body =~ ~s(data-copy="onlytty -- claude" data-copy-kind="share")
+
+      assert body =~
+               ~s(data-copy="curl -fsSL https://onlytty.com/install.sh | sh -s -- claude" data-copy-kind="install")
+
+      # A snippet that is neither must not inflate either count.
+      demo = conn |> get(~p"/examples/browser-edit") |> html_response(200)
+      assert demo =~ ~s(data-copy="cat demo.md" data-copy-kind="other")
+    end
+
     test "a long-tail tool page still renders but is noindex (kept out of the search index)",
          %{conn: conn} do
       # `cmatrix` is in @noindex_slugs — it renders and stays usable, just noindex.
@@ -199,6 +225,8 @@ defmodule OnlyTTYWeb.SiteTest do
       assert privacy =~ "IP addresses" and privacy =~ "terminal content"
       # discloses Mixpanel analytics on the marketing site, but never in the viewer
       assert privacy =~ "Mixpanel" and privacy =~ "Never in the viewer"
+      # discloses the copy-intent event, which never carries the copied text
+      assert privacy =~ "successful copies" and privacy =~ "never the copied text"
 
       aup = conn |> get(~p"/acceptable-use") |> html_response(200)
       assert aup =~ "Acceptable Use"

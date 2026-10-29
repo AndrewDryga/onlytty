@@ -23,14 +23,26 @@
     setInterval(function () { v = (v + 1) % verbs.length; verbs2.forEach(function (w) { w.textContent = verbs[v]; }); }, 1900);
   }
   document.querySelectorAll('[data-copy]').forEach(function (b) {
-    b.addEventListener('click', function () {
+    var reset;
+    var label = b.getAttribute('aria-label');
+    b.addEventListener('click', async function () {
       var text = b.getAttribute('data-copy');
-      if (!navigator.clipboard) return;
-      navigator.clipboard.writeText(text).then(function () {
-        var prev = b.textContent;
+      clearTimeout(reset);
+      try {
+        await navigator.clipboard.writeText(text);
         b.textContent = 'Copied';
-        setTimeout(function () { b.textContent = prev; }, 1200);
-      });
+        b.setAttribute('aria-label', 'Command copied');
+        document.dispatchEvent(new CustomEvent('onlytty:copy-success', {
+          detail: { kind: b.getAttribute('data-copy-kind') }
+        }));
+      } catch (_) {
+        b.textContent = 'Copy blocked';
+        b.setAttribute('aria-label', 'Copy blocked. Select the command and copy it manually.');
+      }
+      reset = setTimeout(function () {
+        b.textContent = 'Copy';
+        b.setAttribute('aria-label', label);
+      }, 2000);
     });
   });
 })();

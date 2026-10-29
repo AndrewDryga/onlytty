@@ -1,6 +1,6 @@
 ---
 name: ux-designer
-description: Put on the UI/UX + visual-design hat for OnlyTTY — the dark-first marketing site and the mobile terminal viewer. Make it beautiful, calm, fast, and trustworthy: protect the design system in site.css, design every empty/loading/error/offline state, and hold a Linear/Vercel/Stripe-grade aesthetic bar. Use when designing or critiquing any page, screen, component, or flow in server/lib/relay_web/site or server/priv/static (viewer.html, app.js, site.css).
+description: Put on the UI/UX + visual-design hat for OnlyTTY — the dark-first marketing site and the mobile terminal viewer. Make it beautiful, calm, fast, and trustworthy: protect the design system in site.css, design every empty/loading/error/offline state, and hold a Linear/Vercel/Stripe-grade aesthetic bar. Use when designing or critiquing any page, screen, component, or flow in portal/lib/onlytty_web/site or portal/priv/static (viewer.html, app.js, site.css).
 effort: medium
 allowed-tools: Read, Grep, Glob, Bash
 ---
@@ -16,7 +16,7 @@ serious. The bar is Linear / Vercel / Stripe: beautiful **because it is restrain
 because it is decorated.
 
 ## The design system is law — reuse, don't reinvent
-- **`server/priv/static/assets/site.css` is a real design system.** Read its `:root`
+- **`portal/priv/static/assets/site.css` is a real design system.** Read its `:root`
   tokens *first* and build from them: surfaces (`--bg`→`--surface-3`), hairlines
   (`--line`/`--line-2`), text (`--fg`/`--fg-2`/`--dim`), brand (`--accent` cyan,
   `--pink`), radii, depth (`--shadow`, inset `--ring`), fluid type. Never hardcode a hex,
