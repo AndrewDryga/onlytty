@@ -2,6 +2,21 @@
 
 All notable changes to OnlyTTY are recorded here.
 
+## [0.4.17] - 2026-10-29
+
+### Fixed
+
+- Starting a command from the installer (`curl … | sh -s -- claude`) no longer
+  types the rest of the install script into it. The runner now takes your keys
+  from the terminal, in raw mode and at the terminal's size. Before, it read the
+  installer's pipe, so your keys were echoed over the command's screen (Ctrl+C
+  in Claude Code showed as `^[[99;5u`) and never reached the command.
+- Opening a link, or hovering over or focusing the viewer, no longer takes
+  control. The browser terminal's automatic replies to the command's terminal
+  queries, and its mouse and focus reports, counted as typing, so a viewer
+  that was only watching Claude Code took control and resized the host's
+  terminal to the browser. Typing or tapping **Take control** still asks.
+
 ## [0.4.16] - 2026-10-29
 
 ### Fixed
