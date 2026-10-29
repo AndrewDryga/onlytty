@@ -706,6 +706,55 @@ test("browser viewer: typing while read-only requests control — the first key 
   }
 });
 
+test("browser viewer: xterm's own reports never take control — query answers, focus, mouse hover", async (t) => {
+  let chromium;
+  try { ({ chromium } = await import("playwright")); } catch { t.skip("playwright not installed"); return; }
+  if (!(await healthy())) { t.skip("relay not reachable at " + base); return; }
+
+  // Like Claude, the command turns on focus reporting and any-motion SGR mouse
+  // tracking and queries the terminal (DA1) at startup, which the join repaint
+  // replays. It prints its size on every resize, and its idle PTY echoes any input.
+  const script = String.raw`trap 'printf "<%s %s>\n" winch "$(stty size)"' WINCH; printf '\033[?1004h\033[?1003h\033[?1006h\033[c<%s>\n' started; while :; do sleep 1; done`;
+  const { proc, link } = await startRunner(["--", "sh", "-c", script]);
+  let browser;
+  try {
+    browser = await chromium.launch();
+    const page = await browser.newPage();
+    await page.goto(link);
+    await dismissVerify(page);
+    // xterm answers the replayed query, and reports focus, while it parses the
+    // replay, so by the time the marker renders, any request would be under way.
+    await page.waitForFunction(
+      () => document.querySelector(".xterm-rows")?.innerText.includes("<started>"),
+      null, { timeout: 10000 },
+    );
+    assert.equal(await page.textContent("#control"), "Take control", "joining must not request control");
+
+    const box = await page.locator(".xterm-screen").boundingBox();
+    await page.mouse.move(box.x + 20, box.y + 20);
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 10 });
+    await page.focus(".xterm-helper-textarea");
+    assert.equal(await page.textContent("#control"), "Take control", "hovering or focusing must not request control");
+    assert.doesNotMatch(await page.textContent(".xterm-rows"), /<winch/, "the host PTY keeps its size");
+
+    // Taking control on purpose still works. Then the reports do reach the command
+    // (its PTY echoes the mouse report, ^[ being ESC), and it takes the viewer's size.
+    await page.click("#control");
+    await page.waitForFunction(
+      () => document.getElementById("control").classList.contains("live"),
+      null, { timeout: 8000 },
+    );
+    await page.mouse.move(box.x + 30, box.y + 30, { steps: 3 });
+    await page.waitForFunction(() => {
+      const rows = document.querySelector(".xterm-rows")?.innerText || "";
+      return rows.includes("^[[<35;") && rows.includes("<winch ");
+    }, null, { timeout: 8000 });
+  } finally {
+    if (browser) await browser.close();
+    proc.kill("SIGKILL");
+  }
+});
+
 test("browser viewer: typing against a view-only host surfaces the denial, not a silent drop", async (t) => {
   let chromium;
   try { ({ chromium } = await import("playwright")); } catch { t.skip("playwright not installed"); return; }

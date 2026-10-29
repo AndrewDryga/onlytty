@@ -4,7 +4,7 @@
 
 import { deriveKeys, newCipher, b64urlToBytes, bytesToHex } from "./crypto.js";
 import { Kind, Control, decodeHello, encodeResize, decodeExit, decodeControl, encodeViewerPayload } from "./wire.js";
-import { parsePayload } from "./keys.js";
+import { parsePayload, isTerminalReport } from "./keys.js";
 
 const enc = new TextEncoder();
 const $ = (id) => document.getElementById(id);
@@ -491,6 +491,11 @@ async function sendInput(data, { confirmPaste = true } = {}) {
 }
 
 term.onData((d) => {
+  // xterm also emits data nobody typed: mouse reports while the program tracks the
+  // mouse, focus in/out, and answers to its terminal queries (which the join repaint
+  // replays). Claude does all three. Read-only, they must not count as asking for
+  // control; in control, they reach the program like any input.
+  if (!hasControl && isTerminalReport(d)) return;
   if (ctrlArmed && d.length === 1) {
     const c = d.toUpperCase().charCodeAt(0);
     if (c >= 64 && c < 128) d = String.fromCharCode(c & 0x1f);
