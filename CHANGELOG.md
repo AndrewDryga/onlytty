@@ -2,6 +2,19 @@
 
 All notable changes to OnlyTTY are recorded here.
 
+## [0.4.14] - 2026-10-29
+
+Includes the documentation changes in 0.4.13. That tag remains source-only: its
+release audit stopped publication because the pinned Go toolchain was outdated.
+
+### Security
+
+- Build the runner with Go 1.26.10, which fixes the standard-library
+  vulnerabilities reported by the release audit. Keep the workspace, runner
+  module and contributor toolchain pins together.
+- Update Bandit, Hackney and PlugCrypto, with their required dependencies,
+  to clear the server packages reported by the release audit.
+
 ## [0.4.13] - 2026-10-29
 
 ### Documentation
