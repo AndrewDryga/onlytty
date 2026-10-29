@@ -37,7 +37,7 @@ services:
       - "4000"
 
   caddy:
-    image: caddy:2.11.4
+    image: caddy:2.11.7
     restart: unless-stopped
     depends_on:
       - onlytty

@@ -33,9 +33,9 @@ jobs:
         with:
           go-version-file: runner/go.mod
           cache-dependency-path: runner/go.sum
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: "26.7.0"
+          node-version: "26.12.1"
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - run: python3 -m pip install --quiet pyyaml

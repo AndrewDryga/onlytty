@@ -46,14 +46,14 @@ cleanup() {
 trap cleanup EXIT
 
 step "Validate the shipped Caddyfile"
-docker run --rm -e ONLYTTY_DOMAIN -v "$BUNDLE/Caddyfile:/etc/caddy/Caddyfile:ro" caddy:2.11.4 \
+docker run --rm -e ONLYTTY_DOMAIN -v "$BUNDLE/Caddyfile:/etc/caddy/Caddyfile:ro" caddy:2.11.7 \
   caddy validate --config /etc/caddy/Caddyfile >/dev/null 2>&1 \
   && pass "caddy validate ok" || fail "Caddyfile is invalid"
 
 step "Build the relay image for this host ($ONLYTTY_IMAGE)"
 docker build -t "$ONLYTTY_IMAGE" "$ROOT/portal" >/dev/null && pass "image built" || fail "image build"
 
-step "Bring up the shipped bundle (the relay image above + caddy:2.11.4)"
+step "Bring up the shipped bundle (the relay image above + caddy:2.11.7)"
 dc up -d
 
 step "Wait for the relay to be healthy behind Caddy over HTTPS"
