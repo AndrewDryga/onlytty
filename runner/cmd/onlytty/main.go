@@ -151,14 +151,16 @@ func run() int {
 	// Show the expiry the relay actually assigned (it clamps the TTL), not the raw flag.
 	printBanner(link, formatFingerprint(keys.Fingerprint), expiryLine(sess.ExpiresAt), controlMode, *multiViewer, passphrase, *genPass, *noQR)
 
+	// The host types into `in`: stdin, or the controlling terminal when stdin is a
+	// pipe (see hostInput). The launch gate, PTY size, raw mode, local input and
+	// resizes all follow it.
+	in := hostInput()
+
 	// Hold the launch until the host confirms: a full-screen command (claude, htop,
 	// vim) takes over the screen within its first frames, wiping the QR/link above
 	// before anyone can scan them — and nothing can re-print them mid-session.
-	if gateIn, closeGate := startGateInput(shellMode); gateIn != nil {
-		waitForStart(gateIn, argv)
-		if closeGate {
-			_ = gateIn.Close()
-		}
+	if gateLaunch(shellMode, in) {
+		waitForStart(in, argv)
 	}
 
 	// 3) Start the command in a PTY and mirror it locally.
@@ -167,18 +169,18 @@ func run() int {
 		fmt.Fprintln(os.Stderr, "onlytty: failed to start command:", err)
 		return 1
 	}
-	if ws, err := pty.GetsizeFull(os.Stdin); err == nil {
+	if ws, err := pty.GetsizeFull(in); err == nil {
 		_ = psess.SetSize(ws.Cols, ws.Rows)
 	} else {
 		_ = psess.SetSize(80, 24)
 	}
 
-	// 4) Raw-mode the local terminal so keystrokes reach the command verbatim.
+	// 4) Raw-mode the host's terminal so keystrokes reach the command verbatim.
 	// Deferred restore runs on every return path, including a panic.
-	stdinFd := int(os.Stdin.Fd())
-	if term.IsTerminal(stdinFd) {
-		if old, err := term.MakeRaw(stdinFd); err == nil {
-			defer func() { _ = term.Restore(stdinFd, old) }()
+	inFd := int(in.Fd())
+	if term.IsTerminal(inFd) {
+		if old, err := term.MakeRaw(inFd); err == nil {
+			defer func() { _ = term.Restore(inFd, old) }()
 		}
 	}
 
@@ -186,7 +188,7 @@ func run() int {
 		Client: client, Session: psess, Keys: keys, SessionID: id, Token: tok, TTL: *ttl,
 		ExpiresAt:   sess.ExpiresAt,
 		MultiViewer: *multiViewer,
-		Control:     controlMode, LocalIn: os.Stdin, LocalOut: os.Stdout,
+		Control:     controlMode, LocalIn: in, LocalOut: os.Stdout,
 		Notify: notifier(*verbose), Fingerprint: formatFingerprint(keys.Fingerprint),
 	})
 	if err != nil {
@@ -194,8 +196,8 @@ func run() int {
 		return 1
 	}
 
-	// Forward local terminal resizes to the PTY.
-	go watchResize(ctx, orch)
+	// Forward the host terminal's resizes to the PTY.
+	go watchResize(ctx, orch, in)
 	// SIGUSR1 revokes control (take it back from a viewer) without touching stdin.
 	go watchRevoke(ctx, orch)
 
@@ -239,7 +241,7 @@ func resolveCommand(args []string) []string {
 	return []string{shell}
 }
 
-func watchResize(ctx context.Context, orch *runner.Orchestrator) {
+func watchResize(ctx context.Context, orch *runner.Orchestrator, tty *os.File) {
 	ch := make(chan os.Signal, 1)
 	signal.Notify(ch, syscall.SIGWINCH)
 	defer signal.Stop(ch)
@@ -248,7 +250,7 @@ func watchResize(ctx context.Context, orch *runner.Orchestrator) {
 		case <-ctx.Done():
 			return
 		case <-ch:
-			if ws, err := pty.GetsizeFull(os.Stdin); err == nil {
+			if ws, err := pty.GetsizeFull(tty); err == nil {
 				orch.Resize(ws.Cols, ws.Rows)
 			}
 		}
@@ -358,24 +360,28 @@ func printBanner(link, fingerprint string, expiry string, control runner.Control
 	fmt.Fprintf(w, "\n  %s\n\n", dim("Scan the QR or open the link. The relay only ever sees ciphertext."))
 }
 
-// startGateInput returns the terminal to read the pre-launch "press Enter"
-// confirmation from, or nil when the run must not block: a shared shell leaves
-// the banner visible anyway, and without a TTY on stderr nobody is looking at
-// a QR. Prefer stdin; fall back to /dev/tty for `curl … | sh -s -- claude`,
-// where stdin is the consumed installer pipe but a human is still at the
-// terminal. The bool reports whether the caller owns (must close) the file.
-func startGateInput(shellMode bool) (*os.File, bool) {
-	if shellMode || !term.IsTerminal(int(os.Stderr.Fd())) {
-		return nil, false
+// hostInput returns the file the host types into: stdin, unless stdin is not a
+// terminal while stderr is; then the controlling terminal, /dev/tty. That is
+// `curl … | sh -s -- claude`: stdin is the installer's pipe, which bash (macOS
+// /bin/sh) leaves holding the script's unread tail. Reading it would type that
+// tail into the command, and the terminal, never put in raw mode, would echo the
+// host's keys over the command's screen instead of delivering them. Headless
+// runs (no TTY on stderr: pipes, CI, e2e) keep stdin.
+func hostInput() *os.File {
+	if term.IsTerminal(int(os.Stdin.Fd())) || !term.IsTerminal(int(os.Stderr.Fd())) {
+		return os.Stdin
 	}
-	if term.IsTerminal(int(os.Stdin.Fd())) {
-		return os.Stdin, false
+	if tty, err := os.Open("/dev/tty"); err == nil {
+		return tty
 	}
-	f, err := os.Open("/dev/tty")
-	if err != nil {
-		return nil, false
-	}
-	return f, true
+	return os.Stdin
+}
+
+// gateLaunch reports whether to hold the launch for the "press Enter"
+// confirmation: never for a shared shell, which leaves the banner visible anyway,
+// and only when someone can see the QR (stderr is a TTY) and answer (in is one).
+func gateLaunch(shellMode bool, in *os.File) bool {
+	return !shellMode && term.IsTerminal(int(os.Stderr.Fd())) && term.IsTerminal(int(in.Fd()))
 }
 
 func startPrompt(argv []string) string {

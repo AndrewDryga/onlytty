@@ -2,14 +2,31 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"io"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"os/exec"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
 	"github.com/AndrewDryga/onlytty/runner/internal/relayclient"
 	"github.com/AndrewDryga/onlytty/runner/internal/runner"
+	"github.com/creack/pty"
 )
+
+// TestMain lets a test run the real CLI in its own process: with
+// ONLYTTY_TEST_MAIN=1 this test binary is onlytty, so the test controls its
+// stdin, controlling terminal and termios.
+func TestMain(m *testing.M) {
+	if os.Getenv("ONLYTTY_TEST_MAIN") == "1" {
+		os.Exit(run())
+	}
+	os.Exit(m.Run())
+}
 
 // envOr resolves the relay default: unset/empty → the hosted relay; set → the env wins.
 func TestEnvOr(t *testing.T) {
@@ -120,12 +137,12 @@ func TestResolveControl(t *testing.T) {
 }
 
 // The launch gate must never arm for a shared shell (the prompt does not clear
-// the banner, so gating would be pure friction). The interactive arm/skip cases
-// depend on real TTYs and are exercised by the browser e2e suite, which spawns
-// the binary over pipes and would hang if the gate misfired.
-func TestStartGateInputShellMode(t *testing.T) {
-	if in, _ := startGateInput(true); in != nil {
-		t.Fatalf("shell mode must not gate the launch, got %v", in)
+// the banner, so gating would be pure friction). The armed case runs on a real
+// PTY in TestPipedStdinTakesKeysFromTerminal, and the browser e2e suite spawns
+// the binary over pipes, where it would hang if the gate misfired.
+func TestGateLaunchShellMode(t *testing.T) {
+	if gateLaunch(true, os.Stdin) {
+		t.Fatal("shell mode must not gate the launch")
 	}
 }
 
@@ -168,6 +185,125 @@ func TestWaitForStart(t *testing.T) {
 	case <-eofDone:
 	case <-time.After(2 * time.Second):
 		t.Fatal("did not return on EOF")
+	}
+}
+
+// `curl … | sh -s -- claude` starts onlytty with the installer's pipe as stdin,
+// and bash (macOS /bin/sh) leaves the script's unread tail in it. The command
+// must get the host's keys from the controlling terminal and never that tail; the
+// terminal must be raw, or the kernel echoes each key over the command's screen;
+// and the PTY must take the terminal's size rather than fall back to 80x24.
+func TestPipedStdinTakesKeysFromTerminal(t *testing.T) {
+	relay := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			w.WriteHeader(http.StatusServiceUnavailable) // runner socket: retry until the command exits
+			return
+		}
+		var s relayclient.Session // echo the runner-chosen id + token back
+		_ = json.NewDecoder(r.Body).Decode(&s)
+		w.WriteHeader(http.StatusCreated)
+		_ = json.NewEncoder(w).Encode(s)
+	}))
+	defer relay.Close()
+
+	ptmx, tty, err := pty.Open()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ptmx.Close()
+	if err := pty.Setsize(ptmx, &pty.Winsize{Rows: 33, Cols: 101}); err != nil {
+		t.Fatal(err)
+	}
+	pipeR, pipeW, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pipeW.WriteString("installer-tail\n"); err != nil {
+		t.Fatal(err)
+	}
+	_ = pipeW.Close()
+
+	// The command reports its size and the first line it reads. Its own echo is
+	// off, so an echo of the typed keys could only come from the host terminal.
+	// printf builds the markers so they never match the command line, which the
+	// banner and the launch prompt print verbatim.
+	cmd := exec.Command(os.Args[0], "--server", relay.URL, "--no-qr", "--",
+		"sh", "-c", `stty -echo; printf '<%s %s>\n' size "$(stty size)"; IFS= read -r line; printf '<%s %s>\n' got "$line"`)
+	cmd.Env = append(os.Environ(), "ONLYTTY_TEST_MAIN=1")
+	cmd.Stdin, cmd.Stdout, cmd.Stderr = pipeR, tty, tty
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true, Setctty: true, Ctty: 1} // tty is its /dev/tty
+	if err := cmd.Start(); err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = cmd.Process.Kill() }() // no-op once it has exited
+	_ = pipeR.Close()
+	_ = tty.Close()
+
+	chunks := make(chan []byte)
+	go func() {
+		defer close(chunks)
+		for {
+			buf := make([]byte, 4096)
+			n, err := ptmx.Read(buf)
+			if n > 0 {
+				chunks <- buf[:n]
+			}
+			if err != nil {
+				return
+			}
+		}
+	}()
+	var screen []byte
+	// readUntil collects the terminal's output until want shows up, or (want == "")
+	// until it closes. Draining to the end also matters on macOS, where an exiting
+	// process blocks until its terminal output has been read.
+	readUntil := func(want string) {
+		t.Helper()
+		timeout := time.After(10 * time.Second)
+		for want == "" || !bytes.Contains(screen, []byte(want)) {
+			select {
+			case b, ok := <-chunks:
+				if !ok {
+					if want == "" {
+						return
+					}
+					t.Fatalf("terminal closed before %q:\n%q", want, screen)
+				}
+				screen = append(screen, b...)
+			case <-timeout:
+				t.Fatalf("timed out waiting for %q:\n%q", want, screen)
+			}
+		}
+	}
+	typeKeys := func(s string) {
+		t.Helper()
+		if _, err := ptmx.Write([]byte(s)); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	readUntil("Press Enter") // the launch gate
+	typeKeys("\r")
+	readUntil("<size ")
+	typeKeys("host-keys\r")
+	readUntil("")
+	if err := cmd.Wait(); err != nil {
+		t.Fatalf("onlytty: %v\n%q", err, screen)
+	}
+
+	for _, want := range []string{"<size 33 101>", "<got host-keys>"} {
+		if !bytes.Contains(screen, []byte(want)) {
+			t.Errorf("missing %q", want)
+		}
+	}
+	if bytes.Contains(screen, []byte("installer-tail")) {
+		t.Error("the pipe's contents reached the command")
+	}
+	if n := bytes.Count(screen, []byte("host-keys")); n != 1 {
+		t.Errorf("host-keys appears %d times, want once (the command's report); more means the host terminal echoed it", n)
+	}
+	if t.Failed() {
+		t.Logf("terminal output:\n%q", screen)
 	}
 }
 
