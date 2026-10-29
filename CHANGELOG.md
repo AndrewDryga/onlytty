@@ -2,6 +2,33 @@
 
 All notable changes to OnlyTTY are recorded here.
 
+## [0.4.15] - 2026-10-29
+
+### Security
+
+- Move the relay image to Debian 13 (trixie). Debian 12 handed security
+  maintenance to Debian LTS in June 2026; the image now runs on the current
+  stable release, with Elixir 1.20.4 and OTP 29.1.2.
+
+### Added
+
+- The Neovim and K9s pages now include a short walkthrough: the launch
+  command, the keys to use from a phone, how to exit, and what view-only mode
+  and `k9s --readonly` do and don't protect.
+
+### Changed
+
+- Count successful copies of an install or share command on the public pages,
+  as a measure of interest rather than of installs. The event never includes
+  the copied text, honors Do Not Track, and is disclosed on the privacy page.
+- Load marketing analytics only on onlytty.com, so self-hosted relays and local
+  previews no longer report to OnlyTTY's analytics.
+- Copy buttons now say when the browser blocks the clipboard, and are hidden
+  when JavaScript is off. Dimmed text on the marketing site has more contrast.
+- Build the runner with Go 1.27.3 and move the relay to Sentry 14. Also update
+  the Go, Hex and npm dependencies, the Terraform Google provider (now 8.x),
+  Caddy 2.11.7 in the self-host bundle, and the CI action pins.
+
 ## [0.4.14] - 2026-10-29
 
 Includes the documentation changes in 0.4.13. That tag remains source-only: its
