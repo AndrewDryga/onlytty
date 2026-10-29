@@ -2,6 +2,15 @@
 
 All notable changes to OnlyTTY are recorded here.
 
+## [0.4.13] - 2026-10-29
+
+### Documentation
+
+- Add a real browser-edit and view-only example, with original screenshots,
+  reproduction steps, and clear device/build limits.
+- Explain separate build-provenance verification in the installer comments.
+  The installer's checksum check and behavior are unchanged.
+
 ## [0.4.12] - 2026-08-06
 
 Includes everything in 0.4.11, which was tagged but never published as a release.

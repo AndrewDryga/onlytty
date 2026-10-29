@@ -20,6 +20,8 @@ defmodule OnlyTTYWeb.PageController do
   @doc "`GET /` — the home page."
   def home(conn, _params), do: html(conn, Page.home())
 
+  def browser_demo(conn, _params), do: html(conn, Page.browser_demo())
+
   @doc "`GET /tools` — the full, browse-by-category tool index."
   def tools(conn, _params), do: html(conn, Page.tools_index())
 

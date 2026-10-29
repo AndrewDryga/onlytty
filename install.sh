@@ -110,7 +110,8 @@ curl -fsSL "$base/SHA256SUMS" -o "$tmp/SHA256SUMS" || err "download failed: $bas
 
 # This catches a corrupted/truncated download — not a compromised release: SHA256SUMS
 # comes from the same release as the binary, so it can't attest the release's authenticity.
-# Tamper-resistance needs a signature over the sums (planned; see SECURITY.md).
+# Build provenance can be verified separately with `gh attestation verify`;
+# see README.md and SECURITY.md. This installer does not verify attestations.
 expected=$(awk -v f="$asset" '$2 == f {print $1}' "$tmp/SHA256SUMS")
 [ -n "$expected" ] || err "no checksum for $asset in SHA256SUMS"
 actual=$(sha256 "$tmp/$asset")

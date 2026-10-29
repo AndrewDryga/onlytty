@@ -1,0 +1,11 @@
+OnlyTTY browser edit, 2026-10-29
+Host: Darwin arm64. Vim 9.1, compiled 2025-07-11.
+Viewer: desktop Chrome, 390 x 844 CSS pixels. Physical phone untested.
+Existing OnlyTTY binary reports onlytty (devel), not rebuilt for this test.
+Binary SHA-256: b2ce23dca1f2eb93d26d5fb448ec0d0817dea1784db649b9f179c9c44da7bca9
+After browser save: host read confirmed Status: reviewed from the browser.
+After view-only input attempts and host :wq: file SHA-256 unchanged:
+ce92cd178af91caff5ad311b8a3e6e7d8e3aa6b89ac434384e9338ba7c790bd7
+Both owned sessions exited 0 and viewers disconnected.
+Screenshots are unaltered native browser captures. No session URL or secret is published.
+This is a synthetic workflow check, not a mobile-device, security, capacity or reliability audit.

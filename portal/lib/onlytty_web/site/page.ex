@@ -97,6 +97,58 @@ defmodule OnlyTTYWeb.Site.Page do
     )
   end
 
+  @doc "A recorded browser edit and view-only check, with steps to repeat them."
+  def browser_demo do
+    layout(
+      title: "Edit a file through your browser · OnlyTTY demo",
+      description:
+        "A real Vim edit through OnlyTTY, verified on the host. Follow the steps, see the screenshots, and check view-only mode yourself.",
+      path: "/examples/browser-edit",
+      extra_head: ~s(<link rel="stylesheet" href="/assets/demo.css">),
+      json_ld: [breadcrumb_simple_ld("Browser edit", "/examples/browser-edit")],
+      body: browser_demo_body()
+    )
+  end
+
+  defp browser_demo_body do
+    """
+    <article class="wrap narrow section demo-article">
+      <p class="eyebrow">Worked example · 29 October 2026</p>
+      <h1>Edit a file through your browser</h1>
+      <p class="lede">Open a terminal link, make a small Vim edit, and save it on the host. Then repeat with view-only mode to check that browser input is refused.</p>
+      <p>We ran this with the hosted OnlyTTY viewer in desktop Chrome at 390 × 844 pixels. It is a browser test at a phone-sized viewport; a physical phone and its touch keyboard were not tested.</p>
+
+      <h2>1. Start with a scratch file</h2>
+      <p>You need OnlyTTY and Vim on your host. Create a new scratch directory and put <code>Status: ready for review.</code> in a file named <code>demo.md</code>. Keep your own files out of this example.</p>
+      #{snippet("onlytty --ttl 10m --no-qr -- vim -Nu NONE -n -i NONE demo.md")}
+      <p>Open the printed link in your browser. Compare its fingerprint with the host's fingerprint, then start Vim from the host. Treat the link as access to this terminal.</p>
+      <figure><img src="/demos/browser-edit/onlytty-before.jpg" width="390" height="844" alt="OnlyTTY viewer showing the original scratch file in Vim" loading="lazy"><figcaption>The scratch file before the edit. The viewer has control.</figcaption></figure>
+
+      <h2>2. Make and save a small edit</h2>
+      <p>The viewer showed <strong>You have control</strong> after startup in our run. If yours does not, use <strong>Take control</strong>; the default host policy grants control requests automatically.</p>
+      <p>In Vim, type this command and press Enter:</p>
+      <div class="snippet"><code>:%s/Status: ready for review./Status: reviewed from the browser./</code></div>
+      <p>Type <code>:w</code> and press Enter to save. On the host, open another terminal and read the file:</p>
+      #{snippet("cat demo.md")}
+      <p>Our independent host check found <code>Status: reviewed from the browser.</code> in the saved file.</p>
+      <figure><img src="/demos/browser-edit/onlytty-after.jpg" width="390" height="844" alt="Vim showing the edited text and confirming the file was written" loading="lazy"><figcaption>The edited file after saving through the browser.</figcaption></figure>
+      <p>Type <code>:q</code> and press Enter. Vim exited with code 0 and the viewer showed <strong>ended (exit 0)</strong>.</p>
+      <p><a href="/demos/browser-edit/onlytty-ended.jpg">See the ended session</a>.</p>
+
+      <h2>3. Check view-only mode</h2>
+      #{snippet("onlytty --control view-only --ttl 5m --no-qr -- vim -Nu NONE -n -i NONE demo.md")}
+      <p>Open the new link, compare the fingerprints, and start Vim on the host. Request control and try typing <code>i</code>, <code>x</code>, then Escape in the browser terminal.</p>
+      <p>Our viewer reported <strong>control not granted — host is view-only</strong>. We saved and quit from the host with <code>:wq</code>. The file's SHA-256 was unchanged after the input attempts. Both demo sessions stopped cleanly.</p>
+      <figure><img src="/demos/browser-edit/onlytty-view-only.jpg" width="390" height="844" alt="The view-only browser session, where the host refused control" loading="lazy"><figcaption>The view-only session. The full refusal message was also checked in the browser's accessibility text.</figcaption></figure>
+
+      <h2>What this example establishes</h2>
+      <p>The browser edit reached the host file, view-only mode refused input, and ending the command ended sharing. This was a small synthetic file, not a test of production reliability or every device.</p>
+      <p>The host was macOS on Apple Silicon with Vim 9.1 and an existing OnlyTTY development build reporting <code>onlytty (devel)</code>. We did not rebuild that binary from the current source. Its SHA-256 is in the <a href="/demos/browser-edit/method.txt">test record</a>, along with the file checks. These screenshots are original browser captures.</p>
+      <p>For Neovim's setup and key commands, see the <a href="/control/nvim">Neovim guide</a>. For access boundaries, read the <a href="https://github.com/AndrewDryga/onlytty/blob/main/SECURITY.md">security model</a>.</p>
+    </article>
+    """
+  end
+
   @doc "The branded 404 body (the controller sets the 404 status)."
   def not_found do
     layout(
@@ -179,7 +231,15 @@ defmodule OnlyTTYWeb.Site.Page do
     # Only the indexable tool pages go in the sitemap; the long-tail noindex ones
     # are omitted (they still render and stay linked from /tools).
     urls =
-      ["/", "/tools", "/self-hosting", "/terms", "/privacy", "/acceptable-use"] ++
+      [
+        "/",
+        "/tools",
+        "/self-hosting",
+        "/terms",
+        "/privacy",
+        "/acceptable-use",
+        "/examples/browser-edit"
+      ] ++
         Enum.map(Tools.indexable(), &"/control/#{&1.slug}")
 
     entries =
@@ -240,6 +300,7 @@ defmodule OnlyTTYWeb.Site.Page do
     <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
     <link rel="manifest" href="/assets/site.webmanifest">
     <link rel="stylesheet" href="/assets/site.css?v=#{@assets_vsn}">
+    #{Keyword.get(opts, :extra_head, "")}
     #{ld_tags}
     </head>
     <body>
@@ -288,6 +349,7 @@ defmodule OnlyTTYWeb.Site.Page do
           <h3>Product</h3>
           <a href="/#how">How it works</a>
           <a href="/tools">Supported tools</a>
+          <a href="/examples/browser-edit">Browser edit example</a>
           <a href="/#start">Get started</a>
           <a href="/#faq">FAQ</a>
         </nav>

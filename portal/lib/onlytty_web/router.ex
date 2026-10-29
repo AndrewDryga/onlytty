@@ -25,6 +25,7 @@ defmodule OnlyTTYWeb.Router do
     # OnlyTTY marketing site (server-rendered, indexable).
     get "/", PageController, :home
     get "/tools", PageController, :tools
+    get "/examples/browser-edit", PageController, :browser_demo
     get "/control/:slug", PageController, :tool
     get "/self-hosting", PageController, :self_hosting
     get "/terms", PageController, :terms

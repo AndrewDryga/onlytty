@@ -67,6 +67,16 @@ defmodule OnlyTTYWeb.SiteTest do
     end
   end
 
+  describe "GET /examples/browser-edit" do
+    test "serves the recorded demo with its own canonical and original images", %{conn: conn} do
+      body = conn |> get(~p"/examples/browser-edit") |> html_response(200)
+      assert body =~ ~s(rel="canonical" href="#{OnlyTTYWeb.Endpoint.url()}/examples/browser-edit")
+      assert body =~ "/demos/browser-edit/onlytty-after.jpg"
+      assert body =~ "physical phone"
+      assert body =~ "view-only"
+    end
+  end
+
   describe "GET /control/:slug" do
     test "renders a known tool page with a tailored, indexable heading", %{conn: conn} do
       conn = get(conn, ~p"/control/claude")
@@ -169,7 +179,7 @@ defmodule OnlyTTYWeb.SiteTest do
       # one <loc> per indexable tool, plus home, the index, self-hosting, and the
       # 3 legal pages. Long-tail noindex tool pages are intentionally omitted.
       loc_count = body |> String.split("<loc>") |> length() |> Kernel.-(1)
-      assert loc_count == length(Tools.indexable()) + 6
+      assert loc_count == length(Tools.indexable()) + 7
       # and the sitemap really is thinned — not every catalog page is listed.
       assert length(Tools.indexable()) < length(Tools.all())
     end
