@@ -60,7 +60,8 @@ nothing stored. Protect that wedge — don't dilute it with breadth.
 - **Scope that quietly adds a backend.** "Just store X", "just add accounts", "just log
   sessions" contradicts the no-database, nothing-stored promise — that's a positioning
   change, not a feature. Name it and escalate it; never sneak it in.
-- **Scope creep dressed as "while we're here".** Name it, park it in `.agent/BACKLOG.md`.
+- **Scope creep dressed as "while we're here".** Name it and park it: a simple, ready task
+  goes to the queue (`coop tasks add`), a big or unscoped idea to the backlog (`coop backlog add`).
 
 ## Output
 
