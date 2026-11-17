@@ -33,9 +33,9 @@ defmodule OnlyTTY.MixProject do
   defp deps do
     [
       {:phoenix, "~> 1.8"},
-      # Phoenix 1.8.8 still depends on websock_adapter ~> 0.5.3. OnlyTTY always
-      # passes max_frame_size explicitly, so 0.6.0's default-limit change is inert here.
-      {:websock_adapter, "~> 0.6", override: true},
+      # Called directly by the socket controller. OnlyTTY always passes max_frame_size
+      # explicitly, so the 10 MB default that websock_adapter 0.6.0 introduced is inert here.
+      {:websock_adapter, "~> 0.6"},
       {:telemetry_metrics, "~> 1.0"},
       {:telemetry_poller, "~> 1.0"},
       {:jason, "~> 1.2"},
