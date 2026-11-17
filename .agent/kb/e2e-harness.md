@@ -2,8 +2,8 @@
 name: e2e-harness
 description: make e2e boots its own unthrottled relay, the browser suite runs the runner headless, and CLI behaviour that needs a real terminal is tested on a PTY through a TestMain re-exec
 subsystem: tests
-sources: [dev/scripts/e2e.sh, dev/test/browser/viewer.test.js, portal/config/config.exs, runner/cmd/onlytty/main_test.go]
-updated: 2026-10-29
+sources: [dev/scripts/e2e.sh, dev/test/browser/viewer.test.js, portal/priv/static/assets/app.js, portal/config/config.exs, runner/cmd/onlytty/main_test.go]
+updated: 2026-11-17
 ---
 **Its own relay, unthrottled.** `make e2e` refuses to run against a relay already listening on
 :4000, because a stale server could make a changed tree look green (`ONLYTTY_REUSE_SERVER=1`
@@ -15,7 +15,10 @@ keyed on client IP is hostile to a single-IP harness.
 **Headless runner.** The browser suite spawns the binary with stdin ignored and stderr piped, so
 no launch gate arms and nothing opens `/dev/tty`. Wait for the viewer's "connected" status before
 clicking Take control. The verify overlay appears before the socket exists, so a click while the
-socket is still connecting is dropped.
+socket is still connecting is dropped, and the test times out 8 s later waiting for the button to
+go live. A test whose first frame fails on purpose (the wedge test) must also accept
+"a frame couldn't be processed", which replaces "connected" within milliseconds. The race is
+load-sensitive: it fired on every run with the machine at load 70 on 12 cores.
 
 **CLI tests on a real terminal.** For behaviour that depends on stdin, the controlling terminal
 or termios, `TestMain` in `main_test.go` re-executes the test binary as `onlytty`
@@ -26,4 +29,6 @@ or termios, `TestMain` in `main_test.go` re-executes the test binary as `onlytty
   command line verbatim.
 
 ## Changelog
+- 2026-11-17 — the wedge and paste tests now wait before clicking; added the wedge status and
+  the load note (checked against `viewer.test.js` and `app.js`).
 - 2026-10-29 — created from the 2026-08-06 flake fix and the `6702120` PTY regression test.

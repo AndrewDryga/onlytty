@@ -429,6 +429,13 @@ test("browser viewer: a frame whose handler throws doesn't wedge the stream", as
       };
     });
     await dismissVerify(page);
+    // Wait for the socket: a click on Take control while it is still connecting is
+    // dropped. The throwing write replaces "connected" within milliseconds, so accept both.
+    await page.waitForFunction(
+      () => ["connected", "a frame couldn't be processed"]
+        .includes(document.getElementById("status-text").textContent),
+      null, { timeout: 10000 },
+    );
     await page.click("#control");
     await page.waitForFunction(
       () => document.getElementById("control").classList.contains("live"),
@@ -565,6 +572,10 @@ test("browser viewer: a large single-line paste is confirmed and only sent on ac
 
     await page.goto(link);
     await dismissVerify(page);
+    await page.waitForFunction(
+      () => document.getElementById("status-text").textContent === "connected",
+      null, { timeout: 10000 },
+    );
     await page.click("#control");
     await page.waitForFunction(
       () => document.getElementById("control").classList.contains("live"),
@@ -619,6 +630,10 @@ test("browser viewer: a newline-terminated paste is confirmed, not auto-executed
 
     await page.goto(link);
     await dismissVerify(page);
+    await page.waitForFunction(
+      () => document.getElementById("status-text").textContent === "connected",
+      null, { timeout: 10000 },
+    );
     await page.click("#control");
     await page.waitForFunction(
       () => document.getElementById("control").classList.contains("live"),
