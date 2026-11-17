@@ -9,9 +9,9 @@
 # OS picks up security updates — see SECURITY.md "Base-image refresh". Dependabot
 # (.github/dependabot.yml) opens PRs for the resolvable image refs; the bare version ARGs
 # are bumped by hand, in lockstep with .tool-versions / CI.
-ARG ELIXIR_VERSION=1.20.4
+ARG ELIXIR_VERSION=1.20.5
 ARG OTP_VERSION=29.1.2
-ARG DEBIAN_VERSION=trixie-20261020-slim
+ARG DEBIAN_VERSION=trixie-20261104-slim
 
 ARG BUILDER_IMAGE="hexpm/elixir:${ELIXIR_VERSION}-erlang-${OTP_VERSION}-debian-${DEBIAN_VERSION}"
 ARG RUNNER_IMAGE="debian:${DEBIAN_VERSION}"

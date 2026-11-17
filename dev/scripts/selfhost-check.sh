@@ -46,14 +46,14 @@ cleanup() {
 trap cleanup EXIT
 
 step "Validate the shipped Caddyfile"
-docker run --rm -e ONLYTTY_DOMAIN -v "$BUNDLE/Caddyfile:/etc/caddy/Caddyfile:ro" caddy:2.11.7 \
+docker run --rm -e ONLYTTY_DOMAIN -v "$BUNDLE/Caddyfile:/etc/caddy/Caddyfile:ro" caddy:2.11.9 \
   caddy validate --config /etc/caddy/Caddyfile >/dev/null 2>&1 \
   && pass "caddy validate ok" || fail "Caddyfile is invalid"
 
 step "Build the relay image for this host ($ONLYTTY_IMAGE)"
 docker build -t "$ONLYTTY_IMAGE" "$ROOT/portal" >/dev/null && pass "image built" || fail "image build"
 
-step "Bring up the shipped bundle (the relay image above + caddy:2.11.7)"
+step "Bring up the shipped bundle (the relay image above + caddy:2.11.9)"
 dc up -d
 
 step "Wait for the relay to be healthy behind Caddy over HTTPS"
@@ -91,7 +91,7 @@ step "Production TLS behavior: the relay sets HSTS for a real host (force_ssl)"
 # Host + X-Forwarded-Proto: https — exactly what Caddy sends for relay.example.com — and
 # assert the relay emits Strict-Transport-Security without looping (XFP=https ⇒ no redirect).
 NET="$(docker inspect -f '{{range $k,$_ := .NetworkSettings.Networks}}{{$k}}{{end}}' "$(dc ps -q onlytty)")"
-hdrs="$(docker run --rm --network "$NET" curlimages/curl:8.11.1 -sSI \
+hdrs="$(docker run --rm --network "$NET" curlimages/curl:8.23.0 -sSI \
   -H 'Host: relay.example.com' -H 'X-Forwarded-Proto: https' http://onlytty:4000/healthz 2>/dev/null || true)"
 printf '%s' "$hdrs" | grep -qi '^strict-transport-security:' \
   && pass "HSTS present for a real host (localhost is exempt by design)" \

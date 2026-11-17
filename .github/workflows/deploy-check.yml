@@ -35,7 +35,7 @@ jobs:
           cache-dependency-path: runner/go.sum
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: "26.12.1"
+          node-version: "26.13.0"
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - run: python3 -m pip install --quiet pyyaml
