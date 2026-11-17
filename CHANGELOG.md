@@ -2,6 +2,18 @@
 
 All notable changes to OnlyTTY are recorded here.
 
+## [0.4.18] - 2026-11-17
+
+Website copy only. The runner and the viewer are unchanged from 0.4.17.
+
+### Documentation
+
+- The Neovim page now links the browser-edit example and says when Neovim in
+  Termux, SSH or Mosh is the better fit.
+- Reword the "Who can take control of my session?" answer on the home page.
+  It now says outright that control requests are approved automatically by
+  default.
+
 ## [0.4.17] - 2026-10-29
 
 ### Fixed
