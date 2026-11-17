@@ -758,7 +758,7 @@ defmodule OnlyTTYWeb.Site.Page do
     <section class="section">
       <div class="wrap narrow">
         <h2>Edit a file in Neovim from your phone</h2>
-        <p class="lede">Install Neovim and OnlyTTY on the machine that holds your files. Your configuration, plugins and language servers run there; the phone opens the terminal in its browser.</p>
+        <p class="lede">Install Neovim and OnlyTTY on the machine that holds your files. Your configuration, plugins and language servers run there. Your phone opens the terminal in its browser.</p>
         <p>From the project directory, try a scratch file first:</p>
         #{snippet("onlytty -- nvim phone-check.txt")}
         <ol class="tool-steps">
@@ -766,8 +766,12 @@ defmodule OnlyTTYWeb.Site.Page do
           <li>Tap <strong>Take control</strong>, then press <code>i</code> to enter Insert mode. Type a short line and press <code>Esc</code> to return to Normal mode.</li>
           <li>Use <code>ZZ</code> to save and exit. To discard this scratch edit instead, type <code>:q!</code> and press Enter. Ending Neovim ends this shared command.</li>
         </ol>
-        <p>A phone screen is useful for a small edit, not a replacement for reviewing a large diff. Keep the host awake and connected. OnlyTTY starts the command you give it; it does not attach to an arbitrary editor process that was already running.</p>
+        <p>Keep the host awake and connected. OnlyTTY starts the command you give it. It doesn't attach to an editor that's already running.</p>
         <p class="muted">For the editor's own commands, see <a href="https://neovim.io/doc/user/usr_02/" rel="noopener">Neovim's first-steps guide</a>. To let someone watch without typing, launch with <code>onlytty --control view-only -- nvim phone-check.txt</code>.</p>
+        <p>The <a href="/examples/browser-edit">browser editing example</a> shows a file edit and a view-only session. We tested it with Vim in a desktop browser resized to fit a phone screen.</p>
+        <h2>Browser access, a local editor, or SSH?</h2>
+        <p>Use OnlyTTY to reach the files and Neovim setup on your computer or server. Open a link on your iPhone or Android phone. You don't need an SSH app, but both devices must stay connected.</p>
+        <p>To edit files stored on an Android phone, even offline, use <a href="https://practical.li/neovim/termux/" rel="noopener">Neovim in Termux</a>. If SSH or Mosh already works well for you, there's no need to replace it. OnlyTTY gives your browser access to the command you launch on the host.</p>
       </div>
     </section>
     """
@@ -1114,7 +1118,7 @@ defmodule OnlyTTYWeb.Site.Page do
       {"Do I have to open a port or install an agent?",
        "No inbound ports and no daemon. The <code>onlytty</code> CLI dials out over WebSocket/TLS, so nothing listens on your machine. It's a single Go binary."},
       {"Who can take control of my session?",
-       ~s(Anyone with the full link. The link is the key: whoever opens it can watch — and can tap <em>take control</em> to type. Read-only is just the default view, not a per-person gate, so share the link like a password. Want watch-only? Start with <code>--control view-only</code>. Want a second factor? Add <code>--passphrase</code>, and the link alone won't decrypt. Either way, exit the command to stop sharing instantly.)},
+       ~s(Anyone with the full link can watch and tap <em>take control</em> to type. Sessions open in view-only mode, but control requests are approved automatically by default. Treat the link like a password. To let people watch without typing, start with <code>--control view-only</code>. Add <code>--passphrase</code> to require a passphrase as well as the link, and share it separately. Exit the command to stop sharing.)},
       {"What can I actually control?",
        ~s(Anything that runs in a terminal: AI coding agents, editors, REPLs, database shells, ops TUIs, or your whole <code>\$SHELL</code>. Browse the <a href="/tools">full list</a> for ready-made guides.)},
       {"Is it really free and open source?",

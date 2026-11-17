@@ -181,7 +181,7 @@ defmodule OnlyTTYWeb.Site.Tools do
       category: "Editors",
       what: "A hyperextensible, Lua-powered fork of Vim.",
       why:
-        "Drive your fully-configured IDE-in-a-terminal, plugins and LSP and all, from the smallest screen you own."
+        "Use your own Neovim setup from your phone, with the same files, plugins and language servers."
     },
     %{
       slug: "emacs",
