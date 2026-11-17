@@ -2,21 +2,13 @@
 name: dependency-refresh
 description: how a dependency refresh is done here — releases at least 7 days old, one commit per risk class, pins re-resolved from tags, and the checks CI can't run
 subsystem: deps
-sources: [.tool-versions, .github/workflows/ci.yml, .github/dependabot.yml, portal/Dockerfile, portal/mix.exs, portal/mix.lock, portal/lib/onlytty/cluster/gce.ex, runner/go.mod, infra/versions.tf, package.json]
+sources: [.tool-versions, .github/workflows/ci.yml, .github/dependabot.yml, portal/Dockerfile, portal/mix.exs, portal/lib/onlytty/cluster/gce.ex, runner/go.mod, infra/versions.tf, package.json, dev/scripts/selfhost-check.sh]
 updated: 2026-11-17
 ---
 **Cooldown.** Take the newest release that is at least 7 days old, in every ecosystem: Go, Hex,
 npm, GitHub Actions, Terraform providers and base images. Name each release you held back, and the
-date it clears, in the commit message.
-
-**A security fix younger than the cooldown.** Hex makes this exception itself: its cooldown
-doesn't apply to a package whose locked release has an advisory, nor to that release's direct
-dependencies (`mix help hex.config`). So `mix deps.update <pkg>` takes a same-day fix under the
-machine's `cooldown: 7d`, with no override. Two things to do by hand:
-- Before trusting the young release, compare every file in its tarball from `repo.hex.pm` with
-  the same path at the upstream tag, and check that the publisher is the usual one.
-- The lifted cooldown lets unrelated young children ride along (telemetry did, with plug). Put
-  their lock lines back, run `mix deps.get`, and name them as held.
+date it clears, in the commit message. The one exception, a security fix for an advisory, and
+how to take exactly the versions you mean are in [dependency-holds](dependency-holds.md).
 
 **One commit per risk class**, so each can be reverted alone:
 - libraries within their current majors;
@@ -26,7 +18,8 @@ machine's `cooldown: 7d`, with no override. Two things to do by hand:
 - an OS move of the server image on its own.
 
 **Pins.** Re-resolve every GitHub Action pin from its tag, dereferencing annotated tags. A SHA that
-doesn't match its version comment is a supply-chain defect, not a nit.
+doesn't match its version comment is a supply-chain defect, not a nit. Image tags also hide in
+scripts: `dev/scripts/selfhost-check.sh` pins Caddy and a curl image.
 
 **What CI can't prove.**
 - The Sentry handler attaches only when `SENTRY_DSN` is set, so CI never runs it. Prove a Sentry
@@ -45,7 +38,7 @@ doesn't match its version comment is a supply-chain defect, not a nit.
   alert. A timeout is not a rejection.
 
 ## Changelog
-- 2026-11-17 — added the security-fix exception and the hackney hostname check, from patching
-  plug 1.20.4 and ssl_verify_fun 1.1.9 for v0.4.18 (checked against `mix help hex.config`,
-  `hackney_ssl.erl` in hackney 4.9.1 and `portal/lib/onlytty/cluster/gce.ex`).
+- 2026-11-17 — added the hackney proof and the script image pins, and moved the notes on taking
+  or holding a version to `dependency-holds` (from v0.4.18; checked against `hackney_ssl.erl` in
+  hackney 4.10.2, `portal/lib/onlytty/cluster/gce.ex` and `selfhost-check.sh`).
 - 2026-10-29 — created from the 2026-08-06 and 2026-10-29 refresh LOG entries.

@@ -33,5 +33,6 @@ One fact per file, under a screen, with a small changelog:
 ## Index
 - [release-and-deploy](release-and-deploy.md) — a tag runs release.yml; verify the artifacts, not the badges; deploying is a human-confirmed Terraform Cloud run
 - [dependency-refresh](dependency-refresh.md) — releases at least 7 days old, one commit per risk class, pins re-resolved from tags, and the checks CI can't run
+- [dependency-holds](dependency-holds.md) — taking a security fix inside the cooldown, updates that move packages you didn't name, pinning the Terraform provider, and cooldown edges
 - [viewer-assets](viewer-assets.md) — the vendored xterm naming and SRI scheme, VIEWER_HASHES, and what xterm's onData carries besides typing
 - [e2e-harness](e2e-harness.md) — make e2e's own unthrottled relay, the headless runner, and CLI tests on a real PTY
