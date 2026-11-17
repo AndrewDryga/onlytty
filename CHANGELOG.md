@@ -4,7 +4,43 @@ All notable changes to OnlyTTY are recorded here.
 
 ## [0.4.18] - 2026-11-17
 
-Website copy only. The runner and the viewer are unchanged from 0.4.17.
+The viewer is unchanged from 0.4.17.
+
+### Security
+
+- Update Plug to 1.20.4 in the relay. A crafted multipart request could make
+  the relay hold many times the request's size in memory, because the body
+  size limit didn't count the framing of each part and header
+  (CVE-2026-120287). Self-hosted relays should update.
+- Update ssl_verify_fun to 1.1.9 in the relay. A certificate with a
+  partial-label wildcard could match a hostname across a label boundary
+  (CVE-2026-117666). Erlang/OTP's own hostname check runs first and already
+  rejected such certificates on the relay's outbound HTTPS calls.
+- Build the runner with Go 1.27.4, which fixes a standard-library
+  vulnerability in `net/http` servers reported by the release audit
+  (GO-2026-6859). The runner starts no HTTP server.
+- Build the relay image with Elixir 1.20.5, which fixes vulnerabilities in
+  `URI.parse`, the built-in JSON decoder and Mix (CVE-2026-109821,
+  CVE-2026-115274, CVE-2026-97209), on the Debian 13 base image of
+  2026-11-04.
+- Update Caddy to 2.11.9 in the self-host bundle. Caddy 2.11.8 and 2.11.9
+  carry security fixes. For the bundle's reverse proxy they finish the fix for
+  CVE-2026-55458, which left hop-by-hop headers on 1xx responses. An existing
+  install keeps the Caddy tag in its own copy of `compose.yml` until you
+  change it.
+
+### Changed
+
+- Update hackney to 4.10.2 in the relay. It is the HTTP client for cluster
+  discovery and error reporting, and 4.10 fixes connection-pool leaks, TLS
+  errors on concurrent connects and two HTTP/2 denial-of-service issues.
+- Update Sentry to 14.0.1, libcluster to 3.6.0 and websock_adapter to 0.7.2
+  in the relay, and `golang.org/x/term` and `golang.org/x/sys` in the runner.
+- Update the build and deploy tooling: Node 26.13.0, Playwright 1.65.0,
+  Terraform 1.17.1 and the Google provider 8.11.0 in `infra/`, and the
+  release workflow's `docker/login-action` and `softprops/action-gh-release`
+  pins. The release workflow now fails instead of publishing a release that
+  is missing its binaries.
 
 ### Documentation
 
