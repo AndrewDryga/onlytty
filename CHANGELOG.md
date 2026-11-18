@@ -2,6 +2,41 @@
 
 All notable changes to OnlyTTY are recorded here.
 
+## [0.4.19] - 2026-11-17
+
+### Security
+
+- The relay parses only JSON request bodies. Form-encoded and multipart bodies
+  are no longer read on any path, so bugs in those parsers, like the multipart
+  one fixed in 0.4.18 (CVE-2026-120287), can't be reached. A form-encoded or
+  multipart post to the session API no longer creates a session.
+
+### Fixed
+
+- When a shared command exits, the runner no longer re-creates its session on
+  the relay. It used to dial again while finishing, find the session it had
+  just ended and register it anew, printing "relay session was replaced
+  (deploy?) — re-establishing" after the command was done. The relay then kept
+  a session with no runner for two minutes.
+- In the viewer, Take control stays disabled until the runner is connected, and
+  again while it is away. A tap or a keystroke before that could end, 3
+  seconds later, in "control not granted — host is view-only", which wasn't
+  true. The status now reads "connected" only once the runner has answered.
+- The relay answers a request to a session's socket address that isn't a
+  WebSocket handshake with 400 instead of a server error.
+
+### Changed
+
+- A daily workflow now runs the dependency audit on `main`, so a new advisory
+  shows up between releases instead of at the next one.
+
+### Documentation
+
+- The self-hosting guide now says who can read `/metrics`. With the relay in
+  Docker, anything outside the container needs `ONLYTTY_METRICS_TOKEN`. With
+  host networking, a proxy on the same machine reaches it over loopback, and
+  the guide shows how to block it in nginx.
+
 ## [0.4.18] - 2026-11-17
 
 The viewer is unchanged from 0.4.17.
