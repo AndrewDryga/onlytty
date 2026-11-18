@@ -37,6 +37,7 @@
   button { background:#262e44; color:var(--fg); border:1px solid #3c465f; border-radius:.45rem;
     padding:.35rem .55rem; font-size:.8rem; cursor:pointer; -webkit-tap-highlight-color:transparent; }
   button:active { background:#323c58; }
+  button:disabled { opacity:.5; cursor:default; }
   button.on { background:var(--accent); border-color:var(--accent); color:#fff; }
   #control.live { background:var(--ok); border-color:var(--ok); color:#04210f; }
   /* The ⋯ overflow menu (drops below the button, over the terminal). */
@@ -102,7 +103,7 @@
     <span id="fp" role="button" tabindex="0" hidden></span>
     <span id="ttl" hidden title="Time until this session expires"></span>
     <span class="spacer"></span>
-    <button type="button" id="control">Take control</button>
+    <button type="button" id="control" disabled>Take control</button>
     <button type="button" id="menu-btn" title="More controls" aria-label="More controls" aria-haspopup="true" aria-expanded="false" aria-controls="menu">⋯</button>
     <div id="menu" hidden role="menu">
       <button type="button" id="kbd" class="item" role="menuitem">Open keyboard</button>

@@ -58,6 +58,9 @@ let lastSeq = 0; // runner→viewer replay floor (monotonic, runner is one proce
 let viewerId = "";
 let hasControl = false;
 let controlPending = false, controlTimer = null; // a "Take control" tap awaiting the host's answer
+// The runner's HELLO has arrived on this socket, so a control request has someone to answer
+// it. False while connecting, waiting for the runner, or after it leaves.
+let runnerLive = false;
 let expiresAt = null, ttlTimer = null; // session expiry (unix s) from the hello, for the countdown
 let ptyCols = 80, ptyRows = 24;
 let ended = false, noReconnect = false, exitSeen = false;
@@ -94,6 +97,7 @@ function fatal(html) {
 function updateControlUI() {
   const b = $("control");
   if (ended) { b.textContent = "ended"; b.disabled = true; b.className = ""; return; }
+  b.disabled = !runnerLive;
   if (controlPending && !hasControl) { b.textContent = "Requesting…"; b.className = "on"; return; }
   b.textContent = hasControl ? "You have control" : "Take control";
   b.className = hasControl ? "live" : "";
@@ -209,9 +213,13 @@ async function start(passphrase) {
 
 function connect() {
   if (ended || noReconnect) return;
+  runnerLive = false;
+  clearControlPending();
+  updateControlUI();
   viewerId = bytesToHex(crypto.getRandomValues(new Uint8Array(16)));
   const proto = location.protocol === "https:" ? "wss:" : "ws:";
   ws = new WebSocket(`${proto}//${location.host}/ws/viewer/${encodeURIComponent(id)}`);
+  const sock = ws;
   ws.binaryType = "arraybuffer";
 
   let queue = Promise.resolve(); // serialize async frame handling to preserve order
@@ -236,6 +244,14 @@ function connect() {
   };
   ws.onopen = () => { setStatus("waiting for runner…", "warn"); backoff = 500; requestWakeLock(); };
   ws.onclose = () => {
+    // A request still pending can't be answered on a closed socket; drop it so its timer
+    // doesn't report the host as view-only. Not if a busy retry already replaced this
+    // socket: that state belongs to the new one.
+    if (sock === ws) {
+      runnerLive = false;
+      clearControlPending();
+      updateControlUI();
+    }
     if (ended || noReconnect) return;
     // A retryable "busy" schedules its own reconnect (with a longer backoff to ride out our
     // own zombie socket), and the relay closes right after sending it — so don't also
@@ -334,7 +350,12 @@ function dispatch({ kind, payload }) {
       const h = decodeHello(payload);
       outSeq = Math.max(outSeq, h.baseline - 1); // next send() uses >= baseline
       ptyCols = h.cols; ptyRows = h.rows;
-      if (!ended) setStatus("connected", "ok");
+      // Only the runner's HELLO marks the session connected, so "connected" always means
+      // a control request has someone to answer it. Frames are decrypted on an async
+      // queue, so this one may land after its socket closed: then it changes nothing.
+      runnerLive = !!ws && ws.readyState === WebSocket.OPEN;
+      if (!ended && runnerLive) setStatus("connected", "ok");
+      updateControlUI();
       applySize();
       break;
     }
@@ -385,8 +406,17 @@ function onControlText(data) {
     case "hello":
       if (typeof m.expires_at === "number") { expiresAt = m.expires_at; startTtl(); }
       break;
-    case "peer_join": if (!ended) setStatus("connected", "ok"); break;
-    case "peer_left": if (!ended) setStatus("runner disconnected — waiting…", "warn"); break;
+    // The runner joined. Its HELLO follows at once and is what sets "connected".
+    case "peer_join": break;
+    case "peer_left":
+      // The runner drops every control grant when its connection ends, and its rejoin
+      // repaint carries no control frame, so ours is gone too.
+      runnerLive = false;
+      hasControl = false;
+      clearControlPending();
+      updateControlUI();
+      if (!ended) setStatus("runner disconnected — waiting…", "warn");
+      break;
     case "going_away": if (!ended) setStatus("relay redeploying — reconnecting…", "warn"); break;
     case "busy":
       if (!everConnected) {
@@ -462,9 +492,9 @@ async function sendInput(data, { confirmPaste = true } = {}) {
     // the same request the Take-control button sends (the host still decides) and
     // drop the bytes: input is never buffered and replayed after the async grant —
     // stale bytes into a live shell, with the paste confirm firing out of context.
-    // Off a live socket the status already explains itself ("reconnecting…"), so
-    // don't overwrite it with a request that can't be sent.
-    if (!ended && !controlPending && ws && ws.readyState === WebSocket.OPEN) {
+    // Until the runner is connected the status already explains itself ("waiting for
+    // runner…", "reconnecting…"), so don't overwrite it with a request nobody can answer.
+    if (!ended && !controlPending && runnerLive) {
       requestControl();
       setStatus("read-only — requesting control…", "warn");
     }
@@ -562,11 +592,13 @@ function leave(line, status) {
 // --- controls ----------------------------------------------------------------
 $("disconnect").onclick = () => leave("disconnected", "disconnected");
 
-// Request control: show a pending state and arm a fallback timeout, so a host that
-// never answers (view-only with no reply, or no runner attached) still gets surfaced
-// instead of leaving the button stuck. A Control frame clears this first when it
-// arrives. Fired by the Take-control button and by any input attempt while read-only.
+// Request control: show a pending state and arm a fallback timeout, so a connected host
+// that never answers still gets surfaced instead of leaving the button stuck. A Control
+// frame clears this first when it arrives; a close or the runner leaving drops it. Fired
+// by the Take-control button and by any input attempt while read-only. Without the
+// runner there is no one to ask, and the timeout would wrongly blame a view-only host.
 function requestControl() {
+  if (!runnerLive) return;
   send(Kind.CtrlReq, new Uint8Array(0));
   controlPending = true;
   updateControlUI();

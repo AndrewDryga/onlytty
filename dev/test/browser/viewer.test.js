@@ -9,6 +9,7 @@ import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import http from "node:http";
+import { randomBytes } from "node:crypto";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "../../..");
 const base = process.env.ONLYTTY_SERVER || "http://127.0.0.1:4000";
@@ -429,8 +430,9 @@ test("browser viewer: a frame whose handler throws doesn't wedge the stream", as
       };
     });
     await dismissVerify(page);
-    // Wait for the socket: a click on Take control while it is still connecting is
-    // dropped. The throwing write replaces "connected" within milliseconds, so accept both.
+    // Wait for the runner (the click below would too: the button stays disabled until the
+    // runner's HELLO). The throwing write replaces "connected" within milliseconds, so
+    // accept both.
     await page.waitForFunction(
       () => ["connected", "a frame couldn't be processed"]
         .includes(document.getElementById("status-text").textContent),
@@ -842,6 +844,108 @@ test("browser viewer: a denied control request shows feedback (host view-only)",
       await page.locator("#control.live").count(), 0,
       "denied request must not show the controlling (live) state",
     );
+  } finally {
+    if (browser) await browser.close();
+    proc.kill("SIGKILL");
+  }
+});
+
+test("browser viewer: Take control waits for the runner — no false 'view-only' before it attaches", async (t) => {
+  let chromium;
+  try { ({ chromium } = await import("playwright")); } catch { t.skip("playwright not installed"); return; }
+  if (!(await healthy())) { t.skip("relay not reachable at " + base); return; }
+
+  // A session no runner ever attaches to: the viewer's socket opens, but the runner's
+  // HELLO never comes. A control request now has no one to answer it.
+  const id = randomBytes(16).toString("base64url");
+  const res = await fetch(`${base}/api/sessions`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ id, runner_token: randomBytes(16).toString("base64url") }),
+  });
+  assert.equal(res.status, 201, "create a runner-less session");
+
+  let browser;
+  try {
+    browser = await chromium.launch();
+    const page = await browser.newPage();
+    await page.goto(`${base}/s/${id}#${"A".repeat(43)}`);
+    await dismissVerify(page);
+    await page.waitForFunction(
+      () => document.getElementById("status-text").textContent === "waiting for runner…",
+      null, { timeout: 10000 },
+    );
+    assert.equal(await page.isDisabled("#control"), true, "Take control is disabled until the runner is connected");
+
+    // Typing is the other way to ask. It must not start a request that would time out
+    // into "host is view-only" 3 s later.
+    await page.click(".xterm-screen");
+    await page.keyboard.type("z");
+    await page.waitForTimeout(3500);
+    assert.equal(await page.textContent("#status-text"), "waiting for runner…");
+    assert.equal(await page.textContent("#control"), "Take control");
+  } finally {
+    if (browser) await browser.close();
+  }
+});
+
+test("browser viewer: Take control is disabled again when the runner leaves", async (t) => {
+  let chromium;
+  try { ({ chromium } = await import("playwright")); } catch { t.skip("playwright not installed"); return; }
+  if (!(await healthy())) { t.skip("relay not reachable at " + base); return; }
+
+  const { proc, link } = await startRunner(["--", "bash", "--norc", "--noprofile", "-i"]);
+  let browser;
+  try {
+    browser = await chromium.launch();
+    const page = await browser.newPage();
+    await page.goto(link);
+    await dismissVerify(page);
+    await page.waitForFunction(() => !document.getElementById("control").disabled, null, { timeout: 10000 });
+
+    // The runner vanishes without a bye; the relay tells the viewer with peer_left.
+    proc.kill("SIGKILL");
+    await page.waitForFunction(
+      () => document.getElementById("status-text").textContent === "runner disconnected — waiting…",
+      null, { timeout: 10000 },
+    );
+    assert.equal(await page.isDisabled("#control"), true, "nothing can grant control while the runner is gone");
+  } finally {
+    if (browser) await browser.close();
+    proc.kill("SIGKILL");
+  }
+});
+
+test("browser viewer: a request pending when the runner dies doesn't end in 'view-only'", async (t) => {
+  let chromium;
+  try { ({ chromium } = await import("playwright")); } catch { t.skip("playwright not installed"); return; }
+  if (!(await healthy())) { t.skip("relay not reachable at " + base); return; }
+
+  const { proc, link } = await startRunner(["--", "bash", "--norc", "--noprofile", "-i"]);
+  let browser;
+  try {
+    browser = await chromium.launch();
+    const page = await browser.newPage();
+    await page.goto(link);
+    await dismissVerify(page);
+    await page.waitForFunction(
+      () => document.getElementById("status-text").textContent === "connected",
+      null, { timeout: 10000 },
+    );
+
+    // Freeze the runner so it can't answer, ask for control, then kill it: the relay's
+    // peer_left must drop the request before its 3 s timer blames a view-only host.
+    proc.kill("SIGSTOP");
+    await page.click("#control");
+    const asked = Date.now();
+    proc.kill("SIGKILL");
+    await page.waitForFunction(
+      () => document.getElementById("status-text").textContent === "runner disconnected — waiting…",
+      null, { timeout: 10000 },
+    );
+    await page.waitForTimeout(Math.max(0, asked + 3600 - Date.now()));
+    assert.equal(await page.textContent("#status-text"), "runner disconnected — waiting…");
+    assert.equal(await page.textContent("#control"), "Take control");
   } finally {
     if (browser) await browser.close();
     proc.kill("SIGKILL");

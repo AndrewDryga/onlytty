@@ -13,12 +13,17 @@ of sessions trips it mid-suite. That was the 2026-08 "headless timing" flake. An
 keyed on client IP is hostile to a single-IP harness.
 
 **Headless runner.** The browser suite spawns the binary with stdin ignored and stderr piped, so
-no launch gate arms and nothing opens `/dev/tty`. Wait for the viewer's "connected" status before
-clicking Take control. The verify overlay appears before the socket exists, so a click while the
-socket is still connecting is dropped, and the test times out 8 s later waiting for the button to
-go live. A test whose first frame fails on purpose (the wedge test) must also accept
-"a frame couldn't be processed", which replaces "connected" within milliseconds. The race is
-load-sensitive: it fired on every run with the machine at load 70 on 12 cores.
+no launch gate arms and nothing opens `/dev/tty`. Take control stays disabled until the runner's
+HELLO arrives on an open socket, and goes disabled again on a close or `peer_left` (`runnerLive`
+in `app.js`). Only that HELLO sets the status "connected", never the relay's `peer_join`, which
+comes first. So `page.click("#control")` waits for the runner by itself, but typing doesn't: a
+test that types to ask for control must wait for "connected" first. Before 2026-11-17 the button
+was live from page load and a click while the socket was still connecting was dropped; the race
+fired on every run at load 70 on 12 cores. The wedge test, whose first frame fails on purpose,
+also accepts "a frame couldn't be processed", which replaces "connected" within milliseconds.
+For a session with no runner, `POST /api/sessions` with `{id, runner_token}` (each 16 to 128
+URL-safe characters) and open `/s/<id>#` plus 43 `A`s, a well-formed key; the relay reaps it
+after 120 s.
 
 **CLI tests on a real terminal.** For behaviour that depends on stdin, the controlling terminal
 or termios, `TestMain` in `main_test.go` re-executes the test binary as `onlytty`
@@ -29,6 +34,9 @@ or termios, `TestMain` in `main_test.go` re-executes the test binary as `onlytty
   command line verbatim.
 
 ## Changelog
+- 2026-11-17 — Take control now waits for the runner's HELLO, which alone sets "connected"; how
+  to get a runner-less session (checked against `app.js` and the three new tests in
+  `viewer.test.js`).
 - 2026-11-17 — the wedge and paste tests now wait before clicking; added the wedge status and
   the load note (checked against `viewer.test.js` and `app.js`).
 - 2026-10-29 — created from the 2026-08-06 flake fix and the `6702120` PTY regression test.
