@@ -128,6 +128,44 @@ defmodule OnlyTTYWeb.HTTPTest do
     end
   end
 
+  # The map-params posts above skip Plug.Parsers (the test adapter fills body_params), so
+  # these send raw bodies through it.
+  describe "request bodies: only JSON is parsed" do
+    test "a JSON body creates a session", %{conn: conn} do
+      id = tok()
+
+      conn =
+        conn
+        |> put_req_header("content-type", "application/json")
+        |> post(~p"/api/sessions", Jason.encode!(%{id: id, runner_token: tok()}))
+
+      assert json_response(conn, 201)["id"] == id
+    end
+
+    test "a form-encoded body is not parsed", %{conn: conn} do
+      conn =
+        conn
+        |> put_req_header("content-type", "application/x-www-form-urlencoded")
+        |> post(~p"/api/sessions", URI.encode_query(%{id: tok(), runner_token: tok()}))
+
+      assert json_response(conn, 400) == %{"error" => "id is required"}
+    end
+
+    test "a multipart body is not parsed", %{conn: conn} do
+      body =
+        Enum.map_join([id: tok(), runner_token: tok()], fn {name, value} ->
+          "--b\r\ncontent-disposition: form-data; name=\"#{name}\"\r\n\r\n#{value}\r\n"
+        end) <> "--b--\r\n"
+
+      conn =
+        conn
+        |> put_req_header("content-type", "multipart/form-data; boundary=b")
+        |> post(~p"/api/sessions", body)
+
+      assert json_response(conn, 400) == %{"error" => "id is required"}
+    end
+  end
+
   test "GET /api/sessions returns 405 (POST only)", %{conn: conn} do
     conn = get(conn, ~p"/api/sessions")
     body = json_response(conn, 405)

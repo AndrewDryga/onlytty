@@ -33,12 +33,15 @@ defmodule OnlyTTYWeb.Endpoint do
   # can't spend parser work ahead of being rejected. Other paths pass through.
   plug OnlyTTYWeb.RateLimitGuard
 
+  # JSON only: the one route with a body, POST /api/sessions, takes JSON. Any other
+  # content type passes through unread, so the multipart parser (CVE-2026-120287) and
+  # the form-body parser never run. No Plug.MethodOverride either: no route takes PUT,
+  # PATCH or DELETE.
   plug Plug.Parsers,
-    parsers: [:urlencoded, :multipart, :json],
+    parsers: [:json],
     pass: ["*/*"],
     json_decoder: Phoenix.json_library()
 
-  plug Plug.MethodOverride
   plug Plug.Head
   plug OnlyTTYWeb.Router
 end
