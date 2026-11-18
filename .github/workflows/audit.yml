@@ -1,0 +1,44 @@
+name: Audit
+
+# `make audit` (govulncheck, npm audit, mix hex.audit) otherwise runs only in the release
+# gate, so a new advisory against a locked dependency waits for the next tag. This runs it
+# on main every day. A red run is the signal: GitHub notifies whoever last changed the cron
+# line or re-enabled the workflow. It blocks nothing. Toolchains and pins match the release
+# gate, which also installs govulncheck at @latest on purpose.
+
+on:
+  schedule:
+    - cron: "17 7 * * *" # daily, 07:17 UTC
+  workflow_dispatch:
+
+concurrency:
+  group: audit
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: audit (go + npm + hex)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: runner/go.mod
+          cache-dependency-path: runner/go.sum
+      - uses: erlef/setup-beam@54075bcc5e249e4758d363f27d099f55d843f124 # v1.24.1
+        with:
+          otp-version: "29.1.2"
+          elixir-version: "1.20.5"
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "26.13.0"
+      - run: mix deps.get
+        working-directory: portal
+      - run: go install golang.org/x/vuln/cmd/govulncheck@latest
+      - run: echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+      # -k: run all three audits even when one fails, so one standing finding can't hide
+      # the others. npm audit reads package-lock.json; it needs no node_modules.
+      - run: make -k audit

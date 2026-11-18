@@ -2,7 +2,7 @@
 name: release-and-deploy
 description: a tag runs release.yml, which publishes the GitHub release and the GHCR image; verify the artifacts, not the badges; deploying is a human-confirmed Terraform Cloud run
 subsystem: release
-sources: [.github/workflows/release.yml, .github/workflows/promote-image.yml, .github/workflows/ci.yml, .github/workflows/selfhost-check.yml, Makefile, CHANGELOG.md, install.sh]
+sources: [.github/workflows/release.yml, .github/workflows/promote-image.yml, .github/workflows/ci.yml, .github/workflows/selfhost-check.yml, .github/workflows/audit.yml, Makefile, CHANGELOG.md, install.sh]
 updated: 2026-11-17
 ---
 **Cut a release.** Run `make audit` twice. First before you write the changelog: advisories
@@ -21,6 +21,12 @@ with build provenance, plus the multi-arch `ghcr.io/andrewdryga/onlytty:X.Y.Z` a
 Nothing else runs the two publish jobs, so an action pin bumped there is first exercised by the
 tag. `fail_on_unmatched_files` makes the release step fail before it creates a release with no
 binaries.
+
+**Between releases** the daily `audit.yml` runs `make -k audit` on `main`. A red run is a
+finding against `main`'s lockfiles, usually also in the latest release: handle it like a
+release's first audit. It doesn't cover the Elixir/OTP toolchain, the base image or Caddy.
+GitHub turns off a public repo's scheduled workflows after 60 days without activity;
+`gh workflow enable audit.yml` turns it back on.
 
 **Verify the artifacts, not the badges.**
 - The release is Latest, and every tarball matches `SHA256SUMS`.
@@ -41,6 +47,8 @@ viewer assets (served `no-store`) with the release's `VIEWER_HASHES`, or probe a
 release changed. [production-checks](production-checks.md) has the checks to run after the apply.
 
 ## Changelog
+- 2026-11-17 — the daily `audit.yml` and what it doesn't cover (checked against the workflow file
+  and the Makefile's audit targets).
 - 2026-11-17 — pointed the deploy step at the new `production-checks` card.
 - 2026-11-17 — audit before the changelog and again before the tag, Selfhost check's path
   filter, and the publish jobs' first-run risk (from v0.4.18; checked against

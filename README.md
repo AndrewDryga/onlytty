@@ -236,6 +236,11 @@ whose jobs together cover everything in `make check` plus `make e2e`:
 Those four job names are the required status checks on `main`; keep them stable so branch
 protection keeps matching.
 
+[`.github/workflows/audit.yml`](.github/workflows/audit.yml) runs `make audit` on `main` every
+day, so a new advisory against a locked Go, Hex or npm dependency, or a retired Hex package,
+shows up as a failed run instead of waiting for the next release gate. It isn't a required
+check and blocks nothing.
+
 ## License
 
 [MIT](LICENSE)
