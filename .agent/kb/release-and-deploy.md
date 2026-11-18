@@ -38,9 +38,10 @@ and queues a run, and a human confirms the apply in TFC. Runs queue per workspac
 that is waiting for confirmation must be applied or discarded first. Check that the plan deploys
 the image you meant before confirming. Production has no version endpoint. Compare the live
 viewer assets (served `no-store`) with the release's `VIEWER_HASHES`, or probe a route the
-release changed.
+release changed. [production-checks](production-checks.md) has the checks to run after the apply.
 
 ## Changelog
+- 2026-11-17 — pointed the deploy step at the new `production-checks` card.
 - 2026-11-17 — audit before the changelog and again before the tag, Selfhost check's path
   filter, and the publish jobs' first-run risk (from v0.4.18; checked against
   `selfhost-check.yml`, `release.yml` and `softprops/action-gh-release` `src/run.ts` at v3.0.4).

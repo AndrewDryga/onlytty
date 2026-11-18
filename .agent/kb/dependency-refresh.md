@@ -35,9 +35,11 @@ scripts: `dev/scripts/selfhost-check.sh` pins Caddy and a curl image.
   package with the discovery call itself (`:hackney.request/5` unauthenticated: a 401 means the
   handshake and the hostname check passed), and with `hackney_ssl:connect/4` plus
   `hackney_ssl:ssl_opts/2` against a certificate for another host, which must end in a TLS
-  alert. A timeout is not a rejection.
+  alert. A timeout is not a rejection. This proves the TLS path, not discovery on GCE: for
+  that, see [production-checks](production-checks.md).
 
 ## Changelog
+- 2026-11-17 — pointed the hackney proof at the new `production-checks` card.
 - 2026-11-17 — added the hackney proof and the script image pins, and moved the notes on taking
   or holding a version to `dependency-holds` (from v0.4.18; checked against `hackney_ssl.erl` in
   hackney 4.10.2, `portal/lib/onlytty/cluster/gce.ex` and `selfhost-check.sh`).

@@ -32,6 +32,7 @@ One fact per file, under a screen, with a small changelog:
 
 ## Index
 - [release-and-deploy](release-and-deploy.md) — a tag runs release.yml; verify the artifacts, not the badges; deploying is a human-confirmed Terraform Cloud run
+- [production-checks](production-checks.md) — checking production from outside after an apply: old responses, one real session, session lookups across instances, and how many runtimes answered
 - [dependency-refresh](dependency-refresh.md) — releases at least 7 days old, one commit per risk class, pins re-resolved from tags, and the checks CI can't run
 - [dependency-holds](dependency-holds.md) — taking a security fix inside the cooldown, updates that move packages you didn't name, pinning the Terraform provider, and cooldown edges
 - [viewer-assets](viewer-assets.md) — the vendored xterm naming and SRI scheme, VIEWER_HASHES, and what xterm's onData carries besides typing
