@@ -27,7 +27,7 @@ services:
       # uncomment only what you change:
       # ONLYTTY_MAX_TTL: "604800"       # cap session lifetime at 7 days (default: no cap)
       # ONLYTTY_MAX_SESSIONS: "2000"    # concurrent in-memory sessions
-      # ONLYTTY_METRICS_TOKEN: "..."    # let a remote scraper read GET /metrics
+      # ONLYTTY_METRICS_TOKEN: "..."    # let a scraper read GET /metrics through Caddy
     expose:
       # Internal-only: Caddy reaches it as onlytty:4000; the host and public net cannot.
       # Do NOT add a public `ports: "4000:4000"` mapping. The relay speaks plain HTTP and

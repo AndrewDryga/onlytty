@@ -79,7 +79,9 @@ docker run -p 4000:4000 \
   `x-forwarded-proto` — the prod config enforces http→https + HSTS, and the viewer
   needs a secure context (Web Crypto + the secret must never travel in cleartext).
 - **Bind to loopback behind the proxy** where possible; the relay terminates plain
-  HTTP and relies on the proxy for TLS.
+  HTTP and relies on the proxy for TLS. A proxy on the relay's own host then reaches
+  `GET /metrics` over loopback, which `MetricsAccess` admits, so block `/metrics` at that
+  proxy (SELF_HOSTING.md has the nginx block).
 
 ## Logging
 

@@ -8,8 +8,9 @@ defmodule OnlyTTY.Metrics do
   session id, IP, or other per-session label, so the endpoint reveals only totals
   and never anything about an individual session. Keep it that way — adding a
   high-cardinality label (or anything derived from a session id / URL) would both
-  blow up Prometheus and leak. The `/metrics` endpoint must still be firewalled or
-  kept behind the proxy, not exposed publicly (see README).
+  blow up Prometheus and leak. `OnlyTTYWeb.MetricsAccess` still keeps the endpoint off
+  the public internet: loopback or the bearer token only. A proxy on the relay's own
+  host arrives over loopback, so it must block `/metrics` itself (see SELF_HOSTING.md).
 
   The counter array is allocated once at application boot (`setup/0`) and its
   reference stashed in `:persistent_term`, so `inc/1` is a single atomic add with

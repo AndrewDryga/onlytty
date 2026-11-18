@@ -139,7 +139,7 @@ have working defaults. The source of truth is
 | `ONLYTTY_RATELIMIT_MAX` | `30` | max `POST /api/sessions` **and** WS upgrades per window per client IP (`0` disables; separate buckets). Behind a proxy this is per **client** only if `ONLYTTY_TRUSTED_PROXY_HOPS` is set — see below |
 | `ONLYTTY_RATELIMIT_WINDOW` | `60` | rate-limit window length (seconds) |
 | `ONLYTTY_TRUSTED_PROXY_HOPS` | `0` | how the relay finds the real client IP to throttle on. `0` = no proxy: key on the direct TCP peer. `edge` = a single trusted proxy that overwrites/appends the client as the LAST `X-Forwarded-For` entry (the bundled Caddy sets this for you). `N` = a chain of N proxies that each append their own address after the client (`1` = the Google HTTPS LB). See the note below |
-| `ONLYTTY_METRICS_TOKEN` | — | bearer token for `GET /metrics` from off-host; unset → loopback-only |
+| `ONLYTTY_METRICS_TOKEN` | — | bearer token a scraper sends to read `GET /metrics`; unset → only a client on the relay's own loopback can (see [Operating it](#operating-it)) |
 | `SENTRY_DSN` | — | optional backend-only error reporting; no-op unless set |
 
 TTL is opt-in: by default a session has no expiry and lives as long as `onlytty` runs (it
@@ -176,9 +176,15 @@ In both modes a client-supplied `X-Forwarded-For` can't move the position the re
 - **Logs:** `docker compose logs -f onlytty`. They carry only metadata — an 8-character
   session-id prefix, the role, a timestamp. Never IP addresses, never terminal content
   (it's E2E and never reaches the relay).
-- **Metrics:** `GET /metrics` is Prometheus text — aggregate, label-free counters. It's
-  loopback-only until you set `ONLYTTY_METRICS_TOKEN`, then a scraper carrying
-  `Authorization: Bearer <token>` can read it through the proxy.
+- **Metrics:** `GET /metrics` is Prometheus text — aggregate, label-free counters. The relay
+  serves it to a client on its own loopback, and to any client carrying
+  `Authorization: Bearer <token>` once you set `ONLYTTY_METRICS_TOKEN`. In the Compose bundle
+  or with `docker run -p`, that loopback is inside the container: the host, Caddy and any proxy
+  arrive over Docker's network, so a scraper needs the token, and with it can read `/metrics`
+  through the proxy. With host networking, or the relay run straight on the host, a proxy on
+  the same machine arrives over loopback and would make `/metrics` public: block it at the
+  proxy and scrape `http://127.0.0.1:4000/metrics` on the machine instead (see the nginx
+  example under [Bring your own proxy](#bring-your-own-proxy)).
 - **Backups:** none. There is no database and no terminal state. Keep `SECRET_KEY_BASE`
   somewhere safe; everything else is reproducible from the image.
 - **Scaling out:** one container handles a lot — sessions are cheap and hold no terminal
@@ -241,6 +247,19 @@ docker run -p 127.0.0.1:4000:4000 \
   -e SECRET_KEY_BASE="$(openssl rand -base64 64)" \
   -e PHX_HOST=relay.example.com \
   ghcr.io/andrewdryga/onlytty:latest
+```
+
+With the relay in a container as above, nginx's connection goes through Docker's port
+forwarding and reaches the relay over Docker's network, so `/metrics` still needs the token.
+With host networking, or the relay run straight on the host (a `mix release`, no container),
+nginx connects over loopback and the relay takes every request it forwards for an on-box
+scrape. Add this to the same `server` block as `location /`, and scrape
+`http://127.0.0.1:4000/metrics` on the machine instead:
+
+```nginx
+location /metrics {    # a prefix, so /metrics/ is caught too
+    return 404;
+}
 ```
 
 ## Security when you self-host
