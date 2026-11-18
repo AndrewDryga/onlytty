@@ -7,8 +7,10 @@ defmodule OnlyTTYWeb.SocketController do
   `WebSock.init/1` only runs after the handshake has already succeeded:
 
     * over the per-IP upgrade rate limit -> 429 (checked first, cheapest to reject)
+    * a browser viewer from a foreign Origin -> 403
     * unknown / expired session  -> 404 (the handshake fails; no socket opens)
     * runner with wrong/missing token -> 401
+    * not a WebSocket handshake -> 400 (checked last)
 
   The single-viewer lock is the one rejection that happens after upgrade: the
   viewer socket sends `{"t":"busy"}` then closes (handled in `OnlyTTYSocket`).
@@ -85,13 +87,22 @@ defmodule OnlyTTYWeb.SocketController do
     |> halt()
   end
 
+  # Checked last, so the answers above don't change. A request that isn't a WebSocket
+  # handshake would make WebSockAdapter.upgrade/4 raise, a 500 and an error in the log
+  # for a client mistake; answer 400 with the reason, as Phoenix's own socket does.
   defp upgrade(conn, state) do
-    conn
-    |> WebSockAdapter.upgrade(OnlyTTYWeb.OnlyTTYSocket, state,
-      max_frame_size: max_frame_size(),
-      timeout: @socket_timeout
-    )
-    |> halt()
+    case WebSockAdapter.UpgradeValidation.validate_upgrade(conn) do
+      :ok ->
+        conn
+        |> WebSockAdapter.upgrade(OnlyTTYWeb.OnlyTTYSocket, state,
+          max_frame_size: max_frame_size(),
+          timeout: @socket_timeout
+        )
+        |> halt()
+
+      {:error, reason} ->
+        reject(conn, 400, reason)
+    end
   end
 
   # Same-origin check for browser viewers (defense-in-depth). A missing Origin is a

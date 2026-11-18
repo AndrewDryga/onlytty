@@ -166,6 +166,42 @@ defmodule OnlyTTYWeb.HTTPTest do
     end
   end
 
+  # A plain GET to a live session's socket used to raise WebSockAdapter.UpgradeError: a
+  # 500 and an error in the log for a client mistake. The checks before the upgrade still
+  # come first, so their answers don't change.
+  describe "session sockets without a WebSocket handshake" do
+    # A real server puts the client's Host in req_headers; the test conn doesn't, and
+    # put_req_header/3 refuses "host".
+    setup %{conn: conn},
+      do: %{conn: %{conn | req_headers: [{"host", "www.example.com"} | conn.req_headers]}}
+
+    test "the viewer socket answers 400", %{conn: conn} do
+      {:ok, s} = OnlyTTY.SessionStore.create_or_attach(tok(), tok())
+      conn = get(conn, ~p"/ws/viewer/#{s.id}")
+      assert text_response(conn, 400) =~ "upgrade"
+    end
+
+    test "the runner socket answers 400 to its own runner", %{conn: conn} do
+      {:ok, s} = OnlyTTY.SessionStore.create_or_attach(tok(), tok())
+
+      conn =
+        conn
+        |> put_req_header("authorization", "Bearer " <> s.runner_token)
+        |> get(~p"/ws/runner/#{s.id}")
+
+      assert text_response(conn, 400) =~ "upgrade"
+    end
+
+    test "a foreign Origin is still 403, an unknown session 404, a missing token 401",
+         %{conn: conn} do
+      {:ok, s} = OnlyTTY.SessionStore.create_or_attach(tok(), tok())
+      foreign = put_req_header(conn, "origin", "https://evil.example")
+      assert text_response(get(foreign, ~p"/ws/viewer/#{s.id}"), 403) == "forbidden origin"
+      assert text_response(get(conn, ~p"/ws/viewer/#{tok()}"), 404) == "unknown session"
+      assert text_response(get(conn, ~p"/ws/runner/#{s.id}"), 401) == "unauthorized"
+    end
+  end
+
   test "GET /api/sessions returns 405 (POST only)", %{conn: conn} do
     conn = get(conn, ~p"/api/sessions")
     body = json_response(conn, 405)

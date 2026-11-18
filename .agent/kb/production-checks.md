@@ -23,8 +23,9 @@ clustered with the owner, and answers 404 `unknown session` on one that isn't. T
 service has no session affinity (`lb.tf`), so each upgrade can land on any instance. Create one
 session (`id` and `runner_token`, 16 to 128 URL-safe characters), upgrade it a dozen or so
 times, and expect 101 every time. An id nobody created must get 404.
-- Send a real WebSocket handshake and no `Origin` header. A plain GET for a live session raises
-  `WebSockAdapter.UpgradeError`, which is a 500 and an error in the relay's log.
+- Send a real WebSocket handshake and no `Origin` header. Without the handshake headers a live
+  session answers 400 (`SocketController.upgrade/2` runs `validate_upgrade/1` from
+  websock_adapter last), and a foreign `Origin` gets 403.
 - Creates and upgrades are each limited to 30 per 60 s per client IP on each instance, and
   refused upgrades count. Pace the probe.
 - A session with no runner is reaped after 120 s (`@unconnected_ms` in `Session`). Finish
@@ -42,6 +43,8 @@ restart or a replaced instance looks like. Static assets carry no id (`Plug.Stat
 first), and an id the client sends is echoed, so send none.
 
 ## Changelog
+- 2026-11-17 — a plain GET for a live session is now a 400, not a 500 (checked against
+  `socket_controller.ex` and its tests in `http_test.exs`).
 - 2026-11-17 — created from the v0.4.18 rollout. One runtime answered all 98 requests sampled
   over six and a half minutes, so lookups across instances went untested, and with them cluster
   discovery after the hackney 4.10.2 and libcluster 3.6.0 bumps (checked against the sources,
