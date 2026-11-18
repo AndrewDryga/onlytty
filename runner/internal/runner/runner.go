@@ -94,6 +94,7 @@ type Orchestrator struct {
 	onceUsed atomic.Bool // ControlOnce: the one-time grant has been consumed
 	viewers  atomic.Int32
 	exitCode atomic.Int32 // child exit code, stored once by the exit watcher; -1 until set
+	ended    atomic.Bool  // the command has exited: connectLoop must not dial the relay again
 
 	altScreen atomic.Bool  // child is in the alternate screen buffer (vim/htop/less/…)
 	lastCtl   atomic.Int64 // unixnano of the child's last cursor/line-control output
@@ -170,6 +171,9 @@ func (o *Orchestrator) Run(parent context.Context) int {
 		// via the atomic after wg.Wait(); reading o.sess.ExitCode() there instead would
 		// race this goroutine's cmd.Wait() write (confirmed under `go test -race`).
 		o.exitCode.Store(int32(o.sess.ExitCode()))
+		// After the exit code, which Run reads once connectLoop has seen this and returned;
+		// before the bye is queued, so it is visible by the time the relay acts on it.
+		o.ended.Store(true)
 		o.signalExit()
 		time.Sleep(exitFlush)
 		cancel()
@@ -318,10 +322,20 @@ func (o *Orchestrator) enqueue(m outMsg) {
 // connectLoop keeps a runner WebSocket up, reconnecting with backoff. A fatal
 // rejection (expired session / bad token) stops relaying but leaves the command
 // running locally.
+//
+// It stops once the command has exited. The bye makes the relay end the session and
+// close our socket, so a re-dial would get 404 and re-claim a session nobody will use,
+// and a new connection would not carry the EXIT and bye: they were queued on the old one.
 func (o *Orchestrator) connectLoop(ctx context.Context) {
 	backoff := 500 * time.Millisecond
-	for ctx.Err() == nil {
+	for ctx.Err() == nil && !o.ended.Load() {
 		conn, err := o.client.DialRunner(ctx, o.id, o.tok)
+		if o.ended.Load() { // the command exited while we were dialing
+			if conn != nil {
+				conn.CloseNow()
+			}
+			return
+		}
 		if err != nil {
 			var fatal *relayclient.FatalDialError
 			if errors.As(err, &fatal) {
@@ -340,7 +354,11 @@ func (o *Orchestrator) connectLoop(ctx context.Context) {
 						o.note("onlytty: session reached its expiry while the relay was gone — sharing stopped (command still running locally)")
 						return
 					}
-					if _, rerr := o.client.CreateSessionWithOptions(ctx, o.id, o.tok, ttl, relayclient.CreateSessionOptions{MultiViewer: o.multiViewer}); rerr != nil {
+					_, rerr := o.client.CreateSessionWithOptions(ctx, o.id, o.tok, ttl, relayclient.CreateSessionOptions{MultiViewer: o.multiViewer})
+					if o.ended.Load() { // the command exited while we were re-claiming
+						return
+					}
+					if rerr != nil {
 						if ctx.Err() != nil {
 							return
 						}

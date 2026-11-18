@@ -3,13 +3,19 @@ package runner
 import (
 	"context"
 	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
+	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/AndrewDryga/onlytty/runner/internal/protocol"
 	"github.com/AndrewDryga/onlytty/runner/internal/ptysession"
 	"github.com/AndrewDryga/onlytty/runner/internal/relayclient"
+	"github.com/coder/websocket"
 )
 
 // newTestOrch builds an Orchestrator over a real PTY running `cat`, plus the viewer's
@@ -634,4 +640,253 @@ func TestRunPropagatesNonZeroExit(t *testing.T) {
 	case <-time.After(5 * time.Second):
 		t.Fatal("Run did not return after the child exited")
 	}
+}
+
+// endingRelay is just enough of the relay for the runner's connect loop. It upgrades the
+// runner socket, says hello with one viewer so the runner repaints, and, like the real
+// relay, ends the session on the runner's bye: it closes the socket and answers 404 to
+// any later dial. A POST /api/sessions re-creates the session, as a re-claim would.
+type endingRelay struct {
+	dials, creates, byes atomic.Int32
+	gone                 atomic.Bool
+	attached             chan struct{} // closed once the runner's first frame arrives
+	attachOnce           sync.Once
+}
+
+func (f *endingRelay) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	switch {
+	case r.Method == http.MethodPost && r.URL.Path == "/api/sessions":
+		f.creates.Add(1)
+		f.gone.Store(false)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		_, _ = io.WriteString(w, `{"id":"sess","runner_token":"tok","expires_at":0}`)
+	case strings.HasPrefix(r.URL.Path, "/ws/runner/"):
+		f.dials.Add(1)
+		if f.gone.Load() {
+			http.NotFound(w, r)
+			return
+		}
+		c, err := websocket.Accept(w, r, nil)
+		if err != nil {
+			return
+		}
+		defer c.CloseNow()
+		if c.Write(r.Context(), websocket.MessageText, []byte(`{"t":"hello","viewers":1}`)) != nil {
+			return
+		}
+		for {
+			typ, data, err := c.Read(r.Context())
+			if err != nil {
+				return
+			}
+			if typ == websocket.MessageBinary {
+				f.attachOnce.Do(func() { close(f.attached) })
+			}
+			if typ == websocket.MessageText && strings.Contains(string(data), `"t":"bye"`) {
+				f.byes.Add(1)
+				f.gone.Store(true)
+				_ = c.Write(r.Context(), websocket.MessageText, []byte(`{"t":"bye","reason":"ended"}`))
+				_ = c.Close(websocket.StatusCode(4000), "ended")
+				return
+			}
+		}
+	default:
+		http.NotFound(w, r)
+	}
+}
+
+// lostRelay has lost the session: every runner dial gets 404. It can hold the first dial
+// or the first create until free is called, so a test can end the command while that
+// request is in flight.
+type lostRelay struct {
+	holdDial, holdCreate      bool
+	dials, creates            atomic.Int32
+	inFlight, release         chan struct{}
+	inFlightOnce, releaseOnce sync.Once
+}
+
+func newLostRelay(holdDial, holdCreate bool) *lostRelay {
+	return &lostRelay{holdDial: holdDial, holdCreate: holdCreate,
+		inFlight: make(chan struct{}), release: make(chan struct{})}
+}
+
+func (f *lostRelay) free() { f.releaseOnce.Do(func() { close(f.release) }) }
+
+func (f *lostRelay) waitInFlight(t *testing.T) {
+	t.Helper()
+	select {
+	case <-f.inFlight:
+	case <-time.After(5 * time.Second):
+		t.Fatal("the held request never arrived")
+	}
+}
+
+func (f *lostRelay) hold() {
+	f.inFlightOnce.Do(func() { close(f.inFlight) })
+	<-f.release
+}
+
+func (f *lostRelay) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	switch {
+	case r.Method == http.MethodPost && r.URL.Path == "/api/sessions":
+		if f.creates.Add(1) == 1 && f.holdCreate {
+			f.hold()
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		_, _ = io.WriteString(w, `{"id":"sess","runner_token":"tok","expires_at":0}`)
+	case strings.HasPrefix(r.URL.Path, "/ws/runner/"):
+		if f.dials.Add(1) == 1 && f.holdDial {
+			f.hold()
+		}
+		http.NotFound(w, r)
+	default:
+		http.NotFound(w, r)
+	}
+}
+
+// catRun is an Orchestrator running `cat` against a test relay. Writing ^D to in ends
+// the command, as typing it at the host's terminal would.
+type catRun struct {
+	o     *Orchestrator
+	in    *io.PipeWriter
+	done  chan int
+	mu    sync.Mutex
+	notes []string
+}
+
+func runCat(t *testing.T, relay http.Handler) *catRun {
+	t.Helper()
+	srv := httptest.NewServer(relay)
+	t.Cleanup(srv.Close)
+	ps, err := ptysession.Start([]string{"cat"}, os.Environ())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = ps.Close() })
+	_ = ps.SetSize(80, 24)
+	keys, err := protocol.DeriveKeys(make([]byte, protocol.SecretLen), "sess", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	client, err := relayclient.New(srv.URL, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	in, w := io.Pipe()
+	t.Cleanup(func() { _ = w.Close() })
+	r := &catRun{in: w, done: make(chan int, 1)}
+	r.o, err = New(Config{
+		Session: ps, Keys: keys, SessionID: "sess", Token: "tok", Client: client,
+		LocalIn: in, LocalOut: io.Discard,
+		Notify: func(msg string, _ bool) { r.mu.Lock(); r.notes = append(r.notes, msg); r.mu.Unlock() },
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	t.Cleanup(cancel)
+	go func() { r.done <- r.o.Run(ctx) }()
+	return r
+}
+
+func (r *catRun) endCommand() { _, _ = r.in.Write([]byte{0x04}) } // ^D: cat reads EOF and exits 0
+
+// waitEnded waits until the exit watcher has marked the command as ended.
+func (r *catRun) waitEnded(t *testing.T) {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	for !r.o.ended.Load() {
+		if time.Now().After(deadline) {
+			t.Fatal("the command never ended")
+		}
+		time.Sleep(time.Millisecond)
+	}
+}
+
+func (r *catRun) waitRun(t *testing.T) {
+	t.Helper()
+	select {
+	case code := <-r.done:
+		if code != 0 {
+			t.Fatalf("exit code = %d, want 0", code)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("Run did not return after the command exited")
+	}
+}
+
+func (r *catRun) assertNoReestablishing(t *testing.T) {
+	t.Helper()
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for _, n := range r.notes {
+		if strings.Contains(n, "re-establishing") {
+			t.Errorf("printed %q after the command exited", n)
+		}
+	}
+}
+
+// When the command exits, the runner's bye makes the relay end the session and close
+// the runner socket. The runner must not dial again: the dial gets 404, and re-claiming
+// would leave a runner-less session on the relay for two minutes and print
+// "re-establishing" after the command has finished.
+func TestNoRedialAfterCommandExit(t *testing.T) {
+	relay := &endingRelay{attached: make(chan struct{})}
+	r := runCat(t, relay)
+	select {
+	case <-relay.attached:
+	case <-time.After(5 * time.Second):
+		t.Fatal("the runner never attached to the relay")
+	}
+	r.endCommand()
+	r.waitRun(t)
+
+	if n := relay.byes.Load(); n != 1 {
+		t.Fatalf("byes = %d, want 1: without the bye the relay never ends the session", n)
+	}
+	if n := relay.dials.Load(); n != 1 {
+		t.Errorf("runner dials = %d, want 1: the runner dialed again after its bye ended the session", n)
+	}
+	if n := relay.creates.Load(); n != 0 {
+		t.Errorf("session creates = %d, want 0: the runner re-created the session it had just ended", n)
+	}
+	r.assertNoReestablishing(t)
+}
+
+// A dial in flight when the command exits must not lead to a re-claim when it comes back
+// 404.
+func TestNoReclaimWhenDialAnswersAfterExit(t *testing.T) {
+	relay := newLostRelay(true, false)
+	r := runCat(t, relay)
+	t.Cleanup(relay.free)
+	relay.waitInFlight(t)
+	r.endCommand()
+	r.waitEnded(t)
+	relay.free()
+	r.waitRun(t)
+
+	if n := relay.creates.Load(); n != 0 {
+		t.Errorf("session creates = %d, want 0: re-claimed after the command exited", n)
+	}
+	r.assertNoReestablishing(t)
+}
+
+// A re-claim already sent when the command exits can't be taken back, but the runner must
+// not announce it or dial again.
+func TestNoRedialWhenReclaimAnswersAfterExit(t *testing.T) {
+	relay := newLostRelay(false, true)
+	r := runCat(t, relay)
+	t.Cleanup(relay.free)
+	relay.waitInFlight(t)
+	r.endCommand()
+	r.waitEnded(t)
+	relay.free()
+	r.waitRun(t)
+
+	if n := relay.dials.Load(); n != 1 {
+		t.Errorf("runner dials = %d, want 1: dialed again after the command exited", n)
+	}
+	r.assertNoReestablishing(t)
 }
