@@ -2,6 +2,20 @@
 
 All notable changes to OnlyTTY are recorded here.
 
+## [0.4.21] - 2026-11-19
+
+The runner and the viewer are the same as in 0.4.20.
+
+### Security
+
+- The relay reads the parameters of `POST /api/sessions` only from a JSON
+  body. It used to read the query string too, so a page on another site
+  could make a visitor's browser create sessions with a plain cross-origin
+  POST, which browsers send without asking the relay first. Those sessions
+  lingered until the relay cleared them two minutes later. It also keeps
+  runner tokens out of URLs and access logs. The runner always sends a JSON
+  body, so nothing that uses the relay changes.
+
 ## [0.4.20] - 2026-11-19
 
 The runner and the viewer are the same as in 0.4.19.
