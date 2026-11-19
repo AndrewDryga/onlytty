@@ -2,6 +2,27 @@
 
 All notable changes to OnlyTTY are recorded here.
 
+## [0.4.20] - 2026-11-19
+
+The runner and the viewer are the same as in 0.4.19.
+
+### Security
+
+- Update idna to 8.0.0 in the relay. It comes with hackney 4.11.1, the
+  relay's HTTP client, and the h2, quic and webtransport versions that
+  hackney requires. idna 7.1.0 converted a hostname label longer than 63
+  octets in full before rejecting it, in super-linear time, so one long
+  label could keep the CPU busy (CVE-2026-117678). hackney calls idna only
+  for a non-ASCII hostname, and the relay's own requests, for cluster
+  discovery and error reporting, go to hostnames fixed in code or
+  configuration, so a client couldn't reach it.
+
+### Changed
+
+- Shorter meta descriptions, the summary a search engine shows under the
+  title, for the self-hosting page and the per-tool "Control … from your
+  phone" pages.
+
 ## [0.4.19] - 2026-11-17
 
 ### Security
