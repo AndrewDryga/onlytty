@@ -13,16 +13,22 @@ defmodule OnlyTTYWeb.SessionController do
 
   The runner generates its own `id` and `runner_token` (each URL-safe, >= 120 bits)
   and sends them in the JSON body, so it can re-establish the SAME session on any
-  node after a node loss/deploy. Both are required. Optional `ttl_seconds` (default
+  node after a node loss/deploy. Both are required. Every parameter is read from the
+  JSON body only; the query string is ignored. Optional `ttl_seconds` (default
   `0` = no expiry; a positive value is floored at 60s and capped by the optional
   `ONLYTTY_MAX_TTL`) and `multi_viewer` (default false; when true, several viewers
   may watch and one can hold control at a time). Idempotent: re-posting the same id
   with the matching token attaches to the live session (keeping its expiry); a wrong
   token for an existing id is a 401. Responds 201 with `{id, runner_token, expires_at}`.
   """
-  def create(conn, params) do
+  def create(conn, _params) do
     # The per-IP throttle runs in the endpoint (OnlyTTYWeb.RateLimitGuard) ahead of
     # Plug.Parsers, so by the time we get here the request is within the limit.
+    # Not the merged params: a page on another site can put a query string in a "simple"
+    # cross-origin POST, which needs no CORS preflight, and a runner token in a URL ends
+    # up in access logs. A JSON body needs a preflight, and the relay answers none.
+    params = conn.body_params
+
     with {:ok, id} <- id_param(params),
          {:ok, token} <- token_param(params),
          {:ok, ttl} <- ttl_param(params),

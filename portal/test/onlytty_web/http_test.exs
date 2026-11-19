@@ -164,6 +164,33 @@ defmodule OnlyTTYWeb.HTTPTest do
 
       assert json_response(conn, 400) == %{"error" => "id is required"}
     end
+
+    # Nor is the query string a way in. A page on another site can send it in a "simple"
+    # POST, which needs no CORS preflight, and a runner token in a URL lands in access logs.
+    test "params in the query string don't create a session", %{conn: conn} do
+      conn =
+        conn
+        |> put_req_header("content-type", "text/plain")
+        |> post(~p"/api/sessions?#{[id: tok(), runner_token: tok()]}", "")
+
+      assert json_response(conn, 400) == %{"error" => "id is required"}
+    end
+
+    test "the query string is ignored next to a JSON body", %{conn: conn} do
+      id = tok()
+
+      conn =
+        conn
+        |> put_req_header("content-type", "application/json")
+        |> post(
+          ~p"/api/sessions?#{[ttl_seconds: 60]}",
+          Jason.encode!(%{id: id, runner_token: tok()})
+        )
+
+      body = json_response(conn, 201)
+      assert body["id"] == id
+      assert body["expires_at"] == 0
+    end
   end
 
   # A plain GET to a live session's socket used to raise WebSockAdapter.UpgradeError: a

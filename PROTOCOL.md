@@ -230,7 +230,8 @@ viewer→runner frames to the runner.
   `ttl_seconds` (default `0` = no expiry; positive is floored at 60s and capped by the
   relay's optional `ONLYTTY_MAX_TTL`); optional `multi_viewer` defaults false and
   disables the single-viewer lock when true; `expires_at` is `0` when there is no
-  expiry.
+  expiry. Parameters are read from a JSON body only (`content-type: application/json`);
+  the query string is ignored.
 - `GET  /s/:id` → the viewer HTML page (static; JS reads id from path, S from `#`).
 - `GET  /ws/runner/:id` → WebSocket; requires `Authorization: Bearer <runner_token>`.
 - `GET  /ws/viewer/:id` → WebSocket; capability is knowing `:id`.
