@@ -64,7 +64,7 @@ defmodule OnlyTTYWeb.Site.Page do
     layout(
       title: "Control #{tool.name} from your phone · OnlyTTY",
       description:
-        "Run #{tool.name} on your machine and drive it from your phone with OnlyTTY. #{tool.why} End-to-end encrypted, opens view-only but anyone with the link can take control, nothing stored.",
+        "Run #{tool.name} on your computer and use it from your phone with OnlyTTY. Keep your existing setup and connect through an encrypted browser link.",
       path: "/control/#{tool.slug}",
       # Long-tail, near-duplicate tool pages render but stay out of the index.
       noindex: not Tools.indexable?(tool),
@@ -90,7 +90,7 @@ defmodule OnlyTTYWeb.Site.Page do
     layout(
       title: "Self-host OnlyTTY — run your own terminal-sharing relay",
       description:
-        "Run your own OnlyTTY relay with one docker compose up: automatic HTTPS, no database, end-to-end encrypted. Self-host for your own domain, your own limits, or a network you control.",
+        "Run your own OnlyTTY relay with Docker Compose and automatic HTTPS. Use your own domain and limits. No database needed.",
       path: "/self-hosting",
       json_ld: [breadcrumb_simple_ld("Self-hosting", "/self-hosting"), selfhost_faq_ld()],
       body: selfhost_body()
