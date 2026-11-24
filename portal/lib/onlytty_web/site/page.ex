@@ -121,7 +121,7 @@ defmodule OnlyTTYWeb.Site.Page do
       <h2>1. Start with a scratch file</h2>
       <p>You need OnlyTTY and Vim on your host. Create a new scratch directory and put <code>Status: ready for review.</code> in a file named <code>demo.md</code>. Keep your own files out of this example.</p>
       #{snippet("onlytty --ttl 10m --no-qr -- vim -Nu NONE -n -i NONE demo.md")}
-      <p>Open the printed link in your browser. Compare its fingerprint with the host's fingerprint, then start Vim from the host. Treat the link as access to this terminal.</p>
+      <p>Open the printed link in your browser. Compare its fingerprint with the host's fingerprint, then press Enter on the host to start Vim. Treat the link as access to this terminal.</p>
       <figure><img src="/demos/browser-edit/onlytty-before.jpg" width="390" height="844" alt="OnlyTTY viewer showing the original scratch file in Vim" loading="lazy"><figcaption>The scratch file before the edit. The viewer has control.</figcaption></figure>
 
       <h2>2. Make and save a small edit</h2>
@@ -137,7 +137,7 @@ defmodule OnlyTTYWeb.Site.Page do
 
       <h2>3. Check view-only mode</h2>
       #{snippet("onlytty --control view-only --ttl 5m --no-qr -- vim -Nu NONE -n -i NONE demo.md")}
-      <p>Open the new link, compare the fingerprints, and start Vim on the host. Request control and try typing <code>i</code>, <code>x</code>, then Escape in the browser terminal.</p>
+      <p>Open the new link, compare the fingerprints, and press Enter on the host to start Vim. Request control and try typing <code>i</code>, <code>x</code>, then Escape in the browser terminal.</p>
       <p>Our viewer reported <strong>control not granted — host is view-only</strong>. We saved and quit from the host with <code>:wq</code>. The file's SHA-256 was unchanged after the input attempts. Both demo sessions stopped cleanly.</p>
       <figure><img src="/demos/browser-edit/onlytty-view-only.jpg" width="390" height="844" alt="The view-only browser session, where the host refused control" loading="lazy"><figcaption>The view-only session. The full refusal message was also checked in the browser's accessibility text.</figcaption></figure>
 
@@ -424,7 +424,7 @@ defmodule OnlyTTYWeb.Site.Page do
         </div>
         <div class="steps">
           #{step("01", "Run it", "<code>onlytty -- claude</code> — or just <code>onlytty</code> to share your whole shell. It keeps running in your terminal and prints a link plus a QR code.")}
-          #{step("02", "Scan it", "Open the link on your phone. The session secret rides in the URL <code>#fragment</code>, which the browser never sends to a server — so the relay can't read a thing. It does stay in your browser history, so treat the link like a password.")}
+          #{step("02", "Scan it", "Open the link on your phone. If the host shows a start prompt, press Enter there. The session secret rides in the URL <code>#fragment</code>, which the browser never sends to a server — so the relay can't read a thing. It does stay in your browser history, so treat the link like a password.")}
           #{step("03", "Drive it", "Watch live, or tap <em>take control</em> to type — anyone with the link can, so share it like a key (or start <code>--control view-only</code>). Lose signal? It reconnects and picks up where you left off.")}
         </div>
       </div>
@@ -746,7 +746,7 @@ defmodule OnlyTTYWeb.Site.Page do
             #{example_row("Share #{t.name}", "onlytty -- #{t.cmd}")}
           </div>
         </div>
-        <p class="muted">It prints a link and a QR — scan it and you're live. <a href="/#start">More ways to run it →</a></p>
+        <p class="muted">Open the link or scan the QR code. When the host prompts you, press Enter there to start the command. <a href="/#start">More ways to run it →</a></p>
         <div class="cta-row"><a class="btn btn-primary" href="#{@github}" rel="noopener">Get the CLI on GitHub</a></div>
       </div>
     </section>
@@ -762,9 +762,9 @@ defmodule OnlyTTYWeb.Site.Page do
         <p>From the project directory, try a scratch file first:</p>
         #{snippet("onlytty -- nvim phone-check.txt")}
         <ol class="tool-steps">
-          <li>Open the printed link or scan its QR code on your phone. Check that it shows the file you launched.</li>
-          <li>Tap <strong>Take control</strong>, then press <code>i</code> to enter Insert mode. Type a short line and press <code>Esc</code> to return to Normal mode.</li>
-          <li>Use <code>ZZ</code> to save and exit. To discard this scratch edit instead, type <code>:q!</code> and press Enter. Ending Neovim ends this shared command.</li>
+          <li>Scan the QR code with your phone or open the printed link. Press Enter on the host to start Neovim.</li>
+          <li>If the viewer shows <strong>Take control</strong>, tap it. Type <code>i</code>, enter a short line, then tap <code>Esc</code> on the viewer’s key bar.</li>
+          <li>Type <code>ZZ</code> to save and quit. Sharing ends when Neovim exits. Back on the host, run <code>cat phone-check.txt</code> to see the line you saved.</li>
         </ol>
         <p>Keep the host awake and connected. OnlyTTY starts the command you give it. It doesn't attach to an editor that's already running.</p>
         <p class="muted">For the editor's own commands, see <a href="https://neovim.io/doc/user/usr_02/" rel="noopener">Neovim's first-steps guide</a>. To let someone watch without typing, launch with <code>onlytty --control view-only -- nvim phone-check.txt</code>.</p>
@@ -786,7 +786,7 @@ defmodule OnlyTTYWeb.Site.Page do
         <p>For an inspection session, start K9s with its modification commands disabled:</p>
         #{snippet("onlytty -- k9s --readonly")}
         <ol class="tool-steps">
-          <li>Open the printed link or scan its QR code on your phone. Check the cluster context K9s shows, then tap <strong>Take control</strong>.</li>
+          <li>Open the printed link or scan its QR code on your phone. Press Enter on the host to start K9s. Check the cluster context in the viewer before taking control.</li>
           <li>Enter <code>:pods</code> to open the pod view. Select a pod and press <code>l</code> for logs; press <code>?</code> for the active view's shortcuts.</li>
           <li>Use <code>:q</code> to leave K9s when finished. Review any intended cluster change through your normal operational workflow.</li>
         </ol>
