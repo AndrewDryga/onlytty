@@ -2,6 +2,11 @@
 
 All notable changes to OnlyTTY are recorded here.
 
+## [0.4.22] - 2026-11-23
+
+- Updated the relay to Phoenix 1.8.17, which fixes two denial-of-service issues in Phoenix.
+- The phone and browser guides now explain when to press Enter on the host to start a shared terminal. The Neovim guide also shows how to save your edit and check it on the host.
+
 ## [0.4.21] - 2026-11-19
 
 The runner and the viewer are the same as in 0.4.20.
