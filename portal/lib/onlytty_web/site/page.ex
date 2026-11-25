@@ -68,7 +68,10 @@ defmodule OnlyTTYWeb.Site.Page do
       path: "/control/#{tool.slug}",
       # Long-tail, near-duplicate tool pages render but stay out of the index.
       noindex: not Tools.indexable?(tool),
-      json_ld: [tool_software_ld(tool), breadcrumb_ld(tool)],
+      json_ld: [
+        guide_ld("Control #{tool.name} from your phone", "/control/#{tool.slug}"),
+        breadcrumb_ld(tool)
+      ],
       body: tool_body(tool)
     )
   end
@@ -105,7 +108,10 @@ defmodule OnlyTTYWeb.Site.Page do
         "A real Vim edit through OnlyTTY, verified on the host. Follow the steps, see the screenshots, and check view-only mode yourself.",
       path: "/examples/browser-edit",
       extra_head: ~s(<link rel="stylesheet" href="/assets/demo.css">),
-      json_ld: [breadcrumb_simple_ld("Browser edit", "/examples/browser-edit")],
+      json_ld: [
+        guide_ld("Edit a file through your browser", "/examples/browser-edit"),
+        breadcrumb_simple_ld("Browser edit", "/examples/browser-edit")
+      ],
       body: browser_demo_body()
     )
   end
@@ -678,10 +684,9 @@ defmodule OnlyTTYWeb.Site.Page do
   # ── Tool page ─────────────────────────────────────────────────────────────
 
   defp tool_body(t) do
-    related =
-      Tools.all()
-      |> Enum.filter(&(&1.category == t.category and &1.slug != t.slug))
-      |> Enum.take(6)
+    category = Enum.filter(Tools.all(), &(&1.category == t.category))
+    {before, [_current | after_tool]} = Enum.split_while(category, &(&1.slug != t.slug))
+    related = Enum.take(after_tool ++ before, 6)
 
     related_html =
       case related do
@@ -1175,18 +1180,14 @@ defmodule OnlyTTYWeb.Site.Page do
     }
   end
 
-  defp tool_software_ld(t) do
+  defp guide_ld(headline, path) do
     %{
       "@context" => "https://schema.org",
-      "@type" => "SoftwareApplication",
-      "name" => "OnlyTTY for #{t.name}",
-      "applicationCategory" => "DeveloperApplication",
-      "operatingSystem" => "macOS, Linux",
-      "url" => base_url() <> "/control/#{t.slug}",
-      "description" =>
-        "Run #{t.name} on your machine and drive it from your phone with OnlyTTY. #{t.why}",
-      "offers" => %{"@type" => "Offer", "price" => "0", "priceCurrency" => "USD"},
-      "isAccessibleForFree" => true
+      "@type" => "TechArticle",
+      "headline" => headline,
+      "url" => base_url() <> path,
+      "image" => base_url() <> @og_image,
+      "isPartOf" => %{"@type" => "WebSite", "name" => "OnlyTTY", "url" => base_url() <> "/"}
     }
   end
 
