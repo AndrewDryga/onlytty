@@ -2,6 +2,10 @@
 
 All notable changes to OnlyTTY are recorded here.
 
+## [0.4.24] - 2026-11-25
+
+- Tool guides now link to others in the same category. Search engines can identify each guide and the browser editing demo as an article.
+
 ## [0.4.23] - 2026-11-24
 
 - The Claude Code and Codex guides now show how to share a co:op sandbox session with your phone.
