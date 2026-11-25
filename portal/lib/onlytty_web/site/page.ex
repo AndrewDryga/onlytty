@@ -753,6 +753,25 @@ defmodule OnlyTTYWeb.Site.Page do
     """
   end
 
+  defp tool_walkthrough(slug) when slug in ["claude", "codex"] do
+    {name, guide} =
+      case slug do
+        "claude" -> {"Claude Code", "https://coop.dryga.com/claude-code-sandbox.html"}
+        "codex" -> {"Codex", "https://coop.dryga.com/codex-sandbox.html"}
+      end
+
+    """
+    <section class="section">
+      <div class="wrap narrow">
+        <h2>Keep #{name} in a sandbox</h2>
+        <p>Connecting from your phone gives #{name} the same access it has at your desk. To limit which files it can read and where it can connect, <a href="#{guide}" rel="noopener">set up co:op for #{name}</a>. Then run this in the project:</p>
+        #{snippet("onlytty -- coop #{slug}")}
+        <p>Open the link on your phone. When OnlyTTY asks, press Enter on your computer to start #{name} in the sandbox.</p>
+      </div>
+    </section>
+    """
+  end
+
   defp tool_walkthrough("nvim") do
     """
     <section class="section">

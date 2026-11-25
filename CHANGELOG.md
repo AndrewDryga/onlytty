@@ -2,6 +2,10 @@
 
 All notable changes to OnlyTTY are recorded here.
 
+## [0.4.23] - 2026-11-24
+
+- The Claude Code and Codex guides now show how to share a co:op sandbox session with your phone.
+
 ## [0.4.22] - 2026-11-23
 
 - Updated the relay to Phoenix 1.8.17, which fixes two denial-of-service issues in Phoenix.
